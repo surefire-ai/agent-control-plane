@@ -28,11 +28,15 @@ func main() {
 	var probeAddr string
 	var enableLeaderElection bool
 	var runtimeBackend string
+	var workerJobImage string
+	var workerJobCommand string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.StringVar(&runtimeBackend, "runtime-backend", string(agentruntime.BackendMock), "AgentRun runtime backend to use: mock or worker.")
+	flag.StringVar(&workerJobImage, "worker-job-image", "", "Container image for the worker runtime Kubernetes Job.")
+	flag.StringVar(&workerJobCommand, "worker-job-command", "", "Shell command for the worker runtime Kubernetes Job.")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -60,7 +64,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	runner, err := agentruntime.NewRunner(agentruntime.Options{Backend: runtimeBackend})
+	runner, err := agentruntime.NewRunner(agentruntime.Options{
+		Backend:    runtimeBackend,
+		Client:     mgr.GetClient(),
+		JobImage:   workerJobImage,
+		JobCommand: shellCommand(workerJobCommand),
+	})
 	if err != nil {
 		ctrl.Log.Error(err, "unable to create AgentRun runtime")
 		os.Exit(1)
@@ -88,4 +97,11 @@ func main() {
 		ctrl.Log.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func shellCommand(command string) []string {
+	if command == "" {
+		return nil
+	}
+	return []string{"sh", "-c", command}
 }

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -73,6 +74,10 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			Run:   run,
 		})
 		if err != nil {
+			if errors.Is(err, agentruntime.ErrRuntimeInProgress) {
+				setAgentRunRunning(&run, agent, now)
+				return ctrl.Result{RequeueAfter: time.Second}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+			}
 			setAgentRunFailed(&run, now, err.Error())
 			return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 		}
@@ -146,7 +151,7 @@ func setAgentRunRunning(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now 
 		Type:               agentRunCompletedCondition,
 		Status:             metav1.ConditionFalse,
 		Reason:             "Running",
-		Message:            "mock runtime started",
+		Message:            "runtime started",
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,
 	})

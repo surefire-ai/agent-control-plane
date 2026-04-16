@@ -1,9 +1,9 @@
 package runtime
 
 import (
-	"context"
-	"errors"
 	"testing"
+
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestNewRunnerDefaultsToMockRuntime(t *testing.T) {
@@ -33,13 +33,22 @@ func TestNewRunnerRejectsUnknownBackend(t *testing.T) {
 	}
 }
 
-func TestWorkerRuntimeIsExplicitlyUnimplemented(t *testing.T) {
-	runner, err := NewRunner(Options{Backend: string(BackendWorker)})
+func TestNewRunnerCreatesWorkerRuntime(t *testing.T) {
+	runner, err := NewRunner(Options{
+		Backend: string(BackendWorker),
+		Client:  fake.NewClientBuilder().Build(),
+	})
 	if err != nil {
 		t.Fatalf("NewRunner returned error: %v", err)
 	}
-	_, err = runner.Execute(context.Background(), Request{})
-	if !errors.Is(err, ErrWorkerRuntimeNotImplemented) {
-		t.Fatalf("expected ErrWorkerRuntimeNotImplemented, got %v", err)
+	if _, ok := runner.(WorkerRuntime); !ok {
+		t.Fatalf("expected WorkerRuntime, got %T", runner)
+	}
+}
+
+func TestNewRunnerRequiresClientForWorkerBackend(t *testing.T) {
+	_, err := NewRunner(Options{Backend: string(BackendWorker)})
+	if err == nil {
+		t.Fatal("expected worker client requirement error")
 	}
 }

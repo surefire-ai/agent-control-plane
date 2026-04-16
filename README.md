@@ -29,12 +29,14 @@ This repository currently contains:
 
 ## Local Runtime Backends
 
-The controller manager accepts `--runtime-backend`. The default is `mock`, which completes `AgentRun` objects deterministically for control-plane validation. `worker` is reserved for the upcoming async worker integration and currently fails runs with an explicit not-implemented error.
+The controller manager accepts `--runtime-backend`. The default is `mock`, which completes `AgentRun` objects deterministically for control-plane validation.
+
+The first `worker` backend uses a Kubernetes Job in the `AgentRun` namespace. It starts with a placeholder command and marks the run complete after the Job succeeds. Use `--worker-job-image` and `--worker-job-command` to point it at a real worker image as the runtime matures.
 
 ## Next Milestones
 
-1. Generate CRDs and RBAC from the Go API types.
-2. Wire `AgentReconciler` to resolve references and write `status.compiledRevision`.
-3. Add `AgentRunReconciler` with a mock runtime.
-4. Replace the mock runtime with a Python LangGraph worker.
-5. Add policy enforcement, output schema validation, tracing, and evaluation.
+1. Package controller-manager and worker into deployable container images.
+2. Replace the placeholder worker Job command with a Python LangGraph worker image.
+3. Add policy enforcement before runtime dispatch.
+4. Add output schema validation before marking `AgentRun` succeeded.
+5. Add tracing, events, and evaluation controllers.

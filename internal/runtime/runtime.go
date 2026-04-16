@@ -2,9 +2,12 @@ package runtime
 
 import (
 	"context"
+	"errors"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
 )
+
+var ErrRuntimeInProgress = errors.New("runtime execution is still in progress")
 
 type Request struct {
 	Agent apiv1alpha1.Agent

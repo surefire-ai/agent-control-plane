@@ -3,13 +3,13 @@ package v1alpha1
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type PromptTemplateSpec struct {
-	Version           string                 `json:"version,omitempty"`
-	Language          string                 `json:"language,omitempty"`
-	Type              string                 `json:"type,omitempty"`
-	Description       string                 `json:"description,omitempty"`
-	Template          string                 `json:"template,omitempty"`
-	Variables         []PromptVariableSpec   `json:"variables,omitempty"`
-	OutputConstraints map[string]interface{} `json:"outputConstraints,omitempty"`
+	Version           string               `json:"version,omitempty"`
+	Language          string               `json:"language,omitempty"`
+	Type              string               `json:"type,omitempty"`
+	Description       string               `json:"description,omitempty"`
+	Template          string               `json:"template,omitempty"`
+	Variables         []PromptVariableSpec `json:"variables,omitempty"`
+	OutputConstraints FreeformObject       `json:"outputConstraints,omitempty"`
 }
 
 type PromptVariableSpec struct {
@@ -18,13 +18,13 @@ type PromptVariableSpec struct {
 }
 
 type KnowledgeBaseSpec struct {
-	Description string                 `json:"description,omitempty"`
-	Embedding   map[string]interface{} `json:"embedding,omitempty"`
-	Index       map[string]interface{} `json:"index,omitempty"`
-	Ingestion   map[string]interface{} `json:"ingestion,omitempty"`
-	Retrieval   map[string]interface{} `json:"retrieval,omitempty"`
-	Sources     []NamedURI             `json:"sources,omitempty"`
-	Access      map[string]interface{} `json:"access,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Embedding   FreeformObject `json:"embedding,omitempty"`
+	Index       FreeformObject `json:"index,omitempty"`
+	Ingestion   FreeformObject `json:"ingestion,omitempty"`
+	Retrieval   FreeformObject `json:"retrieval,omitempty"`
+	Sources     []NamedURI     `json:"sources,omitempty"`
+	Access      FreeformObject `json:"access,omitempty"`
 }
 
 type NamedURI struct {
@@ -33,11 +33,11 @@ type NamedURI struct {
 }
 
 type ToolProviderSpec struct {
-	Type        string                 `json:"type,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	Schema      ToolSchemaSpec         `json:"schema,omitempty"`
-	Runtime     map[string]interface{} `json:"runtime,omitempty"`
-	HTTP        map[string]interface{} `json:"http,omitempty"`
+	Type        string         `json:"type,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Schema      ToolSchemaSpec `json:"schema,omitempty"`
+	Runtime     FreeformObject `json:"runtime,omitempty"`
+	HTTP        FreeformObject `json:"http,omitempty"`
 }
 
 type ToolSchemaSpec struct {
@@ -46,39 +46,39 @@ type ToolSchemaSpec struct {
 }
 
 type MCPServerSpec struct {
-	Transport      string                 `json:"transport,omitempty"`
-	URL            string                 `json:"url,omitempty"`
-	TimeoutSeconds int32                  `json:"timeoutSeconds,omitempty"`
-	Capabilities   []string               `json:"capabilities,omitempty"`
-	Auth           map[string]interface{} `json:"auth,omitempty"`
-	HealthCheck    map[string]interface{} `json:"healthCheck,omitempty"`
+	Transport      string         `json:"transport,omitempty"`
+	URL            string         `json:"url,omitempty"`
+	TimeoutSeconds int32          `json:"timeoutSeconds,omitempty"`
+	Capabilities   []string       `json:"capabilities,omitempty"`
+	Auth           FreeformObject `json:"auth,omitempty"`
+	HealthCheck    FreeformObject `json:"healthCheck,omitempty"`
 }
 
 type AgentPolicySpec struct {
-	HumanInTheLoop map[string]interface{} `json:"humanInTheLoop,omitempty"`
-	Guardrails     map[string]interface{} `json:"guardrails,omitempty"`
-	Budgets        map[string]interface{} `json:"budgets,omitempty"`
-	AllowedModels  []string               `json:"allowedModels,omitempty"`
-	AllowedTools   []string               `json:"allowedTools,omitempty"`
-	Security       map[string]interface{} `json:"security,omitempty"`
-	Resilience     map[string]interface{} `json:"resilience,omitempty"`
+	HumanInTheLoop FreeformObject `json:"humanInTheLoop,omitempty"`
+	Guardrails     FreeformObject `json:"guardrails,omitempty"`
+	Budgets        FreeformObject `json:"budgets,omitempty"`
+	AllowedModels  []string       `json:"allowedModels,omitempty"`
+	AllowedTools   []string       `json:"allowedTools,omitempty"`
+	Security       FreeformObject `json:"security,omitempty"`
+	Resilience     FreeformObject `json:"resilience,omitempty"`
 }
 
 type AgentRunSpec struct {
-	AgentRef  LocalObjectReference   `json:"agentRef"`
-	Input     map[string]interface{} `json:"input,omitempty"`
-	Execution map[string]interface{} `json:"execution,omitempty"`
+	AgentRef  LocalObjectReference `json:"agentRef"`
+	Input     FreeformObject       `json:"input,omitempty"`
+	Execution FreeformObject       `json:"execution,omitempty"`
 }
 
 type AgentRunStatus struct {
 	ConditionedStatus `json:",inline"`
-	Phase             string                 `json:"phase,omitempty"`
-	StartedAt         *metav1.Time           `json:"startedAt,omitempty"`
-	FinishedAt        *metav1.Time           `json:"finishedAt,omitempty"`
-	Output            map[string]interface{} `json:"output,omitempty"`
-	TraceRef          map[string]interface{} `json:"traceRef,omitempty"`
-	Ticket            map[string]interface{} `json:"ticket,omitempty"`
-	AgentRevision     string                 `json:"agentRevision,omitempty"`
+	Phase             string         `json:"phase,omitempty"`
+	StartedAt         *metav1.Time   `json:"startedAt,omitempty"`
+	FinishedAt        *metav1.Time   `json:"finishedAt,omitempty"`
+	Output            FreeformObject `json:"output,omitempty"`
+	TraceRef          FreeformObject `json:"traceRef,omitempty"`
+	Ticket            FreeformObject `json:"ticket,omitempty"`
+	AgentRevision     string         `json:"agentRevision,omitempty"`
 }
 
 type AgentEvaluationSpec struct {

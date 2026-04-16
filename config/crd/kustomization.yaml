@@ -1,0 +1,9 @@
+resources:
+- bases/windosx.com_agentevaluations.yaml
+- bases/windosx.com_agentpolicies.yaml
+- bases/windosx.com_agentruns.yaml
+- bases/windosx.com_agents.yaml
+- bases/windosx.com_knowledgebases.yaml
+- bases/windosx.com_mcpservers.yaml
+- bases/windosx.com_prompttemplates.yaml
+- bases/windosx.com_toolproviders.yaml

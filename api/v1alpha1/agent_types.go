@@ -31,11 +31,11 @@ type AgentLifecycleSpec struct {
 }
 
 type AgentRuntimeSpec struct {
-	Engine       string                 `json:"engine,omitempty"`
-	Mode         string                 `json:"mode,omitempty"`
-	Entrypoint   string                 `json:"entrypoint,omitempty"`
-	Checkpointer map[string]interface{} `json:"checkpointer,omitempty"`
-	Thread       map[string]interface{} `json:"thread,omitempty"`
+	Engine       string         `json:"engine,omitempty"`
+	Mode         string         `json:"mode,omitempty"`
+	Entrypoint   string         `json:"entrypoint,omitempty"`
+	Checkpointer FreeformObject `json:"checkpointer,omitempty"`
+	Thread       FreeformObject `json:"thread,omitempty"`
 }
 
 type ModelSpec struct {
@@ -57,9 +57,9 @@ type AgentPromptRefs struct {
 }
 
 type KnowledgeBindingSpec struct {
-	Name      string                 `json:"name"`
-	Ref       string                 `json:"ref"`
-	Retrieval map[string]interface{} `json:"retrieval,omitempty"`
+	Name      string         `json:"name"`
+	Ref       string         `json:"ref"`
+	Retrieval FreeformObject `json:"retrieval,omitempty"`
 }
 
 type AgentInterfaceSpec struct {
@@ -72,9 +72,9 @@ type SchemaEnvelope struct {
 }
 
 type AgentMemorySpec struct {
-	ShortTerm     map[string]interface{} `json:"shortTerm,omitempty"`
-	LongTerm      map[string]interface{} `json:"longTerm,omitempty"`
-	Summarization map[string]interface{} `json:"summarization,omitempty"`
+	ShortTerm     FreeformObject `json:"shortTerm,omitempty"`
+	LongTerm      FreeformObject `json:"longTerm,omitempty"`
+	Summarization FreeformObject `json:"summarization,omitempty"`
 }
 
 type AgentGraphSpec struct {
@@ -99,9 +99,9 @@ type AgentGraphEdge struct {
 }
 
 type AgentObservabilitySpec struct {
-	Tracing map[string]interface{} `json:"tracing,omitempty"`
-	Logging map[string]interface{} `json:"logging,omitempty"`
-	Metrics map[string]interface{} `json:"metrics,omitempty"`
+	Tracing FreeformObject `json:"tracing,omitempty"`
+	Logging FreeformObject `json:"logging,omitempty"`
+	Metrics FreeformObject `json:"metrics,omitempty"`
 }
 
 type AgentStatus struct {

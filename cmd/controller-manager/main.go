@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 
+	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+	"github.com/windosx/agent-control-plane/internal/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -17,6 +19,7 @@ var scheme = runtime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiv1alpha1.AddToScheme(scheme))
 }
 
 func main() {
@@ -51,6 +54,14 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		ctrl.Log.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
+
+	if err := (&controller.AgentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create Agent controller")
 		os.Exit(1)
 	}
 

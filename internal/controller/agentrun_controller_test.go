@@ -2,10 +2,12 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+	agentruntime "github.com/windosx/agent-control-plane/internal/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +26,7 @@ func TestAgentRunReconcilerCompletesWithMockRuntime(t *testing.T) {
 		Spec: apiv1alpha1.AgentRunSpec{
 			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
 			Input: apiv1alpha1.FreeformObject{
-				"task": jsonValue("identify_hazard"),
+				"task": agentruntime.JSONValue("identify_hazard"),
 			},
 		},
 	}
@@ -36,9 +38,10 @@ func TestAgentRunReconcilerCompletesWithMockRuntime(t *testing.T) {
 		WithObjects(run, agent).
 		Build()
 	reconciler := &AgentRunReconciler{
-		Client: kubeClient,
-		Scheme: scheme,
-		Clock:  fixedClock(),
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: agentruntime.NewMockRuntime(),
 	}
 	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
 
@@ -96,9 +99,10 @@ func TestAgentRunReconcilerFailsWhenAgentIsMissing(t *testing.T) {
 		WithObjects(run).
 		Build()
 	reconciler := &AgentRunReconciler{
-		Client: kubeClient,
-		Scheme: scheme,
-		Clock:  fixedClock(),
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: agentruntime.NewMockRuntime(),
 	}
 	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
 
@@ -115,6 +119,52 @@ func TestAgentRunReconcilerFailsWhenAgentIsMissing(t *testing.T) {
 	}
 	if failed.Status.Conditions[0].Reason != "Failed" {
 		t.Fatalf("expected Failed condition reason, got %#v", failed.Status.Conditions)
+	}
+}
+
+func TestAgentRunReconcilerFailsWhenRuntimeReturnsError(t *testing.T) {
+	scheme := testScheme(t)
+	run := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "run-1",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase: string(apiv1alpha1.AgentRunPhaseRunning),
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentRun{}).
+		WithObjects(run, agent).
+		Build()
+	reconciler := &AgentRunReconciler{
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: failingRuntime{},
+	}
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
+
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var failed apiv1alpha1.AgentRun
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &failed); err != nil {
+		t.Fatalf("get failed AgentRun returned error: %v", err)
+	}
+	if failed.Status.Phase != string(apiv1alpha1.AgentRunPhaseFailed) {
+		t.Fatalf("expected Failed phase, got %q", failed.Status.Phase)
+	}
+	if failed.Status.Conditions[0].Message != "runtime exploded" {
+		t.Fatalf("expected runtime error message, got %#v", failed.Status.Conditions)
 	}
 }
 
@@ -167,4 +217,10 @@ func assertAgentRunPhase(t *testing.T, kubeClient client.Client, expected string
 	if run.Status.Phase != expected {
 		t.Fatalf("expected phase %q, got %q", expected, run.Status.Phase)
 	}
+}
+
+type failingRuntime struct{}
+
+func (r failingRuntime) Execute(ctx context.Context, request agentruntime.Request) (agentruntime.Result, error) {
+	return agentruntime.Result{}, errors.New("runtime exploded")
 }

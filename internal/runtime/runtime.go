@@ -1,0 +1,23 @@
+package runtime
+
+import (
+	"context"
+
+	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+)
+
+type Request struct {
+	Agent apiv1alpha1.Agent
+	Run   apiv1alpha1.AgentRun
+}
+
+type Result struct {
+	Output   apiv1alpha1.FreeformObject
+	TraceRef apiv1alpha1.FreeformObject
+	Reason   string
+	Message  string
+}
+
+type Runner interface {
+	Execute(ctx context.Context, request Request) (Result, error)
+}

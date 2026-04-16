@@ -2,13 +2,11 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	agentruntime "github.com/windosx/agent-control-plane/internal/runtime"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,8 +20,9 @@ const agentRunCompletedCondition = "Completed"
 
 type AgentRunReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Clock  func() metav1.Time
+	Scheme  *runtime.Scheme
+	Clock   func() metav1.Time
+	Runtime agentruntime.Runner
 }
 
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -69,8 +68,15 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		setAgentRunRunning(&run, agent, now)
 		return ctrl.Result{Requeue: true}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	case string(apiv1alpha1.AgentRunPhaseRunning):
-		output := buildMockAgentRunOutput(run, agent)
-		setAgentRunSucceeded(&run, agent, now, output)
+		result, err := r.runner().Execute(ctx, agentruntime.Request{
+			Agent: agent,
+			Run:   run,
+		})
+		if err != nil {
+			setAgentRunFailed(&run, now, err.Error())
+			return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+		}
+		setAgentRunSucceeded(&run, agent, now, result)
 		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	default:
 		setAgentRunFailed(&run, now, "unsupported AgentRun phase "+run.Status.Phase)
@@ -96,6 +102,14 @@ func (r *AgentRunReconciler) now() metav1.Time {
 		return r.Clock()
 	}
 	return metav1.Now()
+}
+
+func (r *AgentRunReconciler) runner() agentruntime.Runner {
+	if r.Runtime != nil {
+		return r.Runtime
+	}
+	runtime := agentruntime.NewMockRuntime()
+	return runtime
 }
 
 func isTerminalAgentRunPhase(phase string) bool {
@@ -138,20 +152,25 @@ func setAgentRunRunning(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now 
 	})
 }
 
-func setAgentRunSucceeded(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, output apiv1alpha1.FreeformObject) {
+func setAgentRunSucceeded(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, result agentruntime.Result) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseSucceeded)
 	run.Status.AgentRevision = agent.Status.CompiledRevision
 	run.Status.FinishedAt = &now
-	run.Status.Output = output
-	run.Status.TraceRef = apiv1alpha1.FreeformObject{
-		"provider": jsonValue("mock"),
-		"runId":    jsonValue(run.Namespace + "/" + run.Name),
+	run.Status.Output = result.Output
+	run.Status.TraceRef = result.TraceRef
+	reason := result.Reason
+	if reason == "" {
+		reason = "RuntimeSucceeded"
+	}
+	message := result.Message
+	if message == "" {
+		message = "runtime completed successfully"
 	}
 	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
 		Type:               agentRunCompletedCondition,
 		Status:             metav1.ConditionTrue,
-		Reason:             "MockRuntimeSucceeded",
-		Message:            "mock runtime completed successfully",
+		Reason:             reason,
+		Message:            message,
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,
 	})
@@ -168,41 +187,4 @@ func setAgentRunFailed(run *apiv1alpha1.AgentRun, now metav1.Time, message strin
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,
 	})
-}
-
-func buildMockAgentRunOutput(run apiv1alpha1.AgentRun, agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
-	task := jsonString(run.Spec.Input, "task")
-	if task == "" {
-		task = "agent_run"
-	}
-
-	summary := strings.TrimSpace(fmt.Sprintf("Mock execution completed for %s using %s.", task, agent.Name))
-	return apiv1alpha1.FreeformObject{
-		"summary":          jsonValue(summary),
-		"hazards":          jsonValue([]interface{}{}),
-		"overallRiskLevel": jsonValue("low"),
-		"nextActions":      jsonValue([]string{"review mock result before enabling a real runtime"}),
-		"confidence":       jsonValue(1.0),
-		"needsHumanReview": jsonValue(false),
-	}
-}
-
-func jsonString(values apiv1alpha1.FreeformObject, key string) string {
-	value, ok := values[key]
-	if !ok {
-		return ""
-	}
-	var result string
-	if err := json.Unmarshal(value.Raw, &result); err != nil {
-		return ""
-	}
-	return result
-}
-
-func jsonValue(value interface{}) apiextensionsv1.JSON {
-	raw, err := json.Marshal(value)
-	if err != nil {
-		raw = []byte("null")
-	}
-	return apiextensionsv1.JSON{Raw: raw}
 }

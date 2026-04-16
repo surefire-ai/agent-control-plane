@@ -34,6 +34,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	original := agent.DeepCopy()
 	previousStatus := agent.Status.DeepCopy()
 
 	result, err := compiler.CompileAgent(agent, refs)
@@ -48,7 +49,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if equality.Semantic.DeepEqual(previousStatus, &agent.Status) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, r.Status().Update(ctx, &agent)
+		return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
 	}
 
 	setAgentStatus(&agent, string(agent.Spec.Lifecycle.DesiredPhase), result.Revision, metav1.Condition{
@@ -67,7 +68,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, r.Status().Update(ctx, &agent)
+	return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
 }
 
 func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace string) (compiler.ReferenceIndex, error) {

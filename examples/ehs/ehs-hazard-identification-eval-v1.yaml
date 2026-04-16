@@ -23,5 +23,3 @@ spec:
     citation_completeness: 0.95
     risk_level_accuracy: 0.85
     recommendation_actionability: 0.85
-status:
-  phase: Pending

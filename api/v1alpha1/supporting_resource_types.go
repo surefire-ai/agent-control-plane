@@ -81,6 +81,15 @@ type AgentRunStatus struct {
 	AgentRevision     string         `json:"agentRevision,omitempty"`
 }
 
+type AgentRunPhase string
+
+const (
+	AgentRunPhasePending   AgentRunPhase = "Pending"
+	AgentRunPhaseRunning   AgentRunPhase = "Running"
+	AgentRunPhaseSucceeded AgentRunPhase = "Succeeded"
+	AgentRunPhaseFailed    AgentRunPhase = "Failed"
+)
+
 type AgentEvaluationSpec struct {
 	AgentRef   LocalObjectReference `json:"agentRef"`
 	DatasetRef map[string]string    `json:"datasetRef,omitempty"`

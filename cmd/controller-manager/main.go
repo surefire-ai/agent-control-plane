@@ -65,6 +65,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.AgentRunReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create AgentRun controller")
+		os.Exit(1)
+	}
+
 	ctrl.Log.Info("starting agent control plane manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		ctrl.Log.Error(err, "problem running manager")

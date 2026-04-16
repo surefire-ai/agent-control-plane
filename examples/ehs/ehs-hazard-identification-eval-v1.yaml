@@ -1,0 +1,27 @@
+apiVersion: windosx.com/v1alpha1
+kind: AgentEvaluation
+metadata:
+  name: ehs-hazard-identification-eval-v1
+  namespace: ehs
+spec:
+  agentRef:
+    name: ehs-hazard-identification-agent
+  datasetRef:
+    kind: Dataset
+    name: ehs-hazard-benchmark-v1
+  evaluators:
+    - name: schema_validity
+      type: rule
+    - name: citation_completeness
+      type: rule
+    - name: risk_level_accuracy
+      type: llm_judge
+    - name: recommendation_actionability
+      type: llm_judge
+  thresholds:
+    schema_validity: 1.0
+    citation_completeness: 0.95
+    risk_level_accuracy: 0.85
+    recommendation_actionability: 0.85
+status:
+  phase: Pending

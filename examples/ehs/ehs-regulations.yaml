@@ -1,0 +1,41 @@
+apiVersion: windosx.com/v1alpha1
+kind: KnowledgeBase
+metadata:
+  name: ehs-regulations
+  namespace: ehs
+  labels:
+    windosx.com/domain: ehs
+    windosx.com/kb-type: regulations
+spec:
+  description: EHS法规制度知识库
+  embedding:
+    provider: openai
+    model: text-embedding-3-large
+  index:
+    provider: pgvector
+    connectionSecretRef:
+      name: pgvector-secret
+      key: dsn
+    collection: ehs_regulations
+  ingestion:
+    chunk:
+      strategy: recursive
+      chunkSize: 800
+      chunkOverlap: 100
+    supportedMimeTypes:
+      - application/pdf
+      - text/plain
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+  retrieval:
+    defaultTopK: 5
+    defaultScoreThreshold: 0.72
+    reranker:
+      enabled: true
+      provider: bge-reranker
+  sources:
+    - name: 国家安全生产法规
+      uri: s3://ehs-kb/regulations/national/
+    - name: 企业内部EHS制度
+      uri: s3://ehs-kb/regulations/internal/
+  access:
+    mode: tenant-isolated

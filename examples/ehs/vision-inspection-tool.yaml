@@ -1,0 +1,38 @@
+apiVersion: windosx.com/v1alpha1
+kind: ToolProvider
+metadata:
+  name: vision-inspection-tool
+  namespace: ehs
+  labels:
+    windosx.com/tool-type: multimodal
+spec:
+  type: multimodal
+  description: 对现场图片进行隐患特征识别
+  schema:
+    input:
+      type: object
+      required: [images]
+      properties:
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+        instruction:
+          type: string
+    output:
+      type: object
+      properties:
+        observations:
+          type: array
+          items:
+            type: string
+        suspiciousHazards:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+  runtime:
+    provider: internal-vision-runtime
+    timeoutSeconds: 30

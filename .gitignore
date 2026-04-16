@@ -1,0 +1,17 @@
+bin/
+dist/
+coverage.out
+.DS_Store
+
+# Local runtime and test artifacts
+.env
+.env.*
+*.log
+
+# Python runtime workspace
+runtime/python/.venv/
+runtime/python/__pycache__/
+runtime/python/.pytest_cache/
+
+# Go build cache should stay outside the repo, but ignore it if a local path is used.
+.go-cache/

@@ -1,0 +1,17 @@
+apiVersion: windosx.com/v1alpha1
+kind: MCPServer
+metadata:
+  name: ehs-docs-mcp
+  namespace: ehs
+spec:
+  transport: sse
+  url: http://mcp-ehs-docs.internal/sse
+  timeoutSeconds: 15
+  capabilities:
+    - tools
+    - resources
+  auth:
+    type: none
+  healthCheck:
+    enabled: true
+    intervalSeconds: 30

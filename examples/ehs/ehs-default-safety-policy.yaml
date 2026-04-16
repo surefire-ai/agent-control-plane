@@ -1,0 +1,52 @@
+apiVersion: windosx.com/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: ehs-default-safety-policy
+  namespace: ehs
+spec:
+  humanInTheLoop:
+    enabled: true
+    triggers:
+      - expression: "output.confidence < 0.75"
+      - expression: "output.overallRiskLevel == 'critical'"
+      - expression: "output.needsHumanReview == true"
+      - expression: "missingEvidence == true"
+    action: require_approval
+
+  guardrails:
+    piiRedaction: true
+    promptInjectionDefense: true
+    toolCallValidation: true
+    outputSchemaValidation: true
+    citationRequired: true
+
+  budgets:
+    maxLlmCalls: 12
+    maxToolCalls: 10
+    maxDurationSeconds: 120
+    maxCostUsd: 1.50
+
+  allowedModels:
+    - openai/gpt-4.1
+    - openai/gpt-4.1-mini
+
+  allowedTools:
+    - vision-inspection-tool
+    - rectify-ticket-api
+
+  security:
+    tenantIsolation: strict
+    egressPolicy: restricted
+    secretAccess:
+      mode: explicitRefOnly
+
+  resilience:
+    retry:
+      maxAttempts: 2
+      backoffSeconds: 2
+    fallback:
+      onToolFailure:
+        - markPartialResult
+        - continue
+      onModelFailure:
+        - switchToFallbackModel

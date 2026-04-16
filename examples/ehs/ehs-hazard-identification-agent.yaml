@@ -1,0 +1,332 @@
+apiVersion: windosx.com/v1alpha1
+kind: Agent
+metadata:
+  name: ehs-hazard-identification-agent
+  namespace: ehs
+  labels:
+    app.kubernetes.io/name: ehs-hazard-identification-agent
+    windosx.com/domain: ehs
+    windosx.com/tier: production
+  annotations:
+    windosx.com/owner: ehs-team
+spec:
+  lifecycle:
+    desiredPhase: Published
+    revisionHistoryLimit: 10
+
+  runtime:
+    engine: langgraph
+    mode: stateful
+    entrypoint: graphs.ehs_hazard_identification:build_graph
+    checkpointer:
+      provider: postgres
+      secretRef:
+        name: langgraph-postgres
+        key: dsn
+    thread:
+      ttlSeconds: 2592000
+      maxTurns: 30
+
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      temperature: 0.1
+      maxTokens: 4000
+      timeoutSeconds: 60
+    extractor:
+      provider: openai
+      model: gpt-4.1-mini
+      temperature: 0
+      maxTokens: 2000
+      timeoutSeconds: 30
+    fallback:
+      provider: openai
+      model: gpt-4.1-mini
+      temperature: 0.1
+      maxTokens: 2000
+      timeoutSeconds: 30
+
+  identity:
+    displayName: 隐患识别智能体
+    role: 安全巡检与隐患识别助手
+    description: 用于对巡检记录、现场图片和附件进行隐患识别、风险分级和整改建议生成
+
+  promptRefs:
+    system: ehs-hazard-identification-system
+
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+      retrieval:
+        topK: 5
+        scoreThreshold: 0.72
+    - name: cases
+      ref: ehs-hazard-cases
+      retrieval:
+        topK: 3
+        scoreThreshold: 0.68
+
+  toolRefs:
+    - vision-inspection-tool
+    - rectify-ticket-api
+
+  mcpRefs:
+    - ehs-docs-mcp
+
+  policyRef: ehs-default-safety-policy
+
+  interfaces:
+    input:
+      schema:
+        type: object
+        required: [task, payload]
+        properties:
+          task:
+            type: string
+            enum:
+              - identify_hazard
+              - risk_assessment
+              - rectify_suggestion
+          payload:
+            type: object
+            properties:
+              text:
+                type: string
+              images:
+                type: array
+                items:
+                  type: string
+                  format: uri
+              attachments:
+                type: array
+                items:
+                  type: string
+                  format: uri
+              context:
+                type: object
+          tenantId:
+            type: string
+          operatorId:
+            type: string
+
+    output:
+      schema:
+        type: object
+        required:
+          - summary
+          - hazards
+          - overallRiskLevel
+          - nextActions
+          - confidence
+          - needsHumanReview
+        properties:
+          summary:
+            type: string
+          hazards:
+            type: array
+            items:
+              type: object
+              required:
+                - title
+                - category
+                - riskLevel
+                - evidence
+                - recommendation
+                - confidence
+              properties:
+                title:
+                  type: string
+                category:
+                  type: string
+                  enum:
+                    - electrical
+                    - fire
+                    - chemical
+                    - mechanical
+                    - environment
+                    - procedure
+                    - ppe
+                    - other
+                riskLevel:
+                  type: string
+                  enum: [low, medium, high, critical]
+                evidence:
+                  type: array
+                  items:
+                    type: string
+                regulationRefs:
+                  type: array
+                  items:
+                    type: string
+                recommendation:
+                  type: string
+                confidence:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+          overallRiskLevel:
+            type: string
+            enum: [low, medium, high, critical]
+          nextActions:
+            type: array
+            items:
+              type: string
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          needsHumanReview:
+            type: boolean
+
+  memory:
+    shortTerm:
+      enabled: true
+      strategy: thread
+      maxMessages: 50
+    longTerm:
+      enabled: false
+    summarization:
+      enabled: true
+      triggerTokens: 24000
+
+  graph:
+    stateSchema:
+      type: object
+      properties:
+        input:
+          type: object
+        facts:
+          type: object
+        imageObservations:
+          type: array
+          items:
+            type: string
+        retrievedRegulations:
+          type: array
+          items:
+            type: object
+        retrievedCases:
+          type: array
+          items:
+            type: object
+        hazards:
+          type: array
+          items:
+            type: object
+        finalResponse:
+          type: object
+        missingEvidence:
+          type: boolean
+
+    nodes:
+      - name: classify_task
+        kind: llm
+        modelRef: planner
+
+      - name: extract_facts
+        kind: llm
+        modelRef: extractor
+
+      - name: inspect_images
+        kind: tool
+        toolRef: vision-inspection-tool
+
+      - name: retrieve_regulations
+        kind: retrieval
+        knowledgeRef: regulations
+
+      - name: retrieve_cases
+        kind: retrieval
+        knowledgeRef: cases
+
+      - name: identify_hazards
+        kind: llm
+        modelRef: planner
+
+      - name: score_risk
+        kind: function
+        implementation: app.skills.ehs:score_risk_by_matrix
+
+      - name: generate_recommendations
+        kind: llm
+        modelRef: planner
+
+      - name: review_output
+        kind: llm
+        modelRef: planner
+
+      - name: create_ticket
+        kind: tool
+        toolRef: rectify-ticket-api
+
+    edges:
+      - from: START
+        to: classify_task
+
+      - from: classify_task
+        to: extract_facts
+
+      - from: extract_facts
+        to: inspect_images
+        when: "input.payload.images != null && len(input.payload.images) > 0"
+
+      - from: extract_facts
+        to: retrieve_regulations
+
+      - from: inspect_images
+        to: retrieve_regulations
+
+      - from: retrieve_regulations
+        to: retrieve_cases
+
+      - from: retrieve_cases
+        to: identify_hazards
+
+      - from: identify_hazards
+        to: score_risk
+
+      - from: score_risk
+        to: generate_recommendations
+
+      - from: generate_recommendations
+        to: review_output
+
+      - from: review_output
+        to: create_ticket
+        when: "finalResponse.overallRiskLevel in ['high', 'critical']"
+
+      - from: review_output
+        to: END
+
+      - from: create_ticket
+        to: END
+
+  observability:
+    tracing:
+      enabled: true
+      provider: langsmith
+      project: ehs-hazard-identification
+    logging:
+      level: info
+      redactFields:
+        - input.payload.text
+    metrics:
+      enabled: true
+      labels:
+        - tenantId
+        - agent
+        - model
+        - outcome
+
+status:
+  phase: Published
+  observedGeneration: 3
+  compiledRevision: sha256:1f2a6e9d-example
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: CompilationSucceeded
+      message: agent graph compiled and published
+  endpoint:
+    invoke: /apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke

@@ -1,0 +1,24 @@
+domain: windosx.com
+layout:
+- go.kubebuilder.io/v4
+projectName: agent-control-plane
+repo: github.com/windosx/agent-control-plane
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: windosx.com
+  group: windosx.com
+  kind: Agent
+  path: github.com/windosx/agent-control-plane/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: windosx.com
+  group: windosx.com
+  kind: AgentRun
+  path: github.com/windosx/agent-control-plane/api/v1alpha1
+  version: v1alpha1

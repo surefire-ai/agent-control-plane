@@ -1,0 +1,56 @@
+apiVersion: windosx.com/v1alpha1
+kind: ToolProvider
+metadata:
+  name: rectify-ticket-api
+  namespace: ehs
+  labels:
+    windosx.com/tool-type: http
+spec:
+  type: http
+  description: 创建EHS整改工单
+  schema:
+    input:
+      type: object
+      required:
+        - title
+        - riskLevel
+        - description
+      properties:
+        title:
+          type: string
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+        description:
+          type: string
+        assignee:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            type: string
+    output:
+      type: object
+      required: [ticketId, status]
+      properties:
+        ticketId:
+          type: string
+        status:
+          type: string
+        url:
+          type: string
+  http:
+    method: POST
+    url: https://ehs-api.internal/api/v1/tickets
+    timeoutSeconds: 10
+    auth:
+      type: bearerToken
+      secretRef:
+        name: ehs-api-secret
+        key: token
+    retry:
+      maxAttempts: 2
+      backoffSeconds: 1

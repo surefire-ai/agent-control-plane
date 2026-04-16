@@ -23,8 +23,13 @@ This repository currently contains:
 
 - `api/v1alpha1`: initial Go API types for the core custom resources.
 - `internal/compiler`: a first static compiler pass that validates Agent references and generates a deterministic revision.
-- `cmd/controller-manager`: a minimal controller-manager entrypoint.
+- `cmd/controller-manager`: a controller-manager entrypoint with selectable AgentRun runtime backend.
+- `internal/runtime`: runtime abstraction with the default mock backend and a worker backend placeholder.
 - `examples/ehs` and `config/samples/ehs`: the EHS sample resources used to drive the first implementation slice.
+
+## Local Runtime Backends
+
+The controller manager accepts `--runtime-backend`. The default is `mock`, which completes `AgentRun` objects deterministically for control-plane validation. `worker` is reserved for the upcoming async worker integration and currently fails runs with an explicit not-implemented error.
 
 ## Next Milestones
 

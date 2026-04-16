@@ -6,6 +6,7 @@ import (
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
 	"github.com/windosx/agent-control-plane/internal/controller"
+	agentruntime "github.com/windosx/agent-control-plane/internal/runtime"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -26,10 +27,12 @@ func main() {
 	var metricsAddr string
 	var probeAddr string
 	var enableLeaderElection bool
+	var runtimeBackend string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
+	flag.StringVar(&runtimeBackend, "runtime-backend", string(agentruntime.BackendMock), "AgentRun runtime backend to use: mock or worker.")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -57,6 +60,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	runner, err := agentruntime.NewRunner(agentruntime.Options{Backend: runtimeBackend})
+	if err != nil {
+		ctrl.Log.Error(err, "unable to create AgentRun runtime")
+		os.Exit(1)
+	}
+
 	if err := (&controller.AgentReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -66,8 +75,9 @@ func main() {
 	}
 
 	if err := (&controller.AgentRunReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Runtime: runner,
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create AgentRun controller")
 		os.Exit(1)

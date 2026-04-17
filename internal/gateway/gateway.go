@@ -210,6 +210,9 @@ func ensureNoTrailingJSON(decoder *json.Decoder) error {
 }
 
 func agentReady(agent apiv1alpha1.Agent) bool {
+	if agent.Status.CompiledRevision == "" || len(agent.Status.CompiledArtifact) == 0 {
+		return false
+	}
 	for _, condition := range agent.Status.Conditions {
 		if condition.Type == readyConditionType && condition.Status == metav1.ConditionTrue {
 			return true

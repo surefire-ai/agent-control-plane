@@ -51,7 +51,7 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 | 发布 endpoint | Bootstrap | Agent controller 已发布 `Agent.status.endpoint.invoke`；invoke gateway 可接收 POST 请求并创建 `AgentRun` 资源。 |
 | trace | 部分完成 | 已有 `AgentRun.status.traceRef`，mock/worker backend 会写入该字段；完整分布式 tracing 和 trace 存储尚未实现。 |
 | version | 部分完成 | 已有 `Agent.status.compiledRevision` 与 `AgentRun.status.agentRevision`；语义化版本、发布通道和 revision history 仍待实现。 |
-| runtime execution | Bootstrap | `mock` runtime 可确定性完成运行；`worker` runtime 可创建 Kubernetes Job 并返回占位输出。 |
+| runtime execution | Bootstrap | `mock` runtime 可确定性完成运行；`worker` runtime 可创建 Kubernetes Job、接收 compiled artifact，并返回占位输出。 |
 | Policy | 仅有 Spec | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`；runtime dispatch 前的策略执行仍待实现。 |
 | Evaluation | 仅有 Spec | 已有 `AgentEvaluation` CRD；评估 reconciler 和结果上报仍待实现。 |
 
@@ -65,10 +65,10 @@ Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | YAML Agent Spec | 已有初始 CRD 和 EHS YAML 样例。 | 强化 schema 校验、默认值、必填字段和 admission check。 |
-| Agent compiler | 已有静态引用 compiler，可写入 `Agent.status.compiledArtifact`，并基于 artifact 生成 revision。 | 将 compiled artifact 传递给 worker，并逐步演进为兼容 LangGraph 的 IR。 |
+| Agent compiler | 已有静态引用 compiler，可写入 `Agent.status.compiledArtifact`、基于 artifact 生成 revision，并将 artifact 传递给 worker。 | 逐步演进为兼容 LangGraph 的 IR。 |
 | AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
 | Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
-| Invoke gateway | `Agent.status.endpoint.invoke` 已发布计划路径。 | 增加 gateway/API handler，用于接收 invoke 请求并创建 `AgentRun` 资源。 |
+| Invoke gateway | `Agent.status.endpoint.invoke` 已发布调用路径，gateway 可通过 POST 请求创建 `AgentRun` 资源。 | 增加认证、鉴权、限流和幂等控制。 |
 | Packaging and deployment | 已有 Dockerfile、RBAC 和 `config/default` 部署清单。 | 增加 CI、镜像发布、release tag 和可安装 release artifact。 |
 
 Phase 1 退出标准：
@@ -87,7 +87,7 @@ Phase 1 退出标准：
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | LangGraph compile IR | 已有静态引用 compiler。 | 产出兼容 LangGraph 的中间表示。 |
-| Python runtime worker | Go placeholder worker 已能校验注入的运行上下文。 | 使用 LangGraph 执行已编译 graph，并返回结构化结果。 |
+| Python runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 LangGraph 执行已编译 graph，并返回结构化结果。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
@@ -195,12 +195,12 @@ make docker-build-worker-local
 controller manager 接受 `--runtime-backend` 参数。
 
 - `mock`：默认 backend。它会确定性地完成 `AgentRun` 对象，用于控制平面验证。
-- `worker`：在 `AgentRun` 所在 namespace 中创建 Kubernetes Job。它通过 `--worker-job-image` 和 `--worker-job-command` 指向 worker 镜像和命令。
+- `worker`：在 `AgentRun` 所在 namespace 中创建 Kubernetes Job。它通过 `--worker-job-image` 和 `--worker-job-command` 指向 worker 镜像和命令。Job 会从 `Agent.status.compiledArtifact` 接收 `AGENT_COMPILED_ARTIFACT`，校验后在 worker 结果中输出 artifact 摘要。
 
 本仓库包含两个镜像入口：
 
 - `cmd/controller-manager`：协调控制平面资源。
-- `cmd/worker`：校验注入的运行环境，并输出结构化占位结果。
+- `cmd/worker`：校验注入的运行环境和 compiled artifact 元数据，并输出结构化占位结果。
 
 ## Invoke Gateway
 

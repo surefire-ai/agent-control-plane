@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -142,6 +143,7 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 								{Name: "AGENT_RUN_NAME", Value: request.Run.Name},
 								{Name: "AGENT_RUN_NAMESPACE", Value: request.Run.Namespace},
 								{Name: "AGENT_REVISION", Value: request.Agent.Status.CompiledRevision},
+								{Name: "AGENT_COMPILED_ARTIFACT", Value: compiledArtifactJSON(request.Agent)},
 							},
 						},
 					},
@@ -149,6 +151,17 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 			},
 		},
 	}
+}
+
+func compiledArtifactJSON(agent apiv1alpha1.Agent) string {
+	if len(agent.Status.CompiledArtifact) == 0 {
+		return "{}"
+	}
+	raw, err := json.Marshal(agent.Status.CompiledArtifact)
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
 }
 
 func boolPtr(value bool) *bool {

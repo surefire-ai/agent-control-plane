@@ -156,6 +156,10 @@ func readyAgent() *apiv1alpha1.Agent {
 	return &apiv1alpha1.Agent{
 		ObjectMeta: metav1.ObjectMeta{Name: "ehs-agent", Namespace: "ehs"},
 		Status: apiv1alpha1.AgentStatus{
+			CompiledRevision: "sha256:agent",
+			CompiledArtifact: apiv1alpha1.FreeformObject{
+				"kind": apiextensionsv1.JSON{Raw: []byte(`"AgentCompiledArtifact"`)},
+			},
 			ConditionedStatus: apiv1alpha1.ConditionedStatus{
 				Conditions: []metav1.Condition{
 					{

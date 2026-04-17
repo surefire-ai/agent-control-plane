@@ -73,7 +73,7 @@ Status date: 2026-04-17.
 | Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
 | Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
-| Runtime execution | Bootstrap | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs and reports placeholder output. |
+| Runtime execution | Bootstrap | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs, receives the compiled artifact, and reports placeholder output. |
 | Policy | Spec only | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. Enforcement before runtime dispatch is pending. |
 | Evaluation | Spec only | `AgentEvaluation` CRD exists. Evaluation reconciliation and result reporting are pending. |
 
@@ -88,10 +88,10 @@ end.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | YAML Agent Spec | Initial CRDs and EHS sample YAML are present. | Harden schema validation, defaults, required fields, and admission checks. |
-| Agent compiler | Static reference compiler exists, writes `Agent.status.compiledArtifact`, and produces artifact-based revisions. | Pass the compiled artifact to workers and evolve it toward a LangGraph-compatible IR. |
+| Agent compiler | Static reference compiler exists, writes `Agent.status.compiledArtifact`, produces artifact-based revisions, and passes the artifact to workers. | Evolve the artifact toward a LangGraph-compatible IR. |
 | AgentRun lifecycle | `Pending`, `Running`, `Succeeded`, and `Failed` transitions are implemented. | Add cancellation, timeout, retry, and idempotency semantics. |
 | Kubernetes Job runtime | `worker` backend creates Jobs and updates `AgentRun` status after completion. | Persist richer worker output and surface Job/Pod failure details. |
-| Invoke gateway | `Agent.status.endpoint.invoke` publishes the planned path. | Add the gateway/API handler that accepts invoke requests and creates `AgentRun` resources. |
+| Invoke gateway | `Agent.status.endpoint.invoke` publishes the invoke path, and the gateway creates `AgentRun` resources from POST requests. | Add authentication, authorization, rate limiting, and idempotency controls. |
 | Packaging and deployment | Dockerfiles, RBAC, and `config/default` deployment manifests exist. | Add CI, image publishing, release tags, and installable release artifacts. |
 
 Phase 1 exit criteria:
@@ -111,7 +111,7 @@ while preserving the Kubernetes-native control-plane contract.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | LangGraph compile IR | Static reference compiler exists. | Emit a LangGraph-compatible intermediate representation. |
-| Python runtime worker | Go placeholder worker validates injected run context. | Execute compiled graphs with LangGraph and return structured results. |
+| Python runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled graphs with LangGraph and return structured results. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
@@ -223,13 +223,15 @@ The controller manager accepts `--runtime-backend`.
   control-plane validation.
 - `worker`: creates a Kubernetes Job in the `AgentRun` namespace. It uses
   `--worker-job-image` and `--worker-job-command` to point at a worker image and
-  command.
+  command. The Job receives `AGENT_COMPILED_ARTIFACT` from
+  `Agent.status.compiledArtifact`, validates it, and includes an artifact
+  summary in the worker result.
 
 The repository includes two image entrypoints:
 
 - `cmd/controller-manager`: reconciles control-plane resources.
-- `cmd/worker`: validates injected run environment and emits a structured
-  placeholder result.
+- `cmd/worker`: validates injected run environment and compiled artifact
+  metadata, then emits a structured placeholder result.
 
 ## Invoke Gateway
 

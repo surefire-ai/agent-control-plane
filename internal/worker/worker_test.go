@@ -11,10 +11,11 @@ import (
 func TestRunWritesStructuredResult(t *testing.T) {
 	var buffer bytes.Buffer
 	config := Config{
-		AgentName:         "hazard-agent",
-		AgentRunName:      "run-1",
-		AgentRunNamespace: "ehs",
-		AgentRevision:     "sha256:test",
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"langgraph"},"policyRef":"ehs-policy"}`,
 	}
 
 	if err := Run(context.Background(), config, &buffer); err != nil {
@@ -31,6 +32,15 @@ func TestRunWritesStructuredResult(t *testing.T) {
 	if result.Config.AgentRunName != "run-1" {
 		t.Fatalf("unexpected config: %#v", result.Config)
 	}
+	if result.CompiledArtifact.Kind != "AgentCompiledArtifact" {
+		t.Fatalf("unexpected compiled artifact summary: %#v", result.CompiledArtifact)
+	}
+	if result.CompiledArtifact.RuntimeEngine != "langgraph" {
+		t.Fatalf("unexpected runtime engine: %#v", result.CompiledArtifact)
+	}
+	if result.CompiledArtifact.PolicyRef != "ehs-policy" {
+		t.Fatalf("unexpected policy ref: %#v", result.CompiledArtifact)
+	}
 }
 
 func TestConfigValidateRequiresRunIdentity(t *testing.T) {
@@ -40,5 +50,24 @@ func TestConfigValidateRequiresRunIdentity(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "AGENT_NAME") {
 		t.Fatalf("expected AGENT_NAME error, got %v", err)
+	}
+}
+
+func TestRunRejectsInvalidCompiledArtifact(t *testing.T) {
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentCompiledArtifact: `{`,
+	}
+
+	err := Run(context.Background(), config, &buffer)
+	if err == nil {
+		t.Fatal("expected invalid compiled artifact error")
+	}
+	if !strings.Contains(err.Error(), "AGENT_COMPILED_ARTIFACT") {
+		t.Fatalf("expected compiled artifact error, got %v", err)
 	}
 }

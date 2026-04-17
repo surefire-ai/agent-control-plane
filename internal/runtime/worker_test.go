@@ -50,6 +50,12 @@ func TestWorkerRuntimeCreatesJobAndReportsInProgress(t *testing.T) {
 	if job.Spec.Template.Spec.Containers[0].SecurityContext == nil || job.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation == nil || *job.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation {
 		t.Fatalf("expected worker container privilege escalation to be disabled")
 	}
+	if envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT") == "" {
+		t.Fatal("expected worker Job to receive AGENT_COMPILED_ARTIFACT")
+	}
+	if !strings.Contains(envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT"), "AgentCompiledArtifact") {
+		t.Fatalf("unexpected compiled artifact env: %q", envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT"))
+	}
 }
 
 func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
@@ -132,6 +138,12 @@ func workerRequest() Request {
 			ObjectMeta: metav1.ObjectMeta{Name: "hazard-agent"},
 			Status: apiv1alpha1.AgentStatus{
 				CompiledRevision: "sha256:agent",
+				CompiledArtifact: apiv1alpha1.FreeformObject{
+					"kind": JSONValue("AgentCompiledArtifact"),
+					"runtime": JSONValue(map[string]interface{}{
+						"engine": "langgraph",
+					}),
+				},
 			},
 		},
 		Run: apiv1alpha1.AgentRun{
@@ -142,4 +154,13 @@ func workerRequest() Request {
 			},
 		},
 	}
+}
+
+func envValue(env []corev1.EnvVar, name string) string {
+	for _, item := range env {
+		if item.Name == name {
+			return item.Value
+		}
+	}
+	return ""
 }

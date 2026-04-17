@@ -10,25 +10,43 @@ import (
 )
 
 type Config struct {
-	AgentName         string `json:"agentName"`
-	AgentRunName      string `json:"agentRunName"`
-	AgentRunNamespace string `json:"agentRunNamespace"`
-	AgentRevision     string `json:"agentRevision"`
+	AgentName              string           `json:"agentName"`
+	AgentRunName           string           `json:"agentRunName"`
+	AgentRunNamespace      string           `json:"agentRunNamespace"`
+	AgentRevision          string           `json:"agentRevision"`
+	AgentCompiledArtifact  string           `json:"-"`
+	ParsedCompiledArtifact CompiledArtifact `json:"-"`
+}
+
+type CompiledArtifact struct {
+	APIVersion string                 `json:"apiVersion,omitempty"`
+	Kind       string                 `json:"kind,omitempty"`
+	Runtime    map[string]interface{} `json:"runtime,omitempty"`
+	PolicyRef  string                 `json:"policyRef,omitempty"`
 }
 
 type Result struct {
-	Status    string    `json:"status"`
-	Message   string    `json:"message"`
-	Config    Config    `json:"config"`
-	StartedAt time.Time `json:"startedAt"`
+	Status           string          `json:"status"`
+	Message          string          `json:"message"`
+	Config           Config          `json:"config"`
+	CompiledArtifact ArtifactSummary `json:"compiledArtifact"`
+	StartedAt        time.Time       `json:"startedAt"`
+}
+
+type ArtifactSummary struct {
+	APIVersion    string `json:"apiVersion,omitempty"`
+	Kind          string `json:"kind,omitempty"`
+	RuntimeEngine string `json:"runtimeEngine,omitempty"`
+	PolicyRef     string `json:"policyRef,omitempty"`
 }
 
 func ConfigFromEnv() Config {
 	return Config{
-		AgentName:         os.Getenv("AGENT_NAME"),
-		AgentRunName:      os.Getenv("AGENT_RUN_NAME"),
-		AgentRunNamespace: os.Getenv("AGENT_RUN_NAMESPACE"),
-		AgentRevision:     os.Getenv("AGENT_REVISION"),
+		AgentName:             os.Getenv("AGENT_NAME"),
+		AgentRunName:          os.Getenv("AGENT_RUN_NAME"),
+		AgentRunNamespace:     os.Getenv("AGENT_RUN_NAMESPACE"),
+		AgentRevision:         os.Getenv("AGENT_REVISION"),
+		AgentCompiledArtifact: os.Getenv("AGENT_COMPILED_ARTIFACT"),
 	}
 }
 
@@ -45,6 +63,9 @@ func (c Config) Validate() error {
 	if c.AgentRevision == "" {
 		return fmt.Errorf("AGENT_REVISION is required")
 	}
+	if c.AgentCompiledArtifact == "" {
+		return fmt.Errorf("AGENT_COMPILED_ARTIFACT is required")
+	}
 	return nil
 }
 
@@ -52,6 +73,11 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
+	artifact, err := parseCompiledArtifact(config.AgentCompiledArtifact)
+	if err != nil {
+		return err
+	}
+	config.ParsedCompiledArtifact = artifact
 
 	select {
 	case <-ctx.Done():
@@ -60,13 +86,43 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	}
 
 	result := Result{
-		Status:    "succeeded",
-		Message:   "agent control plane worker placeholder completed",
-		Config:    config,
-		StartedAt: time.Now().UTC(),
+		Status:           "succeeded",
+		Message:          "agent control plane worker placeholder completed",
+		Config:           config,
+		CompiledArtifact: summarizeArtifact(artifact),
+		StartedAt:        time.Now().UTC(),
 	}
 
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
+}
+
+func parseCompiledArtifact(raw string) (CompiledArtifact, error) {
+	var artifact CompiledArtifact
+	if err := json.Unmarshal([]byte(raw), &artifact); err != nil {
+		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT must be valid JSON: %w", err)
+	}
+	if artifact.Kind == "" {
+		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT kind is required")
+	}
+	return artifact, nil
+}
+
+func summarizeArtifact(artifact CompiledArtifact) ArtifactSummary {
+	return ArtifactSummary{
+		APIVersion:    artifact.APIVersion,
+		Kind:          artifact.Kind,
+		RuntimeEngine: runtimeEngine(artifact.Runtime),
+		PolicyRef:     artifact.PolicyRef,
+	}
+}
+
+func runtimeEngine(runtime map[string]interface{}) string {
+	value, ok := runtime["engine"]
+	if !ok {
+		return ""
+	}
+	engine, _ := value.(string)
+	return engine
 }

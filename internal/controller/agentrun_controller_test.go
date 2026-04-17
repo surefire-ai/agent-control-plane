@@ -185,6 +185,9 @@ func readyAgent(name string, namespace string, revision string) *apiv1alpha1.Age
 		},
 		Status: apiv1alpha1.AgentStatus{
 			CompiledRevision: revision,
+			CompiledArtifact: apiv1alpha1.FreeformObject{
+				"kind": agentruntime.JSONValue("AgentCompiledArtifact"),
+			},
 			ConditionedStatus: apiv1alpha1.ConditionedStatus{
 				Conditions: []metav1.Condition{
 					{

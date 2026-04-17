@@ -33,6 +33,17 @@ The controller manager accepts `--runtime-backend`. The default is `mock`, which
 
 The first `worker` backend uses a Kubernetes Job in the `AgentRun` namespace. It starts with a placeholder command and marks the run complete after the Job succeeds. Use `--worker-job-image` and `--worker-job-command` to point it at a real worker image as the runtime matures.
 
+The repository includes two image entrypoints:
+
+- `cmd/controller-manager`: reconciles control-plane resources.
+- `cmd/worker`: the first Kubernetes Job worker entrypoint. It currently validates the injected run environment and emits a structured placeholder result.
+
+For local OrbStack validation, build the worker image with:
+
+```bash
+make docker-build-worker-local
+```
+
 ## Next Milestones
 
 1. Package controller-manager and worker into deployable container images.

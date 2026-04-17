@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	defaultWorkerImage = "busybox:1.36"
+	defaultWorkerImage = "ghcr.io/windosx/agent-control-plane-worker:latest"
 )
 
-var defaultWorkerCommand = []string{"sh", "-c", "echo agent-control-plane worker placeholder"}
+var defaultWorkerCommand = []string{"/agent-control-plane-worker"}
 
 type WorkerOptions struct {
 	Client  client.Client

@@ -1,5 +1,8 @@
 GO ?= go
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
+IMAGE_REPOSITORY ?= ghcr.io/windosx
+IMAGE_TAG ?= latest
+LOCAL_DOCKER_ARCH ?= arm64
 
 .PHONY: test
 test:
@@ -24,6 +27,21 @@ uninstall:
 .PHONY: fmt
 fmt:
 	$(GO) fmt ./...
+
+.PHONY: build
+build:
+	$(GO) build ./cmd/controller-manager ./cmd/worker
+
+.PHONY: docker-build
+docker-build:
+	docker build -f Dockerfile.controller-manager -t $(IMAGE_REPOSITORY)/agent-control-plane-controller:$(IMAGE_TAG) .
+	docker build -f Dockerfile.worker -t $(IMAGE_REPOSITORY)/agent-control-plane-worker:$(IMAGE_TAG) .
+
+.PHONY: docker-build-worker-local
+docker-build-worker-local:
+	mkdir -p bin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCAL_DOCKER_ARCH) $(GO) build -o bin/agent-control-plane-worker ./cmd/worker
+	docker build -f Dockerfile.worker.local -t agent-control-plane-worker:dev .
 
 .PHONY: run
 run:

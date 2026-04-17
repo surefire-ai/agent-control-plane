@@ -26,13 +26,21 @@ rules:
   - windosx.com
   resources:
   - agentpolicies
-  - agentruns
   - agents
   - knowledgebases
   - mcpservers
   - prompttemplates
   - toolproviders
   verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - windosx.com
+  resources:
+  - agentruns
+  verbs:
+  - create
   - get
   - list
   - watch

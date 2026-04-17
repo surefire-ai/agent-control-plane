@@ -45,7 +45,7 @@ Status date: 2026-04-17.
 | --- | --- | --- |
 | YAML Agent Spec | In progress | Go API types and CRDs exist under `api/v1alpha1` and `config/crd/bases`; EHS YAML examples exist under `examples/ehs` and `config/samples/ehs`. |
 | Compile to LangGraph | Partial | `internal/compiler` validates cross-resource references and produces a deterministic revision. It does not yet emit an executable LangGraph graph. |
-| Publish endpoint | Partial | `Agent.status.endpoint.invoke` is published by the Agent controller as a stable Kubernetes-style invoke path. A real gateway/handler is not implemented yet. |
+| Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
 | Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
 | Runtime execution | Bootstrap | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs and reports placeholder output. |
@@ -206,6 +206,44 @@ The repository includes two image entrypoints:
 - `cmd/worker`: validates injected run environment and emits a structured
   placeholder result.
 
+## Invoke Gateway
+
+The controller-manager starts an invoke gateway on `--gateway-bind-address`
+(`:8082` by default). It accepts:
+
+```text
+POST /apis/windosx.com/v1alpha1/namespaces/{namespace}/agents/{agent}:invoke
+```
+
+Request body:
+
+```json
+{
+  "input": {
+    "task": "identify_hazard",
+    "payload": {
+      "text": "inspection text"
+    }
+  },
+  "execution": {
+    "mode": "sync"
+  }
+}
+```
+
+For a deployed local control plane, port-forward the gateway service and invoke
+the EHS sample agent:
+
+```bash
+kubectl -n agent-control-plane-system port-forward svc/agent-control-plane-gateway 8082:8082
+curl -sS -X POST http://127.0.0.1:8082/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke \
+  -H 'Content-Type: application/json' \
+  -d '{"input":{"task":"identify_hazard","payload":{"text":"巡检发现配电箱门打开，现场地面有积水。"}},"execution":{"mode":"sync"}}'
+```
+
+The gateway returns the accepted `AgentRun` name. The `AgentRun` controller then
+dispatches it through the configured runtime backend.
+
 ## Repository Layout
 
 ```text
@@ -213,10 +251,13 @@ api/v1alpha1/                 Kubernetes API types
 cmd/controller-manager/        controller-manager entrypoint
 cmd/worker/                    worker entrypoint
 config/crd/                    generated CRD manifests
+config/default/                installable Kustomize entrypoint
+config/manager/                controller-manager and gateway service manifests
 config/samples/ehs/            sample custom resources
 examples/ehs/                  source sample resources
 internal/compiler/             Agent compiler and reference validation
 internal/controller/           Agent and AgentRun reconcilers
+internal/gateway/              invoke gateway
 internal/runtime/              runtime backend abstraction and implementations
 internal/worker/               placeholder worker implementation
 ```

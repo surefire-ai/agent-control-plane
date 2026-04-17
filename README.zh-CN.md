@@ -35,7 +35,7 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 | --- | --- | --- |
 | YAML Agent Spec | 进行中 | `api/v1alpha1` 和 `config/crd/bases` 下已有 Go API 类型和 CRD；`examples/ehs` 与 `config/samples/ehs` 下已有 EHS YAML 样例。 |
 | 编译成 LangGraph | 部分完成 | `internal/compiler` 已能校验跨资源引用并生成确定性 revision；尚未产出可执行的 LangGraph graph。 |
-| 发布 endpoint | 部分完成 | Agent controller 已发布 `Agent.status.endpoint.invoke`，形式为稳定的 Kubernetes 风格 invoke 路径；真实 gateway/handler 尚未实现。 |
+| 发布 endpoint | Bootstrap | Agent controller 已发布 `Agent.status.endpoint.invoke`；invoke gateway 可接收 POST 请求并创建 `AgentRun` 资源。 |
 | trace | 部分完成 | 已有 `AgentRun.status.traceRef`，mock/worker backend 会写入该字段；完整分布式 tracing 和 trace 存储尚未实现。 |
 | version | 部分完成 | 已有 `Agent.status.compiledRevision` 与 `AgentRun.status.agentRevision`；语义化版本、发布通道和 revision history 仍待实现。 |
 | runtime execution | Bootstrap | `mock` runtime 可确定性完成运行；`worker` runtime 可创建 Kubernetes Job 并返回占位输出。 |
@@ -189,6 +189,43 @@ controller manager 接受 `--runtime-backend` 参数。
 - `cmd/controller-manager`：协调控制平面资源。
 - `cmd/worker`：校验注入的运行环境，并输出结构化占位结果。
 
+## Invoke Gateway
+
+controller-manager 会在 `--gateway-bind-address` 上启动 invoke gateway，默认地址为
+`:8082`。它接受：
+
+```text
+POST /apis/windosx.com/v1alpha1/namespaces/{namespace}/agents/{agent}:invoke
+```
+
+请求体：
+
+```json
+{
+  "input": {
+    "task": "identify_hazard",
+    "payload": {
+      "text": "inspection text"
+    }
+  },
+  "execution": {
+    "mode": "sync"
+  }
+}
+```
+
+本地部署控制平面后，可以 port-forward gateway service 并调用 EHS 样例 Agent：
+
+```bash
+kubectl -n agent-control-plane-system port-forward svc/agent-control-plane-gateway 8082:8082
+curl -sS -X POST http://127.0.0.1:8082/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke \
+  -H 'Content-Type: application/json' \
+  -d '{"input":{"task":"identify_hazard","payload":{"text":"巡检发现配电箱门打开，现场地面有积水。"}},"execution":{"mode":"sync"}}'
+```
+
+gateway 会返回已接受的 `AgentRun` 名称，随后 `AgentRun` controller 会通过当前配置的
+runtime backend 分发执行。
+
 ## 仓库结构
 
 ```text
@@ -196,10 +233,13 @@ api/v1alpha1/                 Kubernetes API types
 cmd/controller-manager/        controller-manager entrypoint
 cmd/worker/                    worker entrypoint
 config/crd/                    generated CRD manifests
+config/default/                installable Kustomize entrypoint
+config/manager/                controller-manager and gateway service manifests
 config/samples/ehs/            sample custom resources
 examples/ehs/                  source sample resources
 internal/compiler/             Agent compiler and reference validation
 internal/controller/           Agent and AgentRun reconcilers
+internal/gateway/              invoke gateway
 internal/runtime/              runtime backend abstraction and implementations
 internal/worker/               placeholder worker implementation
 ```

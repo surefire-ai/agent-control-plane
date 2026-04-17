@@ -6,6 +6,7 @@ import (
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
 	"github.com/windosx/agent-control-plane/internal/controller"
+	"github.com/windosx/agent-control-plane/internal/gateway"
 	agentruntime "github.com/windosx/agent-control-plane/internal/runtime"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -26,6 +27,7 @@ func init() {
 func main() {
 	var metricsAddr string
 	var probeAddr string
+	var gatewayAddr string
 	var enableLeaderElection bool
 	var runtimeBackend string
 	var workerJobImage string
@@ -33,6 +35,7 @@ func main() {
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&gatewayAddr, "gateway-bind-address", ":8082", "The address the invoke gateway binds to. Set empty to disable.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.StringVar(&runtimeBackend, "runtime-backend", string(agentruntime.BackendMock), "AgentRun runtime backend to use: mock or worker.")
 	flag.StringVar(&workerJobImage, "worker-job-image", "", "Container image for the worker runtime Kubernetes Job.")
@@ -90,6 +93,16 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		ctrl.Log.Error(err, "unable to create AgentRun controller")
 		os.Exit(1)
+	}
+
+	if gatewayAddr != "" {
+		if err := mgr.Add(gateway.Server{
+			Addr:   gatewayAddr,
+			Client: mgr.GetClient(),
+		}); err != nil {
+			ctrl.Log.Error(err, "unable to create invoke gateway")
+			os.Exit(1)
+		}
 	}
 
 	ctrl.Log.Info("starting agent control plane manager")

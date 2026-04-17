@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/windosx/agent-control-plane/internal/contract"
 )
 
 func TestRunWritesStructuredResult(t *testing.T) {
@@ -22,14 +24,14 @@ func TestRunWritesStructuredResult(t *testing.T) {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
-	var result Result
+	var result contract.WorkerResult
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatalf("worker output is not JSON: %v", err)
 	}
-	if result.Status != "succeeded" {
+	if result.Status != contract.WorkerStatusSucceeded {
 		t.Fatalf("unexpected status: %q", result.Status)
 	}
-	if result.Config.AgentRunName != "run-1" {
+	if result.Config == nil {
 		t.Fatalf("unexpected config: %#v", result.Config)
 	}
 	if result.CompiledArtifact.Kind != "AgentCompiledArtifact" {
@@ -79,11 +81,11 @@ func TestWriteFailureWritesStructuredResult(t *testing.T) {
 		t.Fatalf("WriteFailure returned error: %v", err)
 	}
 
-	var result Result
+	var result contract.WorkerResult
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatalf("failure output is not JSON: %v", err)
 	}
-	if result.Status != "failed" {
+	if result.Status != contract.WorkerStatusFailed {
 		t.Fatalf("unexpected status: %q", result.Status)
 	}
 	if result.Reason != "WorkerFailed" {

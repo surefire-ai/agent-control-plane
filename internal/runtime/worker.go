@@ -6,10 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strings"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+	"github.com/windosx/agent-control-plane/internal/contract"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -193,11 +193,11 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 	if err != nil {
 		return Result{}, err
 	}
-	result, err := parseWorkerResult(logs.Text)
+	result, err := contract.ParseWorkerResult(logs.Text)
 	if err != nil {
 		return Result{}, err
 	}
-	if result.Status != "succeeded" {
+	if result.Status != contract.WorkerStatusSucceeded {
 		message := result.Message
 		if message == "" {
 			message = fmt.Sprintf("worker job %q returned status %q", job.Name, result.Status)
@@ -226,7 +226,7 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 	}, nil
 }
 
-func workerOutput(summary string, result workerLogResult) apiv1alpha1.FreeformObject {
+func workerOutput(summary string, result contract.WorkerResult) apiv1alpha1.FreeformObject {
 	return apiv1alpha1.FreeformObject{
 		"summary":          JSONValue(summary),
 		"hazards":          JSONValue([]interface{}{}),
@@ -269,45 +269,6 @@ func fallbackWorkerJobResult(request Request, job batchv1.Job) Result {
 		Reason:  "WorkerJobSucceeded",
 		Message: "worker job completed successfully",
 	}
-}
-
-type workerLogResult struct {
-	Status           string                `json:"status"`
-	Reason           string                `json:"reason,omitempty"`
-	Message          string                `json:"message"`
-	CompiledArtifact workerArtifactSummary `json:"compiledArtifact"`
-}
-
-type workerArtifactSummary struct {
-	APIVersion    string `json:"apiVersion,omitempty"`
-	Kind          string `json:"kind,omitempty"`
-	RuntimeEngine string `json:"runtimeEngine,omitempty"`
-	PolicyRef     string `json:"policyRef,omitempty"`
-}
-
-func parseWorkerResult(raw string) (workerLogResult, error) {
-	var result workerLogResult
-	decoder := json.NewDecoder(strings.NewReader(raw))
-	if err := decoder.Decode(&result); err != nil {
-		return workerLogResult{}, fmt.Errorf("worker result must be valid JSON: %w", err)
-	}
-	if err := ensureNoTrailingWorkerLog(decoder); err != nil {
-		return workerLogResult{}, err
-	}
-	if result.Status == "" {
-		return workerLogResult{}, fmt.Errorf("worker result status is required")
-	}
-	return result, nil
-}
-
-func ensureNoTrailingWorkerLog(decoder *json.Decoder) error {
-	var trailing interface{}
-	if err := decoder.Decode(&trailing); err == nil {
-		return fmt.Errorf("worker result must contain a single JSON document")
-	} else if err != io.EOF {
-		return fmt.Errorf("worker result has invalid trailing data: %w", err)
-	}
-	return nil
 }
 
 func jobNameForRun(run apiv1alpha1.AgentRun) string {

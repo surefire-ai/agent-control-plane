@@ -237,6 +237,8 @@ The repository includes two image entrypoints:
 
 Worker result contract v0:
 
+The canonical Go types and parser live under `internal/contract`.
+
 Succeeded:
 
 ```json

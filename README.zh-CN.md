@@ -204,6 +204,8 @@ controller manager 接受 `--runtime-backend` 参数。
 
 Worker result contract v0：
 
+规范 Go 类型和解析器位于 `internal/contract`。
+
 成功：
 
 ```json

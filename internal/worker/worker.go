@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/windosx/agent-control-plane/internal/contract"
 )
 
 type Config struct {
@@ -23,22 +25,6 @@ type CompiledArtifact struct {
 	Kind       string                 `json:"kind,omitempty"`
 	Runtime    map[string]interface{} `json:"runtime,omitempty"`
 	PolicyRef  string                 `json:"policyRef,omitempty"`
-}
-
-type Result struct {
-	Status           string          `json:"status"`
-	Reason           string          `json:"reason,omitempty"`
-	Message          string          `json:"message"`
-	Config           Config          `json:"config"`
-	CompiledArtifact ArtifactSummary `json:"compiledArtifact"`
-	StartedAt        time.Time       `json:"startedAt"`
-}
-
-type ArtifactSummary struct {
-	APIVersion    string `json:"apiVersion,omitempty"`
-	Kind          string `json:"kind,omitempty"`
-	RuntimeEngine string `json:"runtimeEngine,omitempty"`
-	PolicyRef     string `json:"policyRef,omitempty"`
 }
 
 func ConfigFromEnv() Config {
@@ -86,29 +72,25 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	default:
 	}
 
-	result := Result{
-		Status:           "succeeded",
+	result := contract.WorkerResult{
+		Status:           contract.WorkerStatusSucceeded,
 		Message:          "agent control plane worker placeholder completed",
 		Config:           config,
 		CompiledArtifact: summarizeArtifact(artifact),
 		StartedAt:        time.Now().UTC(),
 	}
 
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(result)
+	return contract.WriteWorkerResult(writer, result)
 }
 
 func WriteFailure(writer io.Writer, err error) error {
-	result := Result{
-		Status:    "failed",
+	result := contract.WorkerResult{
+		Status:    contract.WorkerStatusFailed,
 		Reason:    "WorkerFailed",
 		Message:   err.Error(),
 		StartedAt: time.Now().UTC(),
 	}
-	encoder := json.NewEncoder(writer)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(result)
+	return contract.WriteWorkerResult(writer, result)
 }
 
 func parseCompiledArtifact(raw string) (CompiledArtifact, error) {
@@ -122,8 +104,8 @@ func parseCompiledArtifact(raw string) (CompiledArtifact, error) {
 	return artifact, nil
 }
 
-func summarizeArtifact(artifact CompiledArtifact) ArtifactSummary {
-	return ArtifactSummary{
+func summarizeArtifact(artifact CompiledArtifact) contract.ArtifactSummary {
+	return contract.ArtifactSummary{
 		APIVersion:    artifact.APIVersion,
 		Kind:          artifact.Kind,
 		RuntimeEngine: runtimeEngine(artifact.Runtime),

@@ -69,7 +69,7 @@ Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision
 | AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
 | Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
 | Invoke gateway | `Agent.status.endpoint.invoke` 已发布调用路径，gateway 可通过 POST 请求创建 `AgentRun` 资源。 | 增加认证、鉴权、限流和幂等控制。 |
-| Packaging and deployment | 已有 Dockerfile、RBAC 和 `config/default` 部署清单。 | 增加 CI、镜像发布、release tag 和可安装 release artifact。 |
+| Packaging and deployment | 已有 Dockerfile、RBAC 和 `config/default` 部署清单。 | 增加 CI、镜像发布、release tag 和 Helm Chart。先补 chart skeleton 用于 dev/E2E 安装，v0.1.0 前再提升为正式安装 artifact。 |
 
 Phase 1 退出标准：
 

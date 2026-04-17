@@ -71,3 +71,25 @@ func TestRunRejectsInvalidCompiledArtifact(t *testing.T) {
 		t.Fatalf("expected compiled artifact error, got %v", err)
 	}
 }
+
+func TestWriteFailureWritesStructuredResult(t *testing.T) {
+	var buffer bytes.Buffer
+
+	if err := WriteFailure(&buffer, context.Canceled); err != nil {
+		t.Fatalf("WriteFailure returned error: %v", err)
+	}
+
+	var result Result
+	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
+		t.Fatalf("failure output is not JSON: %v", err)
+	}
+	if result.Status != "failed" {
+		t.Fatalf("unexpected status: %q", result.Status)
+	}
+	if result.Reason != "WorkerFailed" {
+		t.Fatalf("unexpected reason: %q", result.Reason)
+	}
+	if result.Message == "" {
+		t.Fatalf("expected failure message, got %#v", result)
+	}
+}

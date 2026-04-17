@@ -81,6 +81,13 @@ func (r WorkerRuntime) Execute(ctx context.Context, request Request) (Result, er
 
 	for _, condition := range job.Status.Conditions {
 		if condition.Type == batchv1.JobFailed && condition.Status == corev1.ConditionTrue {
+			if r.logReader != nil {
+				result, err := r.workerJobResult(ctx, request, job)
+				if err != nil {
+					return Result{}, err
+				}
+				return result, nil
+			}
 			return Result{}, fmt.Errorf("worker job %q failed: %s", job.Name, condition.Message)
 		}
 		if condition.Type == batchv1.JobComplete && condition.Status == corev1.ConditionTrue {
@@ -191,7 +198,20 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 		return Result{}, err
 	}
 	if result.Status != "succeeded" {
-		return Result{}, fmt.Errorf("worker job %q returned status %q: %s", job.Name, result.Status, result.Message)
+		message := result.Message
+		if message == "" {
+			message = fmt.Sprintf("worker job %q returned status %q", job.Name, result.Status)
+		}
+		reason := result.Reason
+		if reason == "" {
+			reason = "WorkerJobFailed"
+		}
+		return Result{}, Failure{
+			Output:   workerOutput(message, result),
+			TraceRef: workerTraceRef(job, logs),
+			Reason:   reason,
+			Message:  message,
+		}
 	}
 
 	message := result.Message
@@ -199,28 +219,37 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 		message = fmt.Sprintf("Worker job %s completed for %s.", job.Name, request.Agent.Name)
 	}
 	return Result{
-		Output: apiv1alpha1.FreeformObject{
-			"summary":          JSONValue(message),
-			"hazards":          JSONValue([]interface{}{}),
-			"overallRiskLevel": JSONValue("low"),
-			"nextActions":      JSONValue([]string{"replace placeholder worker image with the real runtime"}),
-			"confidence":       JSONValue(1.0),
-			"needsHumanReview": JSONValue(false),
-			"compiledArtifact": JSONValue(result.CompiledArtifact),
-			"worker": JSONValue(map[string]interface{}{
-				"status":  result.Status,
-				"message": result.Message,
-			}),
-		},
-		TraceRef: apiv1alpha1.FreeformObject{
-			"provider":  JSONValue("kubernetes-job"),
-			"jobName":   JSONValue(job.Name),
-			"podName":   JSONValue(logs.PodName),
-			"container": JSONValue(logs.ContainerName),
-		},
-		Reason:  "WorkerJobSucceeded",
-		Message: message,
+		Output:   workerOutput(message, result),
+		TraceRef: workerTraceRef(job, logs),
+		Reason:   "WorkerJobSucceeded",
+		Message:  message,
 	}, nil
+}
+
+func workerOutput(summary string, result workerLogResult) apiv1alpha1.FreeformObject {
+	return apiv1alpha1.FreeformObject{
+		"summary":          JSONValue(summary),
+		"hazards":          JSONValue([]interface{}{}),
+		"overallRiskLevel": JSONValue("low"),
+		"nextActions":      JSONValue([]string{"replace placeholder worker image with the real runtime"}),
+		"confidence":       JSONValue(1.0),
+		"needsHumanReview": JSONValue(false),
+		"compiledArtifact": JSONValue(result.CompiledArtifact),
+		"worker": JSONValue(map[string]interface{}{
+			"status":  result.Status,
+			"reason":  result.Reason,
+			"message": result.Message,
+		}),
+	}
+}
+
+func workerTraceRef(job batchv1.Job, logs PodLogs) apiv1alpha1.FreeformObject {
+	return apiv1alpha1.FreeformObject{
+		"provider":  JSONValue("kubernetes-job"),
+		"jobName":   JSONValue(job.Name),
+		"podName":   JSONValue(logs.PodName),
+		"container": JSONValue(logs.ContainerName),
+	}
 }
 
 func fallbackWorkerJobResult(request Request, job batchv1.Job) Result {
@@ -244,6 +273,7 @@ func fallbackWorkerJobResult(request Request, job batchv1.Job) Result {
 
 type workerLogResult struct {
 	Status           string                `json:"status"`
+	Reason           string                `json:"reason,omitempty"`
 	Message          string                `json:"message"`
 	CompiledArtifact workerArtifactSummary `json:"compiledArtifact"`
 }

@@ -21,6 +21,28 @@ type Result struct {
 	Message  string
 }
 
+type Failure struct {
+	Output   apiv1alpha1.FreeformObject
+	TraceRef apiv1alpha1.FreeformObject
+	Reason   string
+	Message  string
+	Err      error
+}
+
+func (e Failure) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return "runtime failed"
+}
+
+func (e Failure) Unwrap() error {
+	return e.Err
+}
+
 type Runner interface {
 	Execute(ctx context.Context, request Request) (Result, error)
 }

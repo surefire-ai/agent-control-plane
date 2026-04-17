@@ -204,6 +204,8 @@ controller manager 接受 `--runtime-backend` 参数。
 
 Worker result contract v0：
 
+成功：
+
 ```json
 {
   "status": "succeeded",
@@ -216,6 +218,18 @@ Worker result contract v0：
   }
 }
 ```
+
+失败：
+
+```json
+{
+  "status": "failed",
+  "reason": "WorkerFailed",
+  "message": "AGENT_COMPILED_ARTIFACT kind is required"
+}
+```
+
+发生结构化失败时，controller 会将 `AgentRun` 标记为 `Failed`，并在 status 中保留 worker summary 和 trace reference。
 
 ## Invoke Gateway
 

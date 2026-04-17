@@ -128,6 +128,50 @@ func TestWorkerRuntimeRejectsInvalidWorkerResult(t *testing.T) {
 	}
 }
 
+func TestWorkerRuntimeReturnsStructuredFailureWhenWorkerFailed(t *testing.T) {
+	scheme := testRuntimeScheme(t)
+	request := workerRequest()
+	jobName := jobNameForRun(request.Run)
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{Name: jobName, Namespace: "ehs"},
+		Status: batchv1.JobStatus{
+			Conditions: []batchv1.JobCondition{
+				{
+					Type:    batchv1.JobFailed,
+					Status:  corev1.ConditionTrue,
+					Message: "worker exited with status 1",
+				},
+			},
+		},
+	}
+	kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&job).Build()
+	worker := NewWorkerRuntime(WorkerOptions{
+		Client: kubeClient,
+		LogReader: staticPodLogReader{
+			logs: PodLogs{
+				PodName:       jobName + "-pod",
+				ContainerName: workerContainerName,
+				Text:          workerFailureLog(),
+			},
+		},
+	})
+
+	_, err := worker.Execute(context.Background(), request)
+	var failure Failure
+	if !errors.As(err, &failure) {
+		t.Fatalf("expected structured runtime failure, got %T %v", err, err)
+	}
+	if failure.Reason != "WorkerFailed" {
+		t.Fatalf("unexpected failure reason: %#v", failure)
+	}
+	if JSONString(failure.TraceRef, "podName") != jobName+"-pod" {
+		t.Fatalf("unexpected trace ref: %#v", failure.TraceRef)
+	}
+	if JSONString(failure.Output, "summary") != "AGENT_COMPILED_ARTIFACT kind is required" {
+		t.Fatalf("unexpected failure output: %#v", failure.Output)
+	}
+}
+
 func TestWorkerRuntimeReturnsErrorWhenJobFailed(t *testing.T) {
 	scheme := testRuntimeScheme(t)
 	request := workerRequest()
@@ -235,6 +279,15 @@ func workerResultLog() string {
     "runtimeEngine": "langgraph",
     "policyRef": "ehs-default-safety-policy"
   },
+  "startedAt": "2026-04-17T06:16:59.241012625Z"
+}`
+}
+
+func workerFailureLog() string {
+	return `{
+  "status": "failed",
+  "reason": "WorkerFailed",
+  "message": "AGENT_COMPILED_ARTIFACT kind is required",
   "startedAt": "2026-04-17T06:16:59.241012625Z"
 }`
 }

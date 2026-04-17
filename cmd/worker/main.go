@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/windosx/agent-control-plane/internal/worker"
@@ -10,7 +9,9 @@ import (
 
 func main() {
 	if err := worker.Run(context.Background(), worker.ConfigFromEnv(), os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "worker failed: %v\n", err)
+		if writeErr := worker.WriteFailure(os.Stdout, err); writeErr != nil {
+			os.Exit(1)
+		}
 		os.Exit(1)
 	}
 }

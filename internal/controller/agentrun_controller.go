@@ -78,6 +78,11 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				setAgentRunRunning(&run, agent, now)
 				return ctrl.Result{RequeueAfter: time.Second}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 			}
+			var runtimeFailure agentruntime.Failure
+			if errors.As(err, &runtimeFailure) {
+				setAgentRunRuntimeFailed(&run, agent, now, runtimeFailure)
+				return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+			}
 			setAgentRunFailed(&run, now, err.Error())
 			return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 		}
@@ -191,6 +196,30 @@ func setAgentRunFailed(run *apiv1alpha1.AgentRun, now metav1.Time, message strin
 		Type:               agentRunCompletedCondition,
 		Status:             metav1.ConditionFalse,
 		Reason:             "Failed",
+		Message:            message,
+		ObservedGeneration: run.Generation,
+		LastTransitionTime: now,
+	})
+}
+
+func setAgentRunRuntimeFailed(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, failure agentruntime.Failure) {
+	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseFailed)
+	run.Status.AgentRevision = agent.Status.CompiledRevision
+	run.Status.FinishedAt = &now
+	run.Status.Output = failure.Output
+	run.Status.TraceRef = failure.TraceRef
+	reason := failure.Reason
+	if reason == "" {
+		reason = "RuntimeFailed"
+	}
+	message := failure.Message
+	if message == "" {
+		message = failure.Error()
+	}
+	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
+		Type:               agentRunCompletedCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             reason,
 		Message:            message,
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,

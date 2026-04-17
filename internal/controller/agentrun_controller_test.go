@@ -168,6 +168,61 @@ func TestAgentRunReconcilerFailsWhenRuntimeReturnsError(t *testing.T) {
 	}
 }
 
+func TestAgentRunReconcilerPersistsRuntimeFailureDetails(t *testing.T) {
+	scheme := testScheme(t)
+	run := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "run-1",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase: string(apiv1alpha1.AgentRunPhaseRunning),
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentRun{}).
+		WithObjects(run, agent).
+		Build()
+	reconciler := &AgentRunReconciler{
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: structuredFailingRuntime{},
+	}
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
+
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var failed apiv1alpha1.AgentRun
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &failed); err != nil {
+		t.Fatalf("get failed AgentRun returned error: %v", err)
+	}
+	if failed.Status.Phase != string(apiv1alpha1.AgentRunPhaseFailed) {
+		t.Fatalf("expected Failed phase, got %q", failed.Status.Phase)
+	}
+	if failed.Status.AgentRevision != "sha256:agent" {
+		t.Fatalf("expected agent revision, got %q", failed.Status.AgentRevision)
+	}
+	if failed.Status.Conditions[0].Reason != "WorkerFailed" {
+		t.Fatalf("expected structured failure reason, got %#v", failed.Status.Conditions)
+	}
+	if agentruntime.JSONString(failed.Status.Output, "summary") != "worker contract failed" {
+		t.Fatalf("expected failure output summary, got %#v", failed.Status.Output)
+	}
+	if agentruntime.JSONString(failed.Status.TraceRef, "podName") != "worker-pod" {
+		t.Fatalf("expected failure trace pod, got %#v", failed.Status.TraceRef)
+	}
+}
+
 func testScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
 	scheme := runtime.NewScheme()
@@ -226,4 +281,19 @@ type failingRuntime struct{}
 
 func (r failingRuntime) Execute(ctx context.Context, request agentruntime.Request) (agentruntime.Result, error) {
 	return agentruntime.Result{}, errors.New("runtime exploded")
+}
+
+type structuredFailingRuntime struct{}
+
+func (r structuredFailingRuntime) Execute(ctx context.Context, request agentruntime.Request) (agentruntime.Result, error) {
+	return agentruntime.Result{}, agentruntime.Failure{
+		Output: apiv1alpha1.FreeformObject{
+			"summary": agentruntime.JSONValue("worker contract failed"),
+		},
+		TraceRef: apiv1alpha1.FreeformObject{
+			"podName": agentruntime.JSONValue("worker-pod"),
+		},
+		Reason:  "WorkerFailed",
+		Message: "worker contract failed",
+	}
 }

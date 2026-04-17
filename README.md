@@ -237,6 +237,8 @@ The repository includes two image entrypoints:
 
 Worker result contract v0:
 
+Succeeded:
+
 ```json
 {
   "status": "succeeded",
@@ -249,6 +251,19 @@ Worker result contract v0:
   }
 }
 ```
+
+Failed:
+
+```json
+{
+  "status": "failed",
+  "reason": "WorkerFailed",
+  "message": "AGENT_COMPILED_ARTIFACT kind is required"
+}
+```
+
+On structured failure, the controller marks the `AgentRun` as `Failed` and
+preserves the worker summary and trace reference in status.
 
 ## Invoke Gateway
 

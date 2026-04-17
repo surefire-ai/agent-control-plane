@@ -27,6 +27,7 @@ type CompiledArtifact struct {
 
 type Result struct {
 	Status           string          `json:"status"`
+	Reason           string          `json:"reason,omitempty"`
 	Message          string          `json:"message"`
 	Config           Config          `json:"config"`
 	CompiledArtifact ArtifactSummary `json:"compiledArtifact"`
@@ -93,6 +94,18 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 		StartedAt:        time.Now().UTC(),
 	}
 
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}
+
+func WriteFailure(writer io.Writer, err error) error {
+	result := Result{
+		Status:    "failed",
+		Reason:    "WorkerFailed",
+		Message:   err.Error(),
+		StartedAt: time.Now().UTC(),
+	}
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)

@@ -14,7 +14,7 @@ generate:
 
 .PHONY: manifests
 manifests:
-	$(CONTROLLER_GEN) crd:crdVersions=v1,allowDangerousTypes=true paths=./api/... output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=agent-control-plane-manager-role crd:crdVersions=v1,allowDangerousTypes=true paths=./api/... paths=./internal/controller/... output:rbac:artifacts:config=config/rbac output:crd:artifacts:config=config/crd/bases
 
 .PHONY: install
 install: manifests
@@ -34,7 +34,7 @@ build:
 
 .PHONY: docker-build
 docker-build:
-	docker build -f Dockerfile.controller-manager -t $(IMAGE_REPOSITORY)/agent-control-plane-controller:$(IMAGE_TAG) .
+	docker build -f Dockerfile.controller-manager -t $(IMAGE_REPOSITORY)/agent-control-plane-controller-manager:$(IMAGE_TAG) .
 	docker build -f Dockerfile.worker -t $(IMAGE_REPOSITORY)/agent-control-plane-worker:$(IMAGE_TAG) .
 
 .PHONY: docker-build-worker-local
@@ -46,3 +46,11 @@ docker-build-worker-local:
 .PHONY: run
 run:
 	$(GO) run ./cmd/controller-manager
+
+.PHONY: deploy
+deploy: manifests
+	kubectl apply -k config/default
+
+.PHONY: undeploy
+undeploy:
+	kubectl delete -k config/default

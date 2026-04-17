@@ -1,0 +1,47 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-control-plane-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - windosx.com
+  resources:
+  - agentpolicies
+  - agentruns
+  - agents
+  - knowledgebases
+  - mcpservers
+  - prompttemplates
+  - toolproviders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - windosx.com
+  resources:
+  - agentruns/status
+  - agents/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -38,8 +38,17 @@ func TestWorkerRuntimeCreatesJobAndReportsInProgress(t *testing.T) {
 	if job.Spec.Template.Spec.Containers[0].Image != "busybox:test" {
 		t.Fatalf("unexpected worker image: %q", job.Spec.Template.Spec.Containers[0].Image)
 	}
+	if job.Spec.Template.Spec.Containers[0].ImagePullPolicy != corev1.PullIfNotPresent {
+		t.Fatalf("unexpected worker image pull policy: %q", job.Spec.Template.Spec.Containers[0].ImagePullPolicy)
+	}
 	if job.Labels["windosx.com/agentrun"] != request.Run.Name {
 		t.Fatalf("expected AgentRun label, got %#v", job.Labels)
+	}
+	if job.Spec.Template.Spec.SecurityContext == nil || job.Spec.Template.Spec.SecurityContext.RunAsUser == nil || *job.Spec.Template.Spec.SecurityContext.RunAsUser != 65532 {
+		t.Fatalf("expected worker Job to run as nonroot UID 65532, got %#v", job.Spec.Template.Spec.SecurityContext)
+	}
+	if job.Spec.Template.Spec.Containers[0].SecurityContext == nil || job.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation == nil || *job.Spec.Template.Spec.Containers[0].SecurityContext.AllowPrivilegeEscalation {
+		t.Fatalf("expected worker container privilege escalation to be disabled")
 	}
 }
 

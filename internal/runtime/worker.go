@@ -86,6 +86,8 @@ func (r WorkerRuntime) Execute(ctx context.Context, request Request) (Result, er
 func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 	backoffLimit := int32(0)
 	ttlSecondsAfterFinished := int32(300)
+	runAsUser := int64(65532)
+	runAsGroup := int64(65532)
 	return batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -118,11 +120,23 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						RunAsUser:    &runAsUser,
+						RunAsGroup:   &runAsGroup,
+					},
 					Containers: []corev1.Container{
 						{
-							Name:    "worker",
-							Image:   r.image,
-							Command: r.command,
+							Name:            "worker",
+							Image:           r.image,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Command:         r.command,
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: boolPtr(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
 							Env: []corev1.EnvVar{
 								{Name: "AGENT_NAME", Value: request.Agent.Name},
 								{Name: "AGENT_RUN_NAME", Value: request.Run.Name},
@@ -135,6 +149,10 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 			},
 		},
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func workerJobResult(request Request, job batchv1.Job) Result {

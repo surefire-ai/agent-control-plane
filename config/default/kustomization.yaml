@@ -1,0 +1,17 @@
+namespace: agent-control-plane-system
+
+labels:
+- pairs:
+    app.kubernetes.io/part-of: agent-control-plane
+
+resources:
+- namespace.yaml
+- ../crd
+- ../rbac
+- ../manager
+
+images:
+- name: ghcr.io/windosx/agent-control-plane-controller-manager
+  newTag: latest
+- name: ghcr.io/windosx/agent-control-plane-worker
+  newTag: latest

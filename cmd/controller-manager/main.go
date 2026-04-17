@@ -10,6 +10,7 @@ import (
 	agentruntime "github.com/windosx/agent-control-plane/internal/runtime"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -46,7 +47,8 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	config := ctrl.GetConfigOrDie()
+	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
@@ -55,6 +57,11 @@ func main() {
 	})
 	if err != nil {
 		ctrl.Log.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		ctrl.Log.Error(err, "unable to create Kubernetes clientset")
 		os.Exit(1)
 	}
 
@@ -70,6 +77,7 @@ func main() {
 	runner, err := agentruntime.NewRunner(agentruntime.Options{
 		Backend:    runtimeBackend,
 		Client:     mgr.GetClient(),
+		Clientset:  clientset,
 		JobImage:   workerJobImage,
 		JobCommand: shellCommand(workerJobCommand),
 	})

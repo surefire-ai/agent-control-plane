@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
@@ -14,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -24,15 +26,18 @@ const (
 var defaultWorkerCommand = []string{"/agent-control-plane-worker"}
 
 type WorkerOptions struct {
-	Client  client.Client
-	Image   string
-	Command []string
+	Client    client.Client
+	Clientset kubernetes.Interface
+	Image     string
+	Command   []string
+	LogReader PodLogReader
 }
 
 type WorkerRuntime struct {
-	client  client.Client
-	image   string
-	command []string
+	client    client.Client
+	image     string
+	command   []string
+	logReader PodLogReader
 }
 
 func NewWorkerRuntime(options WorkerOptions) WorkerRuntime {
@@ -44,10 +49,15 @@ func NewWorkerRuntime(options WorkerOptions) WorkerRuntime {
 	if len(command) == 0 {
 		command = append([]string{}, defaultWorkerCommand...)
 	}
+	logReader := options.LogReader
+	if logReader == nil && options.Clientset != nil {
+		logReader = KubernetesPodLogReader{Clientset: options.Clientset}
+	}
 	return WorkerRuntime{
-		client:  options.Client,
-		image:   image,
-		command: command,
+		client:    options.Client,
+		image:     image,
+		command:   command,
+		logReader: logReader,
 	}
 }
 
@@ -74,12 +84,12 @@ func (r WorkerRuntime) Execute(ctx context.Context, request Request) (Result, er
 			return Result{}, fmt.Errorf("worker job %q failed: %s", job.Name, condition.Message)
 		}
 		if condition.Type == batchv1.JobComplete && condition.Status == corev1.ConditionTrue {
-			return workerJobResult(request, job), nil
+			return r.workerJobResult(ctx, request, job)
 		}
 	}
 
 	if job.Status.Succeeded > 0 {
-		return workerJobResult(request, job), nil
+		return r.workerJobResult(ctx, request, job)
 	}
 	return Result{}, ErrRuntimeInProgress
 }
@@ -168,7 +178,52 @@ func boolPtr(value bool) *bool {
 	return &value
 }
 
-func workerJobResult(request Request, job batchv1.Job) Result {
+func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job batchv1.Job) (Result, error) {
+	if r.logReader == nil {
+		return fallbackWorkerJobResult(request, job), nil
+	}
+	logs, err := r.logReader.ReadJobPodLogs(ctx, job.Namespace, job.Name)
+	if err != nil {
+		return Result{}, err
+	}
+	result, err := parseWorkerResult(logs.Text)
+	if err != nil {
+		return Result{}, err
+	}
+	if result.Status != "succeeded" {
+		return Result{}, fmt.Errorf("worker job %q returned status %q: %s", job.Name, result.Status, result.Message)
+	}
+
+	message := result.Message
+	if message == "" {
+		message = fmt.Sprintf("Worker job %s completed for %s.", job.Name, request.Agent.Name)
+	}
+	return Result{
+		Output: apiv1alpha1.FreeformObject{
+			"summary":          JSONValue(message),
+			"hazards":          JSONValue([]interface{}{}),
+			"overallRiskLevel": JSONValue("low"),
+			"nextActions":      JSONValue([]string{"replace placeholder worker image with the real runtime"}),
+			"confidence":       JSONValue(1.0),
+			"needsHumanReview": JSONValue(false),
+			"compiledArtifact": JSONValue(result.CompiledArtifact),
+			"worker": JSONValue(map[string]interface{}{
+				"status":  result.Status,
+				"message": result.Message,
+			}),
+		},
+		TraceRef: apiv1alpha1.FreeformObject{
+			"provider":  JSONValue("kubernetes-job"),
+			"jobName":   JSONValue(job.Name),
+			"podName":   JSONValue(logs.PodName),
+			"container": JSONValue(logs.ContainerName),
+		},
+		Reason:  "WorkerJobSucceeded",
+		Message: message,
+	}, nil
+}
+
+func fallbackWorkerJobResult(request Request, job batchv1.Job) Result {
 	return Result{
 		Output: apiv1alpha1.FreeformObject{
 			"summary":          JSONValue(fmt.Sprintf("Worker job %s completed for %s.", job.Name, request.Agent.Name)),
@@ -185,6 +240,44 @@ func workerJobResult(request Request, job batchv1.Job) Result {
 		Reason:  "WorkerJobSucceeded",
 		Message: "worker job completed successfully",
 	}
+}
+
+type workerLogResult struct {
+	Status           string                `json:"status"`
+	Message          string                `json:"message"`
+	CompiledArtifact workerArtifactSummary `json:"compiledArtifact"`
+}
+
+type workerArtifactSummary struct {
+	APIVersion    string `json:"apiVersion,omitempty"`
+	Kind          string `json:"kind,omitempty"`
+	RuntimeEngine string `json:"runtimeEngine,omitempty"`
+	PolicyRef     string `json:"policyRef,omitempty"`
+}
+
+func parseWorkerResult(raw string) (workerLogResult, error) {
+	var result workerLogResult
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	if err := decoder.Decode(&result); err != nil {
+		return workerLogResult{}, fmt.Errorf("worker result must be valid JSON: %w", err)
+	}
+	if err := ensureNoTrailingWorkerLog(decoder); err != nil {
+		return workerLogResult{}, err
+	}
+	if result.Status == "" {
+		return workerLogResult{}, fmt.Errorf("worker result status is required")
+	}
+	return result, nil
+}
+
+func ensureNoTrailingWorkerLog(decoder *json.Decoder) error {
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); err == nil {
+		return fmt.Errorf("worker result must contain a single JSON document")
+	} else if err != io.EOF {
+		return fmt.Errorf("worker result has invalid trailing data: %w", err)
+	}
+	return nil
 }
 
 func jobNameForRun(run apiv1alpha1.AgentRun) string {

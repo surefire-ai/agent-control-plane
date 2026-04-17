@@ -69,7 +69,16 @@ func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
 		},
 	}
 	kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&job).Build()
-	worker := NewWorkerRuntime(WorkerOptions{Client: kubeClient})
+	worker := NewWorkerRuntime(WorkerOptions{
+		Client: kubeClient,
+		LogReader: staticPodLogReader{
+			logs: PodLogs{
+				PodName:       jobName + "-pod",
+				ContainerName: workerContainerName,
+				Text:          workerResultLog(),
+			},
+		},
+	})
 
 	result, err := worker.Execute(context.Background(), request)
 	if err != nil {
@@ -80,6 +89,42 @@ func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
 	}
 	if JSONString(result.TraceRef, "provider") != "kubernetes-job" {
 		t.Fatalf("unexpected trace provider: %#v", result.TraceRef)
+	}
+	if JSONString(result.TraceRef, "podName") != jobName+"-pod" {
+		t.Fatalf("unexpected trace pod: %#v", result.TraceRef)
+	}
+	if JSONString(result.Output, "summary") != "agent control plane worker placeholder completed" {
+		t.Fatalf("unexpected output summary: %#v", result.Output)
+	}
+	if result.Output["compiledArtifact"].Raw == nil {
+		t.Fatalf("expected compiled artifact summary in output: %#v", result.Output)
+	}
+}
+
+func TestWorkerRuntimeRejectsInvalidWorkerResult(t *testing.T) {
+	scheme := testRuntimeScheme(t)
+	request := workerRequest()
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{Name: jobNameForRun(request.Run), Namespace: "ehs"},
+		Status: batchv1.JobStatus{
+			Succeeded: 1,
+		},
+	}
+	kubeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&job).Build()
+	worker := NewWorkerRuntime(WorkerOptions{
+		Client: kubeClient,
+		LogReader: staticPodLogReader{
+			logs: PodLogs{
+				PodName:       job.Name + "-pod",
+				ContainerName: workerContainerName,
+				Text:          `{`,
+			},
+		},
+	})
+
+	_, err := worker.Execute(context.Background(), request)
+	if err == nil || !strings.Contains(err.Error(), "worker result") {
+		t.Fatalf("expected worker result error, got %v", err)
 	}
 }
 
@@ -163,4 +208,33 @@ func envValue(env []corev1.EnvVar, name string) string {
 		}
 	}
 	return ""
+}
+
+type staticPodLogReader struct {
+	logs PodLogs
+	err  error
+}
+
+func (r staticPodLogReader) ReadJobPodLogs(ctx context.Context, namespace string, jobName string) (PodLogs, error) {
+	return r.logs, r.err
+}
+
+func workerResultLog() string {
+	return `{
+  "status": "succeeded",
+  "message": "agent control plane worker placeholder completed",
+  "config": {
+    "agentName": "hazard-agent",
+    "agentRunName": "run-1",
+    "agentRunNamespace": "ehs",
+    "agentRevision": "sha256:agent"
+  },
+  "compiledArtifact": {
+    "apiVersion": "windosx.com/v1alpha1",
+    "kind": "AgentCompiledArtifact",
+    "runtimeEngine": "langgraph",
+    "policyRef": "ehs-default-safety-policy"
+  },
+  "startedAt": "2026-04-17T06:16:59.241012625Z"
+}`
 }

@@ -195,12 +195,27 @@ make docker-build-worker-local
 controller manager 接受 `--runtime-backend` 参数。
 
 - `mock`：默认 backend。它会确定性地完成 `AgentRun` 对象，用于控制平面验证。
-- `worker`：在 `AgentRun` 所在 namespace 中创建 Kubernetes Job。它通过 `--worker-job-image` 和 `--worker-job-command` 指向 worker 镜像和命令。Job 会从 `Agent.status.compiledArtifact` 接收 `AGENT_COMPILED_ARTIFACT`，校验后在 worker 结果中输出 artifact 摘要。
+- `worker`：在 `AgentRun` 所在 namespace 中创建 Kubernetes Job。它通过 `--worker-job-image` 和 `--worker-job-command` 指向 worker 镜像和命令。Job 会从 `Agent.status.compiledArtifact` 接收 `AGENT_COMPILED_ARTIFACT`，校验后在 worker 结果中输出 artifact 摘要。Job 完成后，controller 会读取 worker Pod 日志、解析结构化 worker 结果，并将结果摘要写回 `AgentRun.status.output`。
 
 本仓库包含两个镜像入口：
 
 - `cmd/controller-manager`：协调控制平面资源。
 - `cmd/worker`：校验注入的运行环境和 compiled artifact 元数据，并输出结构化占位结果。
+
+Worker result contract v0：
+
+```json
+{
+  "status": "succeeded",
+  "message": "agent control plane worker placeholder completed",
+  "compiledArtifact": {
+    "apiVersion": "windosx.com/v1alpha1",
+    "kind": "AgentCompiledArtifact",
+    "runtimeEngine": "langgraph",
+    "policyRef": "ehs-default-safety-policy"
+  }
+}
+```
 
 ## Invoke Gateway
 

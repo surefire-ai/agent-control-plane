@@ -225,13 +225,30 @@ The controller manager accepts `--runtime-backend`.
   `--worker-job-image` and `--worker-job-command` to point at a worker image and
   command. The Job receives `AGENT_COMPILED_ARTIFACT` from
   `Agent.status.compiledArtifact`, validates it, and includes an artifact
-  summary in the worker result.
+  summary in the worker result. After the Job completes, the controller reads
+  the worker Pod logs, parses the structured worker result, and writes the
+  result summary back to `AgentRun.status.output`.
 
 The repository includes two image entrypoints:
 
 - `cmd/controller-manager`: reconciles control-plane resources.
 - `cmd/worker`: validates injected run environment and compiled artifact
   metadata, then emits a structured placeholder result.
+
+Worker result contract v0:
+
+```json
+{
+  "status": "succeeded",
+  "message": "agent control plane worker placeholder completed",
+  "compiledArtifact": {
+    "apiVersion": "windosx.com/v1alpha1",
+    "kind": "AgentCompiledArtifact",
+    "runtimeEngine": "langgraph",
+    "policyRef": "ehs-default-safety-policy"
+  }
+}
+```
 
 ## Invoke Gateway
 

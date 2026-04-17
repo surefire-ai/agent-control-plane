@@ -28,6 +28,31 @@ in `examples/ehs` and `config/samples/ehs`.
   current worker is intentionally a placeholder while the LangGraph runtime is
   being built.
 
+## Use Cases
+
+Agent Control Plane is intended for teams that need to operate AI agents as
+production platform resources instead of one-off scripts or hidden application
+code.
+
+- **Enterprise agent publishing**: platform teams can define, review, publish,
+  and roll back agents with Kubernetes-native specs, status, revisions, and
+  RBAC boundaries.
+- **Business workflow automation**: product teams can expose repeatable agent
+  workflows such as document review, ticket triage, incident response,
+  inspection analysis, and knowledge-assisted decision support.
+- **Regulated and auditable AI operations**: risk, compliance, and operations
+  teams can attach policies, trace references, evaluation plans, and immutable
+  run records to every agent invocation.
+- **Vertical agent systems**: domain teams can package specialized agents for
+  EHS hazard identification, quality inspection, maintenance planning, customer
+  support, finance operations, or similar knowledge-heavy workflows.
+- **Multi-tenant agent platforms**: organizations can map teams or tenants to
+  namespaces, enforce runtime boundaries, and centralize observability for many
+  agents running in the same cluster.
+- **Agent marketplace and reuse**: shared prompts, tools, knowledge bases, MCP
+  servers, policies, and evaluations can become reusable building blocks for
+  future agent packages.
+
 ## Architecture Direction
 
 - Go hosts the Kubernetes API types, CRD controllers, compiler, admission

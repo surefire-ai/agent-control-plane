@@ -20,6 +20,19 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 - controller-manager 负责编译 `Agent` 资源、发布确定性的状态，并将 `AgentRun` 分发到 runtime backend。
 - worker runtime backend 可以将每次运行分发为 Kubernetes Job。当前 worker 仍是占位实现，用于支撑 LangGraph runtime 成熟前的控制平面验证。
 
+## 使用场景
+
+Agent Control Plane 面向需要把 AI Agent 当作生产平台资源来运营的团队，而不是把
+Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
+
+- **企业级 Agent 发布**：平台团队可以用 Kubernetes 原生 spec、status、revision 和
+  RBAC 边界来定义、评审、发布和回滚 Agent。
+- **业务流程自动化**：产品团队可以暴露可重复运行的 Agent 工作流，例如文档审核、工单分诊、事件响应、巡检分析和知识辅助决策。
+- **受监管、可审计的 AI 运行**：风控、合规和运营团队可以为每次 Agent 调用关联策略、trace reference、评估计划和不可变运行记录。
+- **垂直领域 Agent 系统**：领域团队可以打包 EHS 危害识别、质量巡检、维修计划、客户支持、财务运营等知识密集型场景的专用 Agent。
+- **多租户 Agent 平台**：组织可以将团队或租户映射到 namespace，执行 runtime 边界，并集中观测同一集群中的多个 Agent。
+- **Agent Marketplace 与复用**：共享 prompts、tools、knowledge bases、MCP servers、policies 和 evaluations 可以沉淀为未来 Agent package 的可复用构件。
+
 ## 架构方向
 
 - Go 承载 Kubernetes API 类型、CRD controller、compiler、admission check、runtime dispatch，以及未来的 gateway。

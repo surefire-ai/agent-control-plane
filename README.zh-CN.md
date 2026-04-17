@@ -44,27 +44,50 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 
 ## 里程碑
 
-### Phase 1：核心 Agent 控制平面
+### Phase 1：Kubernetes-Native MVP
 
-目标：让一个通过 Kubernetes 声明的 Agent 能够端到端完成编译、发布、运行、trace 和版本标识。
+目标：让一个通过 Kubernetes 声明的 Agent 能够完成编译、发布状态、通过
+Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision identity。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| YAML Agent Spec | 已有初始 CRD 和 YAML 样例。 | 强化 schema 校验、默认值、必填字段和 admission check。 |
-| 编译成 LangGraph | 已有静态引用 compiler。 | 产出兼容 LangGraph 的中间表示，并持久化或传递给 runtime worker。 |
-| 发布 endpoint | 状态中已发布计划的 `:invoke` 路径。 | 增加 gateway/API handler，用于接收 invoke 请求并创建 `AgentRun` 资源。 |
-| trace | `TraceRef` 已贯穿 `AgentRun` 状态。 | 集成 OpenTelemetry 或 runtime 原生 tracing，并统一存储 trace ID。 |
-| version | 已有 compiled agent 的 revision hash。 | 增加 revision history、兼容性规则、发布标签和回滚语义。 |
+| YAML Agent Spec | 已有初始 CRD 和 EHS YAML 样例。 | 强化 schema 校验、默认值、必填字段和 admission check。 |
+| Agent compiler | 已有静态引用 compiler，并可生成确定性 revision。 | 产出面向 runtime 的 compile artifact，并传递给 worker。 |
+| AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
+| Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
+| Invoke gateway | `Agent.status.endpoint.invoke` 已发布计划路径。 | 增加 gateway/API handler，用于接收 invoke 请求并创建 `AgentRun` 资源。 |
+| Packaging and deployment | 已有 Dockerfile、RBAC 和 `config/default` 部署清单。 | 增加 CI、镜像发布、release tag 和可安装 release artifact。 |
 
 Phase 1 退出标准：
 
 - 应用 EHS 样例资源后可以得到 Ready 状态的 `Agent`。
-- 调用已发布 endpoint 后可以创建 `AgentRun`。
-- 运行由真实 LangGraph worker 执行，而不是 mock backend。
+- 通过 gateway 调用 Agent 后可以创建 `AgentRun`。
+- 运行通过 Kubernetes Job runtime backend 执行。
 - 运行结果记录 output、trace reference 和准确的 agent revision。
-- controller-manager 和 worker 镜像可构建、可部署。
+- controller-manager 和 worker 镜像可构建、可部署、可发布。
 
-### Phase 2：产品界面与治理
+### Phase 2：真实 Agent Runtime
+
+目标：用真正兼容 LangGraph 的 runtime 替换占位 worker，同时保持 Kubernetes
+原生控制平面契约不变。
+
+| 里程碑 | 当前状态 | 下一步 |
+| --- | --- | --- |
+| LangGraph compile IR | 已有静态引用 compiler。 | 产出兼容 LangGraph 的中间表示。 |
+| Python runtime worker | Go placeholder worker 已能校验注入的运行上下文。 | 使用 LangGraph 执行已编译 graph，并返回结构化结果。 |
+| Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
+| Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
+| Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
+| Evaluation | 已有 `AgentEvaluation` CRD。 | 增加 evaluation reconciler 和结果上报。 |
+
+Phase 2 退出标准：
+
+- EHS AgentRun 通过真实 LangGraph worker 执行。
+- Policy 可以在不安全运行开始前阻断或要求审批。
+- worker Pod 消失后仍可查看 run artifacts 和 traces。
+- Evaluation 资源可以针对某个 agent revision 执行并发布结果。
+
+### Phase 3：产品界面与治理
 
 目标：让平台不仅能被集群 operator 使用，也能被团队直接使用。
 
@@ -72,27 +95,27 @@ Phase 1 退出标准：
 | --- | --- | --- |
 | UI | 本仓库尚未开始。 | 构建用于 agents、runs、traces、evaluations 和发布流程的控制台。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
-| Policy | 已有 CRD 结构。 | 执行模型/工具预算、guardrails、审批门禁、安全边界和 runtime 约束。 |
 | Tenant | 尚未开始。 | 增加租户模型、namespace 映射、RBAC 边界、quota 和审计轨迹。 |
+| Governance workflows | 已有 Policy CRD。 | 增加 review、approval、human-in-the-loop 和 exception 工作流。 |
 
-Phase 2 退出标准：
+Phase 3 退出标准：
 
 - 用户可以在 UI 中发布、查看、调用和调试 agents。
 - Marketplace package 可以被列出、安装、版本化和审查。
-- 策略决策可以在不安全运行开始前阻断或要求审批。
 - API、runtime、storage 和 observability 中的租户隔离都有明确边界。
+- 治理工作流可审计、可执行。
 
-### Phase 3：分布式 Agent Runtime
+### Phase 4：分布式 Agent Fabric
 
 目标：从单 Agent 执行扩展到多 runtime、多 Agent 的协作网络。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| Multi-runtime | runtime interface 已支持在 `mock` 和 `worker` backend 之间选择。 | 增加 LangGraph、远程 runtime 以及未来非 Python runtime 的真实 adapter。 |
-| Agent Autoscaling | 尚未开始。 | 增加基于队列深度、延迟和成本的 runtime worker 扩缩容信号。 |
-| Agent Mesh | 尚未开始。 | 定义 Agent 间发现、调用、策略传播、身份和 trace 关联。 |
+| Multi-runtime | runtime interface 已支持在 `mock` 和 `worker` backend 之间选择。 | 增加 LangGraph、远程 runtime 以及未来非 Python runtime 的 adapter。 |
+| Agent autoscaling | 尚未开始。 | 增加基于队列深度、延迟和成本的 runtime worker 扩缩容信号。 |
+| Agent mesh | 尚未开始。 | 定义 Agent 间发现、调用、策略传播、身份和 trace 关联。 |
 
-Phase 3 退出标准：
+Phase 4 退出标准：
 
 - 多个 runtime backend 可以运行兼容的 agent revision。
 - Agent 可以基于需求和策略限制自动扩缩容。

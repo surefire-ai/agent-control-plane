@@ -54,28 +54,52 @@ Status date: 2026-04-17.
 
 ## Milestones
 
-### Phase 1: Core Agent Control Plane
+### Phase 1: Kubernetes-Native MVP
 
-Goal: make one Kubernetes-declared agent compile, publish, run, trace, and carry
-version identity end to end.
+Goal: make one Kubernetes-declared agent compile, publish status, run through a
+Kubernetes Job, and report output, trace reference, and revision identity end to
+end.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| YAML Agent Spec | Initial CRDs and sample YAML are present. | Harden schema validation, defaults, required fields, and admission checks. |
-| Compile to LangGraph | Static reference compiler exists. | Emit a LangGraph-compatible intermediate representation and persist or pass it to the runtime worker. |
-| Publish endpoint | Status publishes the planned `:invoke` path. | Add the gateway/API handler that accepts invoke requests and creates `AgentRun` resources. |
-| Trace | `TraceRef` is carried through `AgentRun` status. | Integrate OpenTelemetry or runtime-native tracing and store trace IDs consistently. |
-| Version | Revision hash exists for compiled agents. | Add revision history, compatibility rules, release labels, and rollback semantics. |
+| YAML Agent Spec | Initial CRDs and EHS sample YAML are present. | Harden schema validation, defaults, required fields, and admission checks. |
+| Agent compiler | Static reference compiler exists and produces deterministic revisions. | Emit a runtime-oriented compile artifact that can be passed to workers. |
+| AgentRun lifecycle | `Pending`, `Running`, `Succeeded`, and `Failed` transitions are implemented. | Add cancellation, timeout, retry, and idempotency semantics. |
+| Kubernetes Job runtime | `worker` backend creates Jobs and updates `AgentRun` status after completion. | Persist richer worker output and surface Job/Pod failure details. |
+| Invoke gateway | `Agent.status.endpoint.invoke` publishes the planned path. | Add the gateway/API handler that accepts invoke requests and creates `AgentRun` resources. |
+| Packaging and deployment | Dockerfiles, RBAC, and `config/default` deployment manifests exist. | Add CI, image publishing, release tags, and installable release artifacts. |
 
 Phase 1 exit criteria:
 
 - Applying the EHS sample resources produces a Ready `Agent`.
-- Invoking the published endpoint creates an `AgentRun`.
-- The run executes through a real LangGraph worker, not the mock backend.
+- Invoking an Agent through the gateway creates an `AgentRun`.
+- The run executes through the Kubernetes Job runtime backend.
 - The run records output, trace reference, and the exact agent revision.
-- The controller-manager and worker images are buildable and deployable.
+- The controller-manager and worker images are buildable, deployable, and
+  releaseable.
 
-### Phase 2: Product Surface and Governance
+### Phase 2: Real Agent Runtime
+
+Goal: replace the placeholder worker with a real LangGraph-compatible runtime
+while preserving the Kubernetes-native control-plane contract.
+
+| Milestone | Current state | Next work |
+| --- | --- | --- |
+| LangGraph compile IR | Static reference compiler exists. | Emit a LangGraph-compatible intermediate representation. |
+| Python runtime worker | Go placeholder worker validates injected run context. | Execute compiled graphs with LangGraph and return structured results. |
+| Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
+| Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
+| Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
+| Evaluation | `AgentEvaluation` CRD exists. | Add an evaluation reconciler and result reporting. |
+
+Phase 2 exit criteria:
+
+- An EHS AgentRun executes through a real LangGraph worker.
+- Policy can block or require approval before unsafe runs start.
+- Run artifacts and traces can be inspected after worker Pods are gone.
+- Evaluation resources can execute against an agent revision and publish results.
+
+### Phase 3: Product Surface and Governance
 
 Goal: make the platform usable by teams, not only by cluster operators.
 
@@ -83,27 +107,27 @@ Goal: make the platform usable by teams, not only by cluster operators.
 | --- | --- | --- |
 | UI | Not started in this repository. | Build a console for agents, runs, traces, evaluations, and publishing workflows. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
-| Policy | CRD shape exists. | Enforce model/tool budgets, guardrails, approval gates, security boundaries, and runtime constraints. |
 | Tenant | Not started. | Add tenancy model, namespace mapping, RBAC boundaries, quotas, and audit trails. |
+| Governance workflows | Policy CRD exists. | Add review, approval, human-in-the-loop, and exception workflows. |
 
-Phase 2 exit criteria:
+Phase 3 exit criteria:
 
 - Users can publish, inspect, invoke, and debug agents from the UI.
 - Marketplace packages can be listed, installed, versioned, and reviewed.
-- Policy decisions block or require approval before unsafe runs start.
 - Tenant isolation is explicit across API, runtime, storage, and observability.
+- Governance workflows are auditable and enforceable.
 
-### Phase 3: Distributed Agent Runtime
+### Phase 4: Distributed Agent Fabric
 
 Goal: scale from single-agent execution to a multi-runtime, multi-agent fabric.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| Multi-runtime | Runtime interface supports backend selection between `mock` and `worker`. | Add real adapters for LangGraph, remote runtimes, and future non-Python runtimes. |
-| Agent Autoscaling | Not started. | Add queue-depth, latency, and cost-aware scaling signals for runtime workers. |
-| Agent Mesh | Not started. | Define agent-to-agent discovery, invocation, policy propagation, identity, and trace correlation. |
+| Multi-runtime | Runtime interface supports backend selection between `mock` and `worker`. | Add adapters for LangGraph, remote runtimes, and future non-Python runtimes. |
+| Agent autoscaling | Not started. | Add queue-depth, latency, and cost-aware scaling signals for runtime workers. |
+| Agent mesh | Not started. | Define agent-to-agent discovery, invocation, policy propagation, identity, and trace correlation. |
 
-Phase 3 exit criteria:
+Phase 4 exit criteria:
 
 - Multiple runtime backends can run compatible agent revisions.
 - Agents scale automatically based on demand and policy limits.

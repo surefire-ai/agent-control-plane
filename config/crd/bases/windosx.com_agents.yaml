@@ -204,6 +204,10 @@ spec:
             type: object
           status:
             properties:
+              compiledArtifact:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
               compiledRevision:
                 type: string
               conditions:

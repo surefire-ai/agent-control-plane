@@ -44,7 +44,7 @@ Status date: 2026-04-17.
 | Area | Status | Evidence |
 | --- | --- | --- |
 | YAML Agent Spec | In progress | Go API types and CRDs exist under `api/v1alpha1` and `config/crd/bases`; EHS YAML examples exist under `examples/ehs` and `config/samples/ehs`. |
-| Compile to LangGraph | Partial | `internal/compiler` validates cross-resource references and produces a deterministic revision. It does not yet emit an executable LangGraph graph. |
+| Compile to LangGraph | Partial | `internal/compiler` validates cross-resource references, emits a runtime-oriented compiled artifact, and produces a deterministic revision. It does not yet emit an executable LangGraph graph. |
 | Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
 | Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
@@ -63,7 +63,7 @@ end.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | YAML Agent Spec | Initial CRDs and EHS sample YAML are present. | Harden schema validation, defaults, required fields, and admission checks. |
-| Agent compiler | Static reference compiler exists and produces deterministic revisions. | Emit a runtime-oriented compile artifact that can be passed to workers. |
+| Agent compiler | Static reference compiler exists, writes `Agent.status.compiledArtifact`, and produces artifact-based revisions. | Pass the compiled artifact to workers and evolve it toward a LangGraph-compatible IR. |
 | AgentRun lifecycle | `Pending`, `Running`, `Succeeded`, and `Failed` transitions are implemented. | Add cancellation, timeout, retry, and idempotency semantics. |
 | Kubernetes Job runtime | `worker` backend creates Jobs and updates `AgentRun` status after completion. | Persist richer worker output and surface Job/Pod failure details. |
 | Invoke gateway | `Agent.status.endpoint.invoke` publishes the planned path. | Add the gateway/API handler that accepts invoke requests and creates `AgentRun` resources. |
@@ -76,7 +76,7 @@ Phase 1 exit criteria:
 - The run executes through the Kubernetes Job runtime backend.
 - The run records output, trace reference, and the exact agent revision.
 - The controller-manager and worker images are buildable, deployable, and
-  releaseable.
+  releasable.
 
 ### Phase 2: Real Agent Runtime
 

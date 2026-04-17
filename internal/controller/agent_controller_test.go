@@ -50,7 +50,10 @@ func TestSetAgentStatusSetsEndpointAndReadyCondition(t *testing.T) {
 		},
 	}
 
-	setAgentStatus(agent, "Published", "sha256:test", metav1.Condition{
+	artifact := apiv1alpha1.FreeformObject{
+		"kind": {},
+	}
+	setAgentStatus(agent, "Published", "sha256:test", artifact, metav1.Condition{
 		Type:               agentReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "CompilationSucceeded",
@@ -63,6 +66,9 @@ func TestSetAgentStatusSetsEndpointAndReadyCondition(t *testing.T) {
 	}
 	if agent.Status.CompiledRevision != "sha256:test" {
 		t.Fatalf("expected compiled revision, got %q", agent.Status.CompiledRevision)
+	}
+	if agent.Status.CompiledArtifact == nil {
+		t.Fatal("expected compiled artifact to be set")
 	}
 	if agent.Status.Endpoint["invoke"] != "/apis/windosx.com/v1alpha1/namespaces/ehs/agents/hazard-agent:invoke" {
 		t.Fatalf("unexpected invoke endpoint: %q", agent.Status.Endpoint["invoke"])

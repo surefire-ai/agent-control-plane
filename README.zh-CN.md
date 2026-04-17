@@ -34,7 +34,7 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 | 模块 | 状态 | 证据 |
 | --- | --- | --- |
 | YAML Agent Spec | 进行中 | `api/v1alpha1` 和 `config/crd/bases` 下已有 Go API 类型和 CRD；`examples/ehs` 与 `config/samples/ehs` 下已有 EHS YAML 样例。 |
-| 编译成 LangGraph | 部分完成 | `internal/compiler` 已能校验跨资源引用并生成确定性 revision；尚未产出可执行的 LangGraph graph。 |
+| 编译成 LangGraph | 部分完成 | `internal/compiler` 已能校验跨资源引用、产出面向 runtime 的 compiled artifact，并生成确定性 revision；尚未产出可执行的 LangGraph graph。 |
 | 发布 endpoint | Bootstrap | Agent controller 已发布 `Agent.status.endpoint.invoke`；invoke gateway 可接收 POST 请求并创建 `AgentRun` 资源。 |
 | trace | 部分完成 | 已有 `AgentRun.status.traceRef`，mock/worker backend 会写入该字段；完整分布式 tracing 和 trace 存储尚未实现。 |
 | version | 部分完成 | 已有 `Agent.status.compiledRevision` 与 `AgentRun.status.agentRevision`；语义化版本、发布通道和 revision history 仍待实现。 |
@@ -52,7 +52,7 @@ Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | YAML Agent Spec | 已有初始 CRD 和 EHS YAML 样例。 | 强化 schema 校验、默认值、必填字段和 admission check。 |
-| Agent compiler | 已有静态引用 compiler，并可生成确定性 revision。 | 产出面向 runtime 的 compile artifact，并传递给 worker。 |
+| Agent compiler | 已有静态引用 compiler，可写入 `Agent.status.compiledArtifact`，并基于 artifact 生成 revision。 | 将 compiled artifact 传递给 worker，并逐步演进为兼容 LangGraph 的 IR。 |
 | AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
 | Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
 | Invoke gateway | `Agent.status.endpoint.invoke` 已发布计划路径。 | 增加 gateway/API handler，用于接收 invoke 请求并创建 `AgentRun` 资源。 |

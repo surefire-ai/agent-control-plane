@@ -109,6 +109,7 @@ type AgentStatus struct {
 	Phase              string            `json:"phase,omitempty"`
 	ObservedGeneration int64             `json:"observedGeneration,omitempty"`
 	CompiledRevision   string            `json:"compiledRevision,omitempty"`
+	CompiledArtifact   FreeformObject    `json:"compiledArtifact,omitempty"`
 	Endpoint           map[string]string `json:"endpoint,omitempty"`
 }
 

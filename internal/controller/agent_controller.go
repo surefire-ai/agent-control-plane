@@ -39,7 +39,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	result, err := compiler.CompileAgent(agent, refs)
 	if err != nil {
-		setAgentStatus(&agent, "NotReady", "", metav1.Condition{
+		setAgentStatus(&agent, "NotReady", "", nil, metav1.Condition{
 			Type:               agentReadyCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             "CompilationFailed",
@@ -52,7 +52,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
 	}
 
-	setAgentStatus(&agent, string(agent.Spec.Lifecycle.DesiredPhase), result.Revision, metav1.Condition{
+	setAgentStatus(&agent, string(agent.Spec.Lifecycle.DesiredPhase), result.Revision, result.Artifact, metav1.Condition{
 		Type:               agentReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "CompilationSucceeded",
@@ -129,10 +129,11 @@ func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func setAgentStatus(agent *apiv1alpha1.Agent, phase string, revision string, condition metav1.Condition) {
+func setAgentStatus(agent *apiv1alpha1.Agent, phase string, revision string, artifact apiv1alpha1.FreeformObject, condition metav1.Condition) {
 	agent.Status.Phase = phase
 	agent.Status.ObservedGeneration = agent.Generation
 	agent.Status.CompiledRevision = revision
+	agent.Status.CompiledArtifact = artifact
 	agent.Status.Endpoint = map[string]string{
 		"invoke": "/apis/" + apiv1alpha1.Group + "/" + apiv1alpha1.Version +
 			"/namespaces/" + agent.Namespace + "/agents/" + agent.Name + ":invoke",

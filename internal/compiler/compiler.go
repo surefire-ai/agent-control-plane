@@ -3,10 +3,12 @@ package compiler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 type ReferenceIndex struct {
@@ -19,6 +21,7 @@ type ReferenceIndex struct {
 
 type Result struct {
 	Revision string
+	Artifact apiv1alpha1.FreeformObject
 }
 
 func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) {
@@ -27,9 +30,35 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 		return Result{}, fmt.Errorf("missing references: %v", missing)
 	}
 
+	artifact := artifactFor(agent)
 	return Result{
-		Revision: revisionFor(agent),
+		Revision: revisionFor(artifact),
+		Artifact: artifact,
 	}, nil
+}
+
+func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
+	return apiv1alpha1.FreeformObject{
+		"apiVersion": jsonValue(apiv1alpha1.Group + "/" + apiv1alpha1.Version),
+		"kind":       jsonValue("AgentCompiledArtifact"),
+		"agent": jsonValue(map[string]interface{}{
+			"name":       agent.Name,
+			"namespace":  agent.Namespace,
+			"generation": agent.Generation,
+		}),
+		"runtime":       jsonValue(agent.Spec.Runtime),
+		"models":        jsonValue(agent.Spec.Models),
+		"identity":      jsonValue(agent.Spec.Identity),
+		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
+		"knowledgeRefs": jsonValue(agent.Spec.KnowledgeRefs),
+		"toolRefs":      jsonValue(agent.Spec.ToolRefs),
+		"mcpRefs":       jsonValue(agent.Spec.MCPRefs),
+		"policyRef":     jsonValue(agent.Spec.PolicyRef),
+		"interfaces":    jsonValue(agent.Spec.Interfaces),
+		"memory":        jsonValue(agent.Spec.Memory),
+		"graph":         jsonValue(agent.Spec.Graph),
+		"observability": jsonValue(agent.Spec.Observability),
+	}
 }
 
 func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []string {
@@ -69,11 +98,19 @@ func contains(values map[string]struct{}, name string) bool {
 	return ok
 }
 
-func revisionFor(agent apiv1alpha1.Agent) string {
-	hash := sha256.New()
-	hash.Write([]byte(agent.Namespace))
-	hash.Write([]byte("/"))
-	hash.Write([]byte(agent.Name))
-	hash.Write([]byte(fmt.Sprintf("%d", agent.Generation)))
-	return "sha256:" + hex.EncodeToString(hash.Sum(nil))
+func revisionFor(artifact apiv1alpha1.FreeformObject) string {
+	raw, err := json.Marshal(artifact)
+	if err != nil {
+		raw = []byte("{}")
+	}
+	hash := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(hash[:])
+}
+
+func jsonValue(value interface{}) apiextensionsv1.JSON {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		raw = []byte("null")
+	}
+	return apiextensionsv1.JSON{Raw: raw}
 }

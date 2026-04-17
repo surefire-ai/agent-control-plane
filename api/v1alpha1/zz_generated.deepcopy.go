@@ -693,6 +693,13 @@ func (in *AgentSpec) DeepCopy() *AgentSpec {
 func (in *AgentStatus) DeepCopyInto(out *AgentStatus) {
 	*out = *in
 	in.ConditionedStatus.DeepCopyInto(&out.ConditionedStatus)
+	if in.CompiledArtifact != nil {
+		in, out := &in.CompiledArtifact, &out.CompiledArtifact
+		*out = make(FreeformObject, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	if in.Endpoint != nil {
 		in, out := &in.Endpoint, &out.Endpoint
 		*out = make(map[string]string, len(*in))

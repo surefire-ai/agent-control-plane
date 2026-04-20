@@ -8,12 +8,8 @@ import (
 	"sort"
 
 	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+	"github.com/windosx/agent-control-plane/internal/contract"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-)
-
-const (
-	defaultRuntimeEngine = "eino"
-	defaultRunnerClass   = "adk"
 )
 
 type ReferenceIndex struct {
@@ -68,10 +64,10 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 
 func runtimeForArtifact(runtime apiv1alpha1.AgentRuntimeSpec) apiv1alpha1.AgentRuntimeSpec {
 	if runtime.Engine == "" {
-		runtime.Engine = defaultRuntimeEngine
+		runtime.Engine = contract.RuntimeEngineEino
 	}
 	if runtime.RunnerClass == "" {
-		runtime.RunnerClass = defaultRunnerClass
+		runtime.RunnerClass = contract.RunnerClassADK
 	}
 	return runtime
 }

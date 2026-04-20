@@ -77,6 +77,67 @@ func TestRunRejectsInvalidCompiledArtifact(t *testing.T) {
 	}
 }
 
+func TestRunDefaultsRunnerClass(t *testing.T) {
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino"},"policyRef":"ehs-policy"}`,
+	}
+
+	if err := Run(context.Background(), config, &buffer); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	var result contract.WorkerResult
+	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
+		t.Fatalf("worker output is not JSON: %v", err)
+	}
+	if result.CompiledArtifact.RunnerClass != contract.RunnerClassADK {
+		t.Fatalf("unexpected runner class: %#v", result.CompiledArtifact)
+	}
+}
+
+func TestRunRejectsUnsupportedRuntimeEngine(t *testing.T) {
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"langgraph","runnerClass":"adk"},"policyRef":"ehs-policy"}`,
+	}
+
+	err := Run(context.Background(), config, &buffer)
+	if err == nil {
+		t.Fatal("expected unsupported runtime engine error")
+	}
+	if !strings.Contains(err.Error(), "unsupported runtime engine") {
+		t.Fatalf("expected unsupported runtime error, got %v", err)
+	}
+}
+
+func TestRunRejectsUnsupportedRunnerClass(t *testing.T) {
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"custom"},"policyRef":"ehs-policy"}`,
+	}
+
+	err := Run(context.Background(), config, &buffer)
+	if err == nil {
+		t.Fatal("expected unsupported runner class error")
+	}
+	if !strings.Contains(err.Error(), "unsupported runner class") {
+		t.Fatalf("expected unsupported runner class error, got %v", err)
+	}
+}
+
 func TestWriteFailureWritesStructuredResult(t *testing.T) {
 	var buffer bytes.Buffer
 

@@ -235,6 +235,9 @@ Worker result contract v0：
 
 发生结构化失败时，controller 会将 `AgentRun` 标记为 `Failed`，并在 status 中保留 worker summary 和 trace reference。
 
+当前 placeholder worker 只接受默认 Eino runtime identity：`runtime.engine=eino`
+和 `runtime.runnerClass=adk`。缺省值会按默认值处理；显式填写不支持的值会让本次运行以结构化 worker failure 失败。
+
 ## Invoke Gateway
 
 controller-manager 会在 `--gateway-bind-address` 上启动 invoke gateway，默认地址为

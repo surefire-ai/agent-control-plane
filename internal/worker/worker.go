@@ -64,6 +64,9 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if err := validateRuntimeIdentity(artifact); err != nil {
+		return err
+	}
 	config.ParsedCompiledArtifact = artifact
 
 	select {
@@ -105,29 +108,51 @@ func parseCompiledArtifact(raw string) (CompiledArtifact, error) {
 }
 
 func summarizeArtifact(artifact CompiledArtifact) contract.ArtifactSummary {
+	identity := runtimeIdentity(artifact.Runtime)
 	return contract.ArtifactSummary{
 		APIVersion:    artifact.APIVersion,
 		Kind:          artifact.Kind,
-		RuntimeEngine: runtimeEngine(artifact.Runtime),
-		RunnerClass:   runnerClass(artifact.Runtime),
+		RuntimeEngine: identity.engine,
+		RunnerClass:   identity.runnerClass,
 		PolicyRef:     artifact.PolicyRef,
 	}
 }
 
-func runtimeEngine(runtime map[string]interface{}) string {
-	value, ok := runtime["engine"]
-	if !ok {
-		return ""
+func validateRuntimeIdentity(artifact CompiledArtifact) error {
+	identity := runtimeIdentity(artifact.Runtime)
+	if identity.engine != contract.RuntimeEngineEino {
+		return fmt.Errorf("unsupported runtime engine %q", identity.engine)
 	}
-	engine, _ := value.(string)
-	return engine
+	if identity.runnerClass != contract.RunnerClassADK {
+		return fmt.Errorf("unsupported runner class %q for runtime engine %q", identity.runnerClass, identity.engine)
+	}
+	return nil
 }
 
-func runnerClass(runtime map[string]interface{}) string {
-	value, ok := runtime["runnerClass"]
+type runtimeIdentityValue struct {
+	engine      string
+	runnerClass string
+}
+
+func runtimeIdentity(runtime map[string]interface{}) runtimeIdentityValue {
+	identity := runtimeIdentityValue{
+		engine:      contract.RuntimeEngineEino,
+		runnerClass: contract.RunnerClassADK,
+	}
+	if engine := runtimeString(runtime, "engine"); engine != "" {
+		identity.engine = engine
+	}
+	if runnerClass := runtimeString(runtime, "runnerClass"); runnerClass != "" {
+		identity.runnerClass = runnerClass
+	}
+	return identity
+}
+
+func runtimeString(runtime map[string]interface{}, key string) string {
+	value, ok := runtime[key]
 	if !ok {
 		return ""
 	}
-	class, _ := value.(string)
-	return class
+	output, _ := value.(string)
+	return output
 }

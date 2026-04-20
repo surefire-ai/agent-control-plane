@@ -270,6 +270,11 @@ Failed:
 On structured failure, the controller marks the `AgentRun` as `Failed` and
 preserves the worker summary and trace reference in status.
 
+The placeholder worker currently accepts only the default Eino runtime identity:
+`runtime.engine=eino` and `runtime.runnerClass=adk`. Missing values are treated
+as those defaults; explicit unsupported values fail the run with a structured
+worker failure.
+
 ## Invoke Gateway
 
 The controller-manager starts an invoke gateway on `--gateway-bind-address`

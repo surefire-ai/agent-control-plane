@@ -32,6 +32,7 @@ type AgentLifecycleSpec struct {
 
 type AgentRuntimeSpec struct {
 	Engine       string         `json:"engine,omitempty"`
+	RunnerClass  string         `json:"runnerClass,omitempty"`
 	Mode         string         `json:"mode,omitempty"`
 	Entrypoint   string         `json:"entrypoint,omitempty"`
 	Checkpointer FreeformObject `json:"checkpointer,omitempty"`

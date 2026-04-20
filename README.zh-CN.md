@@ -18,7 +18,7 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 - `AgentRun` 记录一次不可变的执行请求及其执行状态。
 - `PromptTemplate`、`KnowledgeBase`、`ToolProvider`、`MCPServer`、`AgentPolicy` 和 `AgentEvaluation` 提供控制平面所需的配套资源。
 - controller-manager 负责编译 `Agent` 资源、发布确定性的状态，并将 `AgentRun` 分发到 runtime backend。
-- worker runtime backend 可以将每次运行分发为 Kubernetes Job。当前 worker 仍是占位实现，用于支撑 LangGraph runtime 成熟前的控制平面验证。
+- worker runtime backend 可以将每次运行分发为 Kubernetes Job。当前 worker 仍是占位实现，用于支撑 Eino runtime 成熟前的控制平面验证。
 
 ## 使用场景
 
@@ -36,18 +36,19 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 ## 架构方向
 
 - Go 承载 Kubernetes API 类型、CRD controller、compiler、admission check、runtime dispatch，以及未来的 gateway。
-- Python 预计承载兼容 LangGraph 的 runtime worker。
+- Go 预计承载基于 Eino 的 runtime worker。
+- 默认 runner 方向是 `runtime.engine: eino` 与 `runtime.runnerClass: adk`；LangGraph 保留为未来兼容 adapter。
 - PostgreSQL、pgvector、S3 兼容存储和队列预计用于状态、检索、产物和异步执行。
 - TypeScript 可用于未来的控制台、Marketplace UI 和生成式 SDK。
 
 ## 当前进度
 
-状态日期：2026-04-17。
+状态日期：2026-04-20。
 
 | 模块 | 状态 | 证据 |
 | --- | --- | --- |
 | YAML Agent Spec | 进行中 | `api/v1alpha1` 和 `config/crd/bases` 下已有 Go API 类型和 CRD；`examples/ehs` 与 `config/samples/ehs` 下已有 EHS YAML 样例。 |
-| 编译成 LangGraph | 部分完成 | `internal/compiler` 已能校验跨资源引用、产出面向 runtime 的 compiled artifact，并生成确定性 revision；尚未产出可执行的 LangGraph graph。 |
+| 编译成 Eino | 部分完成 | `internal/compiler` 已能校验跨资源引用、产出面向 runtime 的 compiled artifact，并生成确定性 revision；尚未产出可执行的 Eino runner artifact。 |
 | 发布 endpoint | Bootstrap | Agent controller 已发布 `Agent.status.endpoint.invoke`；invoke gateway 可接收 POST 请求并创建 `AgentRun` 资源。 |
 | trace | 部分完成 | 已有 `AgentRun.status.traceRef`，mock/worker backend 会写入该字段；完整分布式 tracing 和 trace 存储尚未实现。 |
 | version | 部分完成 | 已有 `Agent.status.compiledRevision` 与 `AgentRun.status.agentRevision`；语义化版本、发布通道和 revision history 仍待实现。 |
@@ -65,7 +66,7 @@ Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | YAML Agent Spec | 已有初始 CRD 和 EHS YAML 样例。 | 强化 schema 校验、默认值、必填字段和 admission check。 |
-| Agent compiler | 已有静态引用 compiler，可写入 `Agent.status.compiledArtifact`、基于 artifact 生成 revision，并将 artifact 传递给 worker。 | 逐步演进为兼容 LangGraph 的 IR。 |
+| Agent compiler | 已有静态引用 compiler，可写入 `Agent.status.compiledArtifact`、基于 artifact 生成 revision，并将 artifact 传递给 worker。 | 逐步演进为兼容 Eino 的 runner artifact。 |
 | AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
 | Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
 | Invoke gateway | `Agent.status.endpoint.invoke` 已发布调用路径，gateway 可通过 POST 请求创建 `AgentRun` 资源。 | 增加认证、鉴权、限流和幂等控制。 |
@@ -81,13 +82,13 @@ Phase 1 退出标准：
 
 ### Phase 2：真实 Agent Runtime
 
-目标：用真正兼容 LangGraph 的 runtime 替换占位 worker，同时保持 Kubernetes
+目标：用真正基于 Eino 的 runtime 替换占位 worker，同时保持 Kubernetes
 原生控制平面契约不变。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| LangGraph compile IR | 已有静态引用 compiler。 | 产出兼容 LangGraph 的中间表示。 |
-| Python runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 LangGraph 执行已编译 graph，并返回结构化结果。 |
+| Eino compile artifact | 已有静态引用 compiler。 | 产出兼容 Eino 的 runner artifact。 |
+| Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
@@ -95,7 +96,7 @@ Phase 1 退出标准：
 
 Phase 2 退出标准：
 
-- EHS AgentRun 通过真实 LangGraph worker 执行。
+- EHS AgentRun 通过真实 Eino worker 执行。
 - Policy 可以在不安全运行开始前阻断或要求审批。
 - worker Pod 消失后仍可查看 run artifacts 和 traces。
 - Evaluation 资源可以针对某个 agent revision 执行并发布结果。
@@ -124,7 +125,7 @@ Phase 3 退出标准：
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| Multi-runtime | runtime interface 已支持在 `mock` 和 `worker` backend 之间选择。 | 增加 LangGraph、远程 runtime 以及未来非 Python runtime 的 adapter。 |
+| Multi-runtime | runtime interface 已支持在 `mock` 和 `worker` backend 之间选择。 | 增加 Eino、LangGraph 兼容层和远程 runtime adapter。 |
 | Agent autoscaling | 尚未开始。 | 增加基于队列深度、延迟和成本的 runtime worker 扩缩容信号。 |
 | Agent mesh | 尚未开始。 | 定义 Agent 间发现、调用、策略传播、身份和 trace 关联。 |
 
@@ -215,7 +216,7 @@ Worker result contract v0：
   "compiledArtifact": {
     "apiVersion": "windosx.com/v1alpha1",
     "kind": "AgentCompiledArtifact",
-    "runtimeEngine": "langgraph",
+    "runtimeEngine": "eino",
     "policyRef": "ehs-default-safety-policy"
   }
 }

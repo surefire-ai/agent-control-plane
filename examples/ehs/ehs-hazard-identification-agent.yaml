@@ -15,13 +15,14 @@ spec:
     revisionHistoryLimit: 10
 
   runtime:
-    engine: langgraph
+    engine: eino
+    runnerClass: adk
     mode: stateful
-    entrypoint: graphs.ehs_hazard_identification:build_graph
+    entrypoint: ehs.hazard_identification
     checkpointer:
       provider: postgres
       secretRef:
-        name: langgraph-postgres
+        name: eino-checkpoint-postgres
         key: dsn
     thread:
       ttlSeconds: 2592000

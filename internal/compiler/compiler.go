@@ -11,6 +11,11 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
+const (
+	defaultRuntimeEngine = "eino"
+	defaultRunnerClass   = "adk"
+)
+
 type ReferenceIndex struct {
 	Prompts        map[string]struct{}
 	KnowledgeBases map[string]struct{}
@@ -46,7 +51,7 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 			"namespace":  agent.Namespace,
 			"generation": agent.Generation,
 		}),
-		"runtime":       jsonValue(agent.Spec.Runtime),
+		"runtime":       jsonValue(runtimeForArtifact(agent.Spec.Runtime)),
 		"models":        jsonValue(agent.Spec.Models),
 		"identity":      jsonValue(agent.Spec.Identity),
 		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
@@ -59,6 +64,16 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 		"graph":         jsonValue(agent.Spec.Graph),
 		"observability": jsonValue(agent.Spec.Observability),
 	}
+}
+
+func runtimeForArtifact(runtime apiv1alpha1.AgentRuntimeSpec) apiv1alpha1.AgentRuntimeSpec {
+	if runtime.Engine == "" {
+		runtime.Engine = defaultRuntimeEngine
+	}
+	if runtime.RunnerClass == "" {
+		runtime.RunnerClass = defaultRunnerClass
+	}
+	return runtime
 }
 
 func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []string {

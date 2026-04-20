@@ -25,7 +25,7 @@ in `examples/ehs` and `config/samples/ehs`.
 - A controller-manager compiles `Agent` resources, publishes deterministic
   status, and dispatches `AgentRun` resources to a runtime backend.
 - A worker runtime backend can dispatch each run as a Kubernetes Job. The
-  current worker is intentionally a placeholder while the LangGraph runtime is
+  current worker is intentionally a placeholder while the Eino runtime is
   being built.
 
 ## Use Cases
@@ -57,19 +57,21 @@ code.
 
 - Go hosts the Kubernetes API types, CRD controllers, compiler, admission
   checks, runtime dispatch, and future gateway.
-- Python is expected to host the LangGraph-compatible runtime worker.
+- Go is expected to host the Eino-based runtime worker.
+- `runtime.engine: eino` with `runtime.runnerClass: adk` is the default
+  runner direction; LangGraph remains a future compatibility adapter.
 - PostgreSQL, pgvector, S3-compatible storage, and a queue are expected to
   provide state, retrieval, artifacts, and async execution as the system matures.
 - TypeScript can host the future console, marketplace UI, and generated SDKs.
 
 ## Current Progress
 
-Status date: 2026-04-17.
+Status date: 2026-04-20.
 
 | Area | Status | Evidence |
 | --- | --- | --- |
 | YAML Agent Spec | In progress | Go API types and CRDs exist under `api/v1alpha1` and `config/crd/bases`; EHS YAML examples exist under `examples/ehs` and `config/samples/ehs`. |
-| Compile to LangGraph | Partial | `internal/compiler` validates cross-resource references, emits a runtime-oriented compiled artifact, and produces a deterministic revision. It does not yet emit an executable LangGraph graph. |
+| Compile to Eino | Partial | `internal/compiler` validates cross-resource references, emits a runtime-oriented compiled artifact, and produces a deterministic revision. It does not yet emit an executable Eino runner artifact. |
 | Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
 | Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
@@ -88,7 +90,7 @@ end.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | YAML Agent Spec | Initial CRDs and EHS sample YAML are present. | Harden schema validation, defaults, required fields, and admission checks. |
-| Agent compiler | Static reference compiler exists, writes `Agent.status.compiledArtifact`, produces artifact-based revisions, and passes the artifact to workers. | Evolve the artifact toward a LangGraph-compatible IR. |
+| Agent compiler | Static reference compiler exists, writes `Agent.status.compiledArtifact`, produces artifact-based revisions, and passes the artifact to workers. | Evolve the artifact toward an Eino-compatible runner artifact. |
 | AgentRun lifecycle | `Pending`, `Running`, `Succeeded`, and `Failed` transitions are implemented. | Add cancellation, timeout, retry, and idempotency semantics. |
 | Kubernetes Job runtime | `worker` backend creates Jobs and updates `AgentRun` status after completion. | Persist richer worker output and surface Job/Pod failure details. |
 | Invoke gateway | `Agent.status.endpoint.invoke` publishes the invoke path, and the gateway creates `AgentRun` resources from POST requests. | Add authentication, authorization, rate limiting, and idempotency controls. |
@@ -105,13 +107,13 @@ Phase 1 exit criteria:
 
 ### Phase 2: Real Agent Runtime
 
-Goal: replace the placeholder worker with a real LangGraph-compatible runtime
+Goal: replace the placeholder worker with a real Eino-based runtime
 while preserving the Kubernetes-native control-plane contract.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| LangGraph compile IR | Static reference compiler exists. | Emit a LangGraph-compatible intermediate representation. |
-| Python runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled graphs with LangGraph and return structured results. |
+| Eino compile artifact | Static reference compiler exists. | Emit an Eino-compatible runner artifact. |
+| Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
@@ -119,7 +121,7 @@ while preserving the Kubernetes-native control-plane contract.
 
 Phase 2 exit criteria:
 
-- An EHS AgentRun executes through a real LangGraph worker.
+- An EHS AgentRun executes through a real Eino worker.
 - Policy can block or require approval before unsafe runs start.
 - Run artifacts and traces can be inspected after worker Pods are gone.
 - Evaluation resources can execute against an agent revision and publish results.
@@ -148,7 +150,7 @@ Goal: scale from single-agent execution to a multi-runtime, multi-agent fabric.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| Multi-runtime | Runtime interface supports backend selection between `mock` and `worker`. | Add adapters for LangGraph, remote runtimes, and future non-Python runtimes. |
+| Multi-runtime | Runtime interface supports backend selection between `mock` and `worker`. | Add adapters for Eino, LangGraph compatibility, and remote runtimes. |
 | Agent autoscaling | Not started. | Add queue-depth, latency, and cost-aware scaling signals for runtime workers. |
 | Agent mesh | Not started. | Define agent-to-agent discovery, invocation, policy propagation, identity, and trace correlation. |
 
@@ -248,7 +250,7 @@ Succeeded:
   "compiledArtifact": {
     "apiVersion": "windosx.com/v1alpha1",
     "kind": "AgentCompiledArtifact",
-    "runtimeEngine": "langgraph",
+    "runtimeEngine": "eino",
     "policyRef": "ehs-default-safety-policy"
   }
 }

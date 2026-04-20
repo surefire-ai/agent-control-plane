@@ -12,7 +12,7 @@ func TestParseWorkerResultAcceptsSucceededResult(t *testing.T) {
   "message": "done",
   "compiledArtifact": {
     "kind": "AgentCompiledArtifact",
-    "runtimeEngine": "langgraph"
+    "runtimeEngine": "eino"
   }
 }`)
 	if err != nil {
@@ -21,7 +21,7 @@ func TestParseWorkerResultAcceptsSucceededResult(t *testing.T) {
 	if result.Status != WorkerStatusSucceeded {
 		t.Fatalf("unexpected status: %q", result.Status)
 	}
-	if result.CompiledArtifact.RuntimeEngine != "langgraph" {
+	if result.CompiledArtifact.RuntimeEngine != "eino" {
 		t.Fatalf("unexpected artifact summary: %#v", result.CompiledArtifact)
 	}
 }

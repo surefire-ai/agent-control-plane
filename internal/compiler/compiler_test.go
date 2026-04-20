@@ -35,6 +35,13 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if jsonString(t, result.Artifact["policyRef"]) != "ehs-default-safety-policy" {
 		t.Fatalf("expected policy ref in artifact, got %#v", result.Artifact["policyRef"])
 	}
+	runtime := runtimeArtifact(t, result.Artifact["runtime"])
+	if runtime.Engine != "eino" {
+		t.Fatalf("expected default runtime engine, got %#v", runtime)
+	}
+	if runtime.RunnerClass != "adk" {
+		t.Fatalf("expected default runner class, got %#v", runtime)
+	}
 }
 
 func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
@@ -50,7 +57,7 @@ func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
 		t.Fatalf("CompileAgent returned error: %v", err)
 	}
 	agent := testAgent()
-	agent.Spec.Runtime.Engine = "langgraph"
+	agent.Spec.Runtime.RunnerClass = "custom"
 	second, err := CompileAgent(agent, refs)
 	if err != nil {
 		t.Fatalf("CompileAgent returned error: %v", err)
@@ -115,6 +122,15 @@ func jsonString(t *testing.T, value apiextensionsv1.JSON) string {
 	var output string
 	if err := json.Unmarshal(value.Raw, &output); err != nil {
 		t.Fatalf("failed to decode JSON string: %v", err)
+	}
+	return output
+}
+
+func runtimeArtifact(t *testing.T, value apiextensionsv1.JSON) apiv1alpha1.AgentRuntimeSpec {
+	t.Helper()
+	var output apiv1alpha1.AgentRuntimeSpec
+	if err := json.Unmarshal(value.Raw, &output); err != nil {
+		t.Fatalf("failed to decode runtime artifact: %v", err)
 	}
 	return output
 }

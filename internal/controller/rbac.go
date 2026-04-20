@@ -8,5 +8,7 @@
 // +kubebuilder:rbac:groups=windosx.com,resources=agentruns,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentruns/status,verbs=get;patch;update
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;get;list;watch;patch;update
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 package controller

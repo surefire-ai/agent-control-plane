@@ -17,7 +17,7 @@ func TestRunWritesStructuredResult(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
-		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"langgraph"},"policyRef":"ehs-policy"}`,
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino"},"policyRef":"ehs-policy"}`,
 	}
 
 	if err := Run(context.Background(), config, &buffer); err != nil {
@@ -37,7 +37,7 @@ func TestRunWritesStructuredResult(t *testing.T) {
 	if result.CompiledArtifact.Kind != "AgentCompiledArtifact" {
 		t.Fatalf("unexpected compiled artifact summary: %#v", result.CompiledArtifact)
 	}
-	if result.CompiledArtifact.RuntimeEngine != "langgraph" {
+	if result.CompiledArtifact.RuntimeEngine != "eino" {
 		t.Fatalf("unexpected runtime engine: %#v", result.CompiledArtifact)
 	}
 	if result.CompiledArtifact.PolicyRef != "ehs-policy" {

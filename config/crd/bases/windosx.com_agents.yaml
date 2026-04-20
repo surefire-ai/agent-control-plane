@@ -192,6 +192,8 @@ spec:
                     type: string
                   mode:
                     type: string
+                  runnerClass:
+                    type: string
                   thread:
                     additionalProperties:
                       x-kubernetes-preserve-unknown-fields: true

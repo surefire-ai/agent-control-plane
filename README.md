@@ -104,6 +104,9 @@ Phase 1 exit criteria:
 - The controller-manager and worker images are buildable, deployable, and
   releasable.
 
+The detailed release checklist lives in
+`docs/releases/v0.1.0-readiness.md`.
+
 ### Phase 2: Real Agent Runtime
 
 Goal: replace the placeholder worker with a real Eino-based runtime

@@ -79,6 +79,8 @@ Phase 1 退出标准：
 - 运行结果记录 output、trace reference 和准确的 agent revision。
 - controller-manager 和 worker 镜像可构建、可部署、可发布。
 
+详细 release checklist 见 `docs/releases/v0.1.0-readiness.md`。
+
 ### Phase 2：真实 Agent Runtime
 
 目标：用真正基于 Eino 的 runtime 替换占位 worker，同时保持 Kubernetes

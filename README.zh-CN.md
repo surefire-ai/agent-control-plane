@@ -70,7 +70,7 @@ Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision
 | AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
 | Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
 | Invoke gateway | `Agent.status.endpoint.invoke` 已发布调用路径，gateway 可通过 POST 请求创建 `AgentRun` 资源。 | 增加认证、鉴权、限流和幂等控制。 |
-| Packaging and deployment | 已有 Dockerfile、RBAC 和 `config/default` 部署清单。 | 增加 CI、镜像发布、release tag 和 Helm Chart。先补 chart skeleton 用于 dev/E2E 安装，v0.1.0 前再提升为正式安装 artifact。 |
+| Packaging and deployment | 已有 Dockerfile、RBAC、`config/default` 部署清单、CI、GHCR 镜像发布 workflow 和 release tag 说明。 | 增加 Helm Chart。先补 chart skeleton 用于 dev/E2E 安装，v0.1.0 前再提升为正式安装 artifact。 |
 
 Phase 1 退出标准：
 
@@ -172,6 +172,17 @@ make build
 ```bash
 make docker-build
 ```
+
+CI 和镜像发布：
+
+- `.github/workflows/ci.yml` 会在 pull request 和 `main` 上运行格式检查、测试、二进制构建和 Docker 镜像构建。
+- `.github/workflows/publish-images.yml` 会在 `main`、`v*` tag 和手动触发时发布 controller-manager 与 worker 镜像到 GHCR。
+
+Release tag：
+
+- 使用 `v0.1.0` 这样的语义化版本 tag。
+- 推送 `v*` tag 时会发布两个镜像，并同时生成同名版本 tag 和 `sha-*` 可追踪 tag。
+- 准备 release branch 或 release archive 时，应将 Kubernetes manifests 固定到对应 release 镜像 tag。
 
 将 CRDs、RBAC 和 controller-manager 部署到当前 Kubernetes context：
 

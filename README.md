@@ -94,7 +94,7 @@ end.
 | AgentRun lifecycle | `Pending`, `Running`, `Succeeded`, and `Failed` transitions are implemented. | Add cancellation, timeout, retry, and idempotency semantics. |
 | Kubernetes Job runtime | `worker` backend creates Jobs and updates `AgentRun` status after completion. | Persist richer worker output and surface Job/Pod failure details. |
 | Invoke gateway | `Agent.status.endpoint.invoke` publishes the invoke path, and the gateway creates `AgentRun` resources from POST requests. | Add authentication, authorization, rate limiting, and idempotency controls. |
-| Packaging and deployment | Dockerfiles, RBAC, and `config/default` deployment manifests exist. | Add CI, image publishing, release tags, and a Helm Chart. Start with a chart skeleton for dev/E2E installs, then promote it to the official install artifact before v0.1.0. |
+| Packaging and deployment | Dockerfiles, RBAC, `config/default` deployment manifests, CI, GHCR image publishing workflows, and release tag notes exist. | Add a Helm Chart. Start with a chart skeleton for dev/E2E installs, then promote it to the official install artifact before v0.1.0. |
 
 Phase 1 exit criteria:
 
@@ -197,6 +197,21 @@ Build container images:
 ```bash
 make docker-build
 ```
+
+CI and image publishing:
+
+- `.github/workflows/ci.yml` runs formatting checks, tests, binary builds, and
+  Docker image builds for pull requests and `main`.
+- `.github/workflows/publish-images.yml` publishes controller-manager and worker
+  images to GHCR on `main`, `v*` tags, and manual dispatch.
+
+Release tags:
+
+- Use semantic version tags such as `v0.1.0`.
+- Pushing a `v*` tag publishes both images with the same tag and a `sha-*`
+  traceability tag.
+- Keep the Kubernetes manifests pinned to the release image tag when preparing a
+  release branch or release archive.
 
 Deploy the CRDs, RBAC, and controller-manager to the current Kubernetes
 context:

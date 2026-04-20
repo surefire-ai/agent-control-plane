@@ -1,0 +1,82 @@
+package contract
+
+import "testing"
+
+func TestParseCompiledArtifactSupportsPhase1Shape(t *testing.T) {
+	artifact, err := ParseCompiledArtifact(`{
+		"apiVersion":"windosx.com/v1alpha1",
+		"kind":"AgentCompiledArtifact",
+		"runtime":{"engine":"eino","runnerClass":"adk","mode":"stateful","checkpointer":{"provider":"postgres"}},
+		"policyRef":"ehs-policy"
+	}`)
+	if err != nil {
+		t.Fatalf("ParseCompiledArtifact returned error: %v", err)
+	}
+
+	if artifact.Kind != CompiledArtifactKind {
+		t.Fatalf("unexpected kind: %q", artifact.Kind)
+	}
+	if artifact.Runtime.Engine != RuntimeEngineEino {
+		t.Fatalf("unexpected runtime: %#v", artifact.Runtime)
+	}
+	if artifact.RuntimeIdentity().RunnerClass != RunnerClassADK {
+		t.Fatalf("unexpected identity: %#v", artifact.RuntimeIdentity())
+	}
+	if artifact.Summary().PolicyRef != "ehs-policy" {
+		t.Fatalf("unexpected summary: %#v", artifact.Summary())
+	}
+	if _, ok := artifact.Runtime.Extra["checkpointer"]; !ok {
+		t.Fatalf("expected runtime extra fields to be preserved: %#v", artifact.Runtime.Extra)
+	}
+}
+
+func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
+	artifact, err := ParseCompiledArtifact(`{
+		"apiVersion":"windosx.com/v1alpha1",
+		"kind":"AgentCompiledArtifact",
+		"schemaVersion":"v1",
+		"agent":{"name":"hazard-agent","namespace":"ehs","generation":7},
+		"runtime":{"engine":"eino","runnerClass":"adk","entrypoint":"ehs.hazard_identification"},
+		"runner":{
+			"kind":"EinoADKRunner",
+			"entrypoint":"ehs.hazard_identification",
+			"prompts":{"system":{"name":"system","language":"zh-CN","template":"hello"}},
+			"models":{"planner":{"provider":"openai","model":"gpt-4.1","temperature":0.1,"maxTokens":4000,"timeoutSeconds":60}},
+			"output":{"schema":{"type":"object"}}
+		},
+		"policyRef":"ehs-policy"
+	}`)
+	if err != nil {
+		t.Fatalf("ParseCompiledArtifact returned error: %v", err)
+	}
+
+	if artifact.SchemaVersion != CompiledArtifactSchemaV1 {
+		t.Fatalf("unexpected schema version: %q", artifact.SchemaVersion)
+	}
+	if artifact.Agent.Generation != 7 {
+		t.Fatalf("unexpected agent: %#v", artifact.Agent)
+	}
+	if artifact.Runner.Kind != "EinoADKRunner" {
+		t.Fatalf("unexpected runner: %#v", artifact.Runner)
+	}
+	if artifact.Runner.Prompts["system"].Language != "zh-CN" {
+		t.Fatalf("unexpected prompt: %#v", artifact.Runner.Prompts)
+	}
+	if artifact.Runner.Models["planner"].MaxTokens != 4000 {
+		t.Fatalf("unexpected model: %#v", artifact.Runner.Models)
+	}
+}
+
+func TestParseCompiledArtifactRequiresKind(t *testing.T) {
+	_, err := ParseCompiledArtifact(`{"runtime":{"engine":"eino"}}`)
+	if err == nil {
+		t.Fatal("expected missing kind error")
+	}
+}
+
+func TestParseCompiledArtifactRejectsInvalidJSON(t *testing.T) {
+	_, err := ParseCompiledArtifact(`{`)
+	if err == nil {
+		t.Fatal("expected invalid JSON error")
+	}
+}

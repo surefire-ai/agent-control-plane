@@ -127,7 +127,7 @@ The Phase 2 runtime design lives in
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| Eino compile artifact | Static reference compiler exists. | Emit an Eino-compatible runner artifact. |
+| Eino compile artifact | Static reference compiler and typed compiled artifact decoder exist. | Emit an Eino-compatible runner artifact. |
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |

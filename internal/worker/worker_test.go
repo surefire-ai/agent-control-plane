@@ -100,6 +100,32 @@ func TestRunDefaultsRunnerClass(t *testing.T) {
 	}
 }
 
+func TestRunAcceptsV1RunnerArtifact(t *testing.T) {
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","schemaVersion":"v1","runtime":{"engine":"eino","runnerClass":"adk","entrypoint":"ehs.hazard_identification"},"runner":{"kind":"EinoADKRunner","entrypoint":"ehs.hazard_identification","prompts":{"system":{"name":"system","language":"zh-CN","template":"hello"}},"models":{"planner":{"provider":"openai","model":"gpt-4.1"}}},"policyRef":"ehs-policy"}`,
+	}
+
+	if err := Run(context.Background(), config, &buffer); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	var result contract.WorkerResult
+	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
+		t.Fatalf("worker output is not JSON: %v", err)
+	}
+	if result.CompiledArtifact.RuntimeEngine != contract.RuntimeEngineEino {
+		t.Fatalf("unexpected runtime engine: %#v", result.CompiledArtifact)
+	}
+	if result.CompiledArtifact.RunnerClass != contract.RunnerClassADK {
+		t.Fatalf("unexpected runner class: %#v", result.CompiledArtifact)
+	}
+}
+
 func TestRunRejectsUnsupportedRuntimeEngine(t *testing.T) {
 	var buffer bytes.Buffer
 	config := Config{

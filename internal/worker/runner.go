@@ -13,7 +13,7 @@ type Runner interface {
 
 type RunRequest struct {
 	Config          Config
-	Artifact        CompiledArtifact
+	Artifact        contract.CompiledArtifact
 	RuntimeIdentity contract.RuntimeIdentity
 }
 

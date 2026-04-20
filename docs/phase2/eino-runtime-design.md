@@ -244,7 +244,9 @@ Minimum first provider contract:
 ## Implementation Slices
 
 1. **Artifact contract**: add typed artifact structs under `internal/contract`
-   or `internal/worker`, plus tests.
+   or `internal/worker`, plus tests. Status: implemented under
+   `internal/contract` as the typed `CompiledArtifact` decoder; worker dispatch
+   now consumes this contract while preserving Phase 1 artifact compatibility.
 2. **Compiler enrichment**: add `schemaVersion` and `runner` blocks while
    preserving the existing artifact fields.
 3. **Worker output extension**: add optional `output`, `artifacts`, and

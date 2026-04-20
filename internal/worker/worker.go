@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -12,19 +11,12 @@ import (
 )
 
 type Config struct {
-	AgentName              string           `json:"agentName"`
-	AgentRunName           string           `json:"agentRunName"`
-	AgentRunNamespace      string           `json:"agentRunNamespace"`
-	AgentRevision          string           `json:"agentRevision"`
-	AgentCompiledArtifact  string           `json:"-"`
-	ParsedCompiledArtifact CompiledArtifact `json:"-"`
-}
-
-type CompiledArtifact struct {
-	APIVersion string                 `json:"apiVersion,omitempty"`
-	Kind       string                 `json:"kind,omitempty"`
-	Runtime    map[string]interface{} `json:"runtime,omitempty"`
-	PolicyRef  string                 `json:"policyRef,omitempty"`
+	AgentName              string                    `json:"agentName"`
+	AgentRunName           string                    `json:"agentRunName"`
+	AgentRunNamespace      string                    `json:"agentRunNamespace"`
+	AgentRevision          string                    `json:"agentRevision"`
+	AgentCompiledArtifact  string                    `json:"-"`
+	ParsedCompiledArtifact contract.CompiledArtifact `json:"-"`
 }
 
 func ConfigFromEnv() Config {
@@ -60,11 +52,11 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
-	artifact, err := parseCompiledArtifact(config.AgentCompiledArtifact)
+	artifact, err := contract.ParseCompiledArtifact(config.AgentCompiledArtifact)
 	if err != nil {
 		return err
 	}
-	identity := contract.RuntimeIdentityFromMap(artifact.Runtime)
+	identity := artifact.RuntimeIdentity()
 	runner, err := runnerFor(identity)
 	if err != nil {
 		return err
@@ -93,24 +85,6 @@ func WriteFailure(writer io.Writer, err error) error {
 	return contract.WriteWorkerResult(writer, result)
 }
 
-func parseCompiledArtifact(raw string) (CompiledArtifact, error) {
-	var artifact CompiledArtifact
-	if err := json.Unmarshal([]byte(raw), &artifact); err != nil {
-		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT must be valid JSON: %w", err)
-	}
-	if artifact.Kind == "" {
-		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT kind is required")
-	}
-	return artifact, nil
-}
-
-func summarizeArtifact(artifact CompiledArtifact) contract.ArtifactSummary {
-	identity := contract.RuntimeIdentityFromMap(artifact.Runtime)
-	return contract.ArtifactSummary{
-		APIVersion:    artifact.APIVersion,
-		Kind:          artifact.Kind,
-		RuntimeEngine: identity.Engine,
-		RunnerClass:   identity.RunnerClass,
-		PolicyRef:     artifact.PolicyRef,
-	}
+func summarizeArtifact(artifact contract.CompiledArtifact) contract.ArtifactSummary {
+	return artifact.Summary()
 }

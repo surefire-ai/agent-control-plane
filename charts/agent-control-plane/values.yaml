@@ -1,19 +1,28 @@
 namespace:
+  # Helm users should normally prefer --create-namespace. Set this to true only
+  # when the chart itself should render a Namespace object.
   create: false
 
 controllerManager:
+  # One replica is enough while leader election and runtime behavior are still
+  # being hardened.
   replicas: 1
   image:
     repository: ghcr.io/surefire-ai/agent-control-plane-controller-manager
+    # For release installs, set this to the release tag, for example v0.1.0.
     tag: latest
     pullPolicy: IfNotPresent
+  # Supported values in v0.1.0: mock, worker.
   runtimeBackend: worker
   worker:
     image:
       repository: ghcr.io/surefire-ai/agent-control-plane-worker
+      # Keep this aligned with controllerManager.image.tag for release installs.
       tag: latest
+    # Optional shell command for overriding the worker container entrypoint.
     command: ""
   gateway:
+    # Set to "" to disable the invoke gateway.
     bindAddress: ":8082"
   resources:
     requests:
@@ -30,6 +39,7 @@ gateway:
 
 serviceAccount:
   create: true
+  # Leave empty to use the generated controller-manager service account name.
   name: ""
 
 rbac:

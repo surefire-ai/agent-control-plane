@@ -107,6 +107,16 @@ Phase 1 exit criteria:
 The detailed release checklist lives in
 `docs/releases/v0.1.0-readiness.md`.
 
+Release notes live in `docs/releases/v0.1.0.md`.
+
+Known limits for this phase:
+
+- Runtime execution is still a structured placeholder, not real Eino execution.
+- Gateway authn/authz, rate limiting, and idempotency are not implemented.
+- AgentRun cancellation, timeout, retry, and idempotency are not implemented.
+- Durable run artifacts and trace storage are not implemented.
+- The Helm chart is still a development and E2E install path.
+
 ### Phase 2: Real Agent Runtime
 
 Goal: replace the placeholder worker with a real Eino-based runtime

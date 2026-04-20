@@ -81,6 +81,16 @@ Phase 1 退出标准：
 
 详细 release checklist 见 `docs/releases/v0.1.0-readiness.md`。
 
+Release notes 见 `docs/releases/v0.1.0.md`。
+
+当前阶段已知限制：
+
+- runtime execution 仍是结构化占位实现，还不是真实 Eino 执行。
+- gateway 认证、鉴权、限流和幂等尚未实现。
+- AgentRun 取消、超时、重试和幂等语义尚未实现。
+- durable run artifacts 和 trace storage 尚未实现。
+- Helm chart 仍是开发和 E2E 安装路径。
+
 ### Phase 2：真实 Agent Runtime
 
 目标：用真正基于 Eino 的 runtime 替换占位 worker，同时保持 Kubernetes

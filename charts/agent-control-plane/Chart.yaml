@@ -1,0 +1,16 @@
+apiVersion: v2
+name: agent-control-plane
+description: Kubernetes-native control plane for declaring, running, and governing AI agents.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/surefire-ai/agent-control-plane
+sources:
+- https://github.com/surefire-ai/agent-control-plane
+keywords:
+- agent
+- ai
+- control-plane
+- kubernetes
+maintainers:
+- name: surefire-ai

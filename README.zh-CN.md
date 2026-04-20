@@ -69,7 +69,7 @@ Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision
 | AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
 | Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
 | Invoke gateway | `Agent.status.endpoint.invoke` 已发布调用路径，gateway 可通过 POST 请求创建 `AgentRun` 资源。 | 增加认证、鉴权、限流和幂等控制。 |
-| Packaging and deployment | 已有 Dockerfile、RBAC、`config/default` 部署清单、CI、GHCR 镜像发布 workflow 和 release tag 说明。 | 增加 Helm Chart。先补 chart skeleton 用于 dev/E2E 安装，v0.1.0 前再提升为正式安装 artifact。 |
+| Packaging and deployment | 已有 Dockerfile、RBAC、`config/default` 部署清单、CI、GHCR 镜像发布 workflow、release tag 说明和 Helm chart skeleton。 | v0.1.0 前将 chart 从 dev/E2E 安装路径提升为正式安装 artifact。 |
 
 Phase 1 退出标准：
 
@@ -187,6 +187,31 @@ Release tag：
 
 ```bash
 make deploy
+```
+
+使用开发版 Helm chart 安装：
+
+```bash
+helm upgrade --install agent-control-plane charts/agent-control-plane \
+  --namespace agent-control-plane-system \
+  --create-namespace
+```
+
+本地检查 chart：
+
+```bash
+make helm-lint
+make helm-template
+```
+
+本地镜像测试时，可以覆盖 controller-manager 和 worker 镜像 tag：
+
+```bash
+helm upgrade --install agent-control-plane charts/agent-control-plane \
+  --namespace agent-control-plane-system \
+  --create-namespace \
+  --set controllerManager.image.tag=latest \
+  --set controllerManager.worker.image.tag=latest
 ```
 
 移除已部署的控制平面：

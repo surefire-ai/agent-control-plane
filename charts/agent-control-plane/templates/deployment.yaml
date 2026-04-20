@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agent-control-plane.controllerName" . | quote }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "agent-control-plane.controllerLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.controllerManager.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "agent-control-plane.name" . | quote }}
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      app.kubernetes.io/component: "controller-manager"
+  template:
+    metadata:
+      labels:
+        {{- include "agent-control-plane.controllerLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "agent-control-plane.serviceAccountName" . | quote }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+      containers:
+      - name: manager
+        image: "{{ .Values.controllerManager.image.repository }}:{{ .Values.controllerManager.image.tag }}"
+        imagePullPolicy: {{ .Values.controllerManager.image.pullPolicy | quote }}
+        command:
+        - /controller-manager
+        args:
+        - --leader-elect
+        - --runtime-backend={{ .Values.controllerManager.runtimeBackend }}
+        - --worker-job-image={{ .Values.controllerManager.worker.image.repository }}:{{ .Values.controllerManager.worker.image.tag }}
+        {{- if .Values.controllerManager.worker.command }}
+        - --worker-job-command={{ .Values.controllerManager.worker.command }}
+        {{- end }}
+        - --gateway-bind-address={{ .Values.controllerManager.gateway.bindAddress }}
+        ports:
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        - name: gateway
+          containerPort: 8082
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.controllerManager.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL

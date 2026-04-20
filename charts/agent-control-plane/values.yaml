@@ -1,0 +1,36 @@
+namespace:
+  create: false
+
+controllerManager:
+  replicas: 1
+  image:
+    repository: ghcr.io/surefire-ai/agent-control-plane-controller-manager
+    tag: latest
+    pullPolicy: IfNotPresent
+  runtimeBackend: worker
+  worker:
+    image:
+      repository: ghcr.io/surefire-ai/agent-control-plane-worker
+      tag: latest
+    command: ""
+  gateway:
+    bindAddress: ":8082"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+gateway:
+  service:
+    type: ClusterIP
+    port: 8082
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true

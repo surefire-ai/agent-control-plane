@@ -51,6 +51,14 @@ run:
 deploy: manifests
 	kubectl apply -k config/default
 
+.PHONY: helm-lint
+helm-lint:
+	helm lint charts/agent-control-plane
+
+.PHONY: helm-template
+helm-template:
+	helm template agent-control-plane charts/agent-control-plane --namespace agent-control-plane-system --include-crds
+
 .PHONY: undeploy
 undeploy:
 	kubectl delete -k config/default

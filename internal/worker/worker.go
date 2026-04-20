@@ -108,51 +108,16 @@ func parseCompiledArtifact(raw string) (CompiledArtifact, error) {
 }
 
 func summarizeArtifact(artifact CompiledArtifact) contract.ArtifactSummary {
-	identity := runtimeIdentity(artifact.Runtime)
+	identity := contract.RuntimeIdentityFromMap(artifact.Runtime)
 	return contract.ArtifactSummary{
 		APIVersion:    artifact.APIVersion,
 		Kind:          artifact.Kind,
-		RuntimeEngine: identity.engine,
-		RunnerClass:   identity.runnerClass,
+		RuntimeEngine: identity.Engine,
+		RunnerClass:   identity.RunnerClass,
 		PolicyRef:     artifact.PolicyRef,
 	}
 }
 
 func validateRuntimeIdentity(artifact CompiledArtifact) error {
-	identity := runtimeIdentity(artifact.Runtime)
-	if identity.engine != contract.RuntimeEngineEino {
-		return fmt.Errorf("unsupported runtime engine %q", identity.engine)
-	}
-	if identity.runnerClass != contract.RunnerClassADK {
-		return fmt.Errorf("unsupported runner class %q for runtime engine %q", identity.runnerClass, identity.engine)
-	}
-	return nil
-}
-
-type runtimeIdentityValue struct {
-	engine      string
-	runnerClass string
-}
-
-func runtimeIdentity(runtime map[string]interface{}) runtimeIdentityValue {
-	identity := runtimeIdentityValue{
-		engine:      contract.RuntimeEngineEino,
-		runnerClass: contract.RunnerClassADK,
-	}
-	if engine := runtimeString(runtime, "engine"); engine != "" {
-		identity.engine = engine
-	}
-	if runnerClass := runtimeString(runtime, "runnerClass"); runnerClass != "" {
-		identity.runnerClass = runnerClass
-	}
-	return identity
-}
-
-func runtimeString(runtime map[string]interface{}, key string) string {
-	value, ok := runtime[key]
-	if !ok {
-		return ""
-	}
-	output, _ := value.(string)
-	return output
+	return contract.RuntimeIdentityFromMap(artifact.Runtime).ValidateSupported()
 }

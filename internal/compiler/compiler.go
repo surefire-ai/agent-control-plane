@@ -63,12 +63,12 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 }
 
 func runtimeForArtifact(runtime apiv1alpha1.AgentRuntimeSpec) apiv1alpha1.AgentRuntimeSpec {
-	if runtime.Engine == "" {
-		runtime.Engine = contract.RuntimeEngineEino
-	}
-	if runtime.RunnerClass == "" {
-		runtime.RunnerClass = contract.RunnerClassADK
-	}
+	identity := contract.RuntimeIdentityFromSpec(contract.RuntimeSpec{
+		Engine:      runtime.Engine,
+		RunnerClass: runtime.RunnerClass,
+	})
+	runtime.Engine = identity.Engine
+	runtime.RunnerClass = identity.RunnerClass
 	return runtime
 }
 

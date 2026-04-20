@@ -251,6 +251,7 @@ Succeeded:
     "apiVersion": "windosx.com/v1alpha1",
     "kind": "AgentCompiledArtifact",
     "runtimeEngine": "eino",
+    "runnerClass": "adk",
     "policyRef": "ehs-default-safety-policy"
   }
 }

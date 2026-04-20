@@ -109,6 +109,7 @@ func summarizeArtifact(artifact CompiledArtifact) contract.ArtifactSummary {
 		APIVersion:    artifact.APIVersion,
 		Kind:          artifact.Kind,
 		RuntimeEngine: runtimeEngine(artifact.Runtime),
+		RunnerClass:   runnerClass(artifact.Runtime),
 		PolicyRef:     artifact.PolicyRef,
 	}
 }
@@ -120,4 +121,13 @@ func runtimeEngine(runtime map[string]interface{}) string {
 	}
 	engine, _ := value.(string)
 	return engine
+}
+
+func runnerClass(runtime map[string]interface{}) string {
+	value, ok := runtime["runnerClass"]
+	if !ok {
+		return ""
+	}
+	class, _ := value.(string)
+	return class
 }

@@ -230,7 +230,8 @@ func workerRequest() Request {
 				CompiledArtifact: apiv1alpha1.FreeformObject{
 					"kind": JSONValue("AgentCompiledArtifact"),
 					"runtime": JSONValue(map[string]interface{}{
-						"engine": "eino",
+						"engine":      "eino",
+						"runnerClass": "adk",
 					}),
 				},
 			},
@@ -277,6 +278,7 @@ func workerResultLog() string {
     "apiVersion": "windosx.com/v1alpha1",
     "kind": "AgentCompiledArtifact",
     "runtimeEngine": "eino",
+    "runnerClass": "adk",
     "policyRef": "ehs-default-safety-policy"
   },
   "startedAt": "2026-04-17T06:16:59.241012625Z"

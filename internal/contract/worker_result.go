@@ -28,6 +28,7 @@ type ArtifactSummary struct {
 	APIVersion    string `json:"apiVersion,omitempty"`
 	Kind          string `json:"kind,omitempty"`
 	RuntimeEngine string `json:"runtimeEngine,omitempty"`
+	RunnerClass   string `json:"runnerClass,omitempty"`
 	PolicyRef     string `json:"policyRef,omitempty"`
 }
 

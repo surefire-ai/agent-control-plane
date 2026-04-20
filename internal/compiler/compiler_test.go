@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
+	"github.com/surefire-ai/agent-control-plane/internal/contract"
 )
 
 func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
@@ -32,6 +33,9 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if jsonString(t, result.Artifact["kind"]) != "AgentCompiledArtifact" {
 		t.Fatalf("expected compiled artifact kind, got %#v", result.Artifact["kind"])
 	}
+	if jsonString(t, result.Artifact["schemaVersion"]) != contract.CompiledArtifactSchemaV1 {
+		t.Fatalf("expected schema version in artifact, got %#v", result.Artifact["schemaVersion"])
+	}
 	if jsonString(t, result.Artifact["policyRef"]) != "ehs-default-safety-policy" {
 		t.Fatalf("expected policy ref in artifact, got %#v", result.Artifact["policyRef"])
 	}
@@ -41,6 +45,22 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	}
 	if runtime.RunnerClass != "adk" {
 		t.Fatalf("expected default runner class, got %#v", runtime)
+	}
+	runner := runnerArtifact(t, result.Artifact["runner"])
+	if runner.Kind != "EinoADKRunner" {
+		t.Fatalf("expected Eino runner artifact, got %#v", runner)
+	}
+	if runner.Entrypoint != "ehs.hazard_identification" {
+		t.Fatalf("expected runner entrypoint, got %#v", runner)
+	}
+	if runner.Prompts["system"].Name != "ehs-hazard-identification-system" {
+		t.Fatalf("expected system prompt in runner artifact, got %#v", runner.Prompts)
+	}
+	if runner.Models["planner"].Provider != "openai" {
+		t.Fatalf("expected planner model in runner artifact, got %#v", runner.Models)
+	}
+	if runner.Output == nil {
+		t.Fatalf("expected output schema in runner artifact, got %#v", runner)
 	}
 }
 
@@ -64,6 +84,34 @@ func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
 	}
 	if first.Revision == second.Revision {
 		t.Fatalf("expected revision to change when compiled artifact changes: %q", first.Revision)
+	}
+}
+
+func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
+	result, err := CompileAgent(testAgent(), ReferenceIndex{
+		Prompts:        set("ehs-hazard-identification-system"),
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
+		MCPServers:     set("ehs-docs-mcp"),
+		Policies:       set("ehs-default-safety-policy"),
+	})
+	if err != nil {
+		t.Fatalf("CompileAgent returned error: %v", err)
+	}
+
+	raw, err := json.Marshal(result.Artifact)
+	if err != nil {
+		t.Fatalf("failed to marshal artifact: %v", err)
+	}
+	artifact, err := contract.ParseCompiledArtifact(string(raw))
+	if err != nil {
+		t.Fatalf("compiled artifact did not decode through contract: %v", err)
+	}
+	if artifact.Runner.Kind != "EinoADKRunner" {
+		t.Fatalf("unexpected runner: %#v", artifact.Runner)
+	}
+	if artifact.RuntimeIdentity().RunnerClass != contract.RunnerClassADK {
+		t.Fatalf("unexpected runtime identity: %#v", artifact.RuntimeIdentity())
 	}
 }
 
@@ -95,6 +143,18 @@ func testAgent() apiv1alpha1.Agent {
 			Generation: 3,
 		},
 		Spec: apiv1alpha1.AgentSpec{
+			Runtime: apiv1alpha1.AgentRuntimeSpec{
+				Entrypoint: "ehs.hazard_identification",
+			},
+			Models: map[string]apiv1alpha1.ModelSpec{
+				"planner": {
+					Provider:       "openai",
+					Model:          "gpt-4.1",
+					Temperature:    0.1,
+					MaxTokens:      4000,
+					TimeoutSeconds: 60,
+				},
+			},
 			PromptRefs: apiv1alpha1.AgentPromptRefs{
 				System: "ehs-hazard-identification-system",
 			},
@@ -105,6 +165,11 @@ func testAgent() apiv1alpha1.Agent {
 			ToolRefs:  []string{"vision-inspection-tool", "rectify-ticket-api"},
 			MCPRefs:   []string{"ehs-docs-mcp"},
 			PolicyRef: "ehs-default-safety-policy",
+			Interfaces: apiv1alpha1.AgentInterfaceSpec{
+				Output: apiv1alpha1.SchemaEnvelope{
+					Schema: apiv1alpha1.JSONSchema{Raw: []byte(`{"type":"object"}`)},
+				},
+			},
 		},
 	}
 }
@@ -131,6 +196,15 @@ func runtimeArtifact(t *testing.T, value apiextensionsv1.JSON) apiv1alpha1.Agent
 	var output apiv1alpha1.AgentRuntimeSpec
 	if err := json.Unmarshal(value.Raw, &output); err != nil {
 		t.Fatalf("failed to decode runtime artifact: %v", err)
+	}
+	return output
+}
+
+func runnerArtifact(t *testing.T, value apiextensionsv1.JSON) contract.ArtifactRunner {
+	t.Helper()
+	var output contract.ArtifactRunner
+	if err := json.Unmarshal(value.Raw, &output); err != nil {
+		t.Fatalf("failed to decode runner artifact: %v", err)
 	}
 	return output
 }

@@ -40,14 +40,16 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 
 func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 	return apiv1alpha1.FreeformObject{
-		"apiVersion": jsonValue(apiv1alpha1.Group + "/" + apiv1alpha1.Version),
-		"kind":       jsonValue("AgentCompiledArtifact"),
+		"apiVersion":    jsonValue(apiv1alpha1.Group + "/" + apiv1alpha1.Version),
+		"kind":          jsonValue(contract.CompiledArtifactKind),
+		"schemaVersion": jsonValue(contract.CompiledArtifactSchemaV1),
 		"agent": jsonValue(map[string]interface{}{
 			"name":       agent.Name,
 			"namespace":  agent.Namespace,
 			"generation": agent.Generation,
 		}),
 		"runtime":       jsonValue(runtimeForArtifact(agent.Spec.Runtime)),
+		"runner":        jsonValue(runnerForArtifact(agent.Spec)),
 		"models":        jsonValue(agent.Spec.Models),
 		"identity":      jsonValue(agent.Spec.Identity),
 		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
@@ -59,6 +61,28 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 		"memory":        jsonValue(agent.Spec.Memory),
 		"graph":         jsonValue(agent.Spec.Graph),
 		"observability": jsonValue(agent.Spec.Observability),
+	}
+}
+
+func runnerForArtifact(spec apiv1alpha1.AgentSpec) map[string]interface{} {
+	runtime := runtimeForArtifact(spec.Runtime)
+	return map[string]interface{}{
+		"kind":       "EinoADKRunner",
+		"entrypoint": runtime.Entrypoint,
+		"graph": map[string]interface{}{
+			"stateSchema": spec.Graph.StateSchema,
+			"nodes":       spec.Graph.Nodes,
+			"edges":       spec.Graph.Edges,
+		},
+		"prompts": map[string]interface{}{
+			"system": map[string]interface{}{
+				"name": spec.PromptRefs.System,
+			},
+		},
+		"models": spec.Models,
+		"output": map[string]interface{}{
+			"schema": spec.Interfaces.Output.Schema,
+		},
 	}
 }
 

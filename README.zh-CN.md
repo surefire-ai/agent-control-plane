@@ -100,7 +100,7 @@ Phase 2 runtime 设计见 `docs/phase2/eino-runtime-design.md`。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| Eino compile artifact | 已有静态引用 compiler 和 typed compiled artifact decoder。 | 产出兼容 Eino 的 runner artifact。 |
+| Eino compile artifact | 已有静态引用 compiler、typed compiled artifact decoder 和 v1 runner artifact 输出。 | 继续把 prompt/tool/knowledge 内容解析进 runner artifact。 |
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |

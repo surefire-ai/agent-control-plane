@@ -248,7 +248,9 @@ Minimum first provider contract:
    `internal/contract` as the typed `CompiledArtifact` decoder; worker dispatch
    now consumes this contract while preserving Phase 1 artifact compatibility.
 2. **Compiler enrichment**: add `schemaVersion` and `runner` blocks while
-   preserving the existing artifact fields.
+   preserving the existing artifact fields. Status: implemented; the compiler
+   now emits `schemaVersion: v1` and an `EinoADKRunner` block that can be
+   decoded by the typed contract.
 3. **Worker output extension**: add optional `output`, `artifacts`, and
    `runtime` fields to `WorkerResult`.
 4. **Eino runner skeleton**: add a real runner type behind `Runner`, initially

@@ -275,6 +275,11 @@ The placeholder worker currently accepts only the default Eino runtime identity:
 as those defaults; explicit unsupported values fail the run with a structured
 worker failure.
 
+Internally, the worker now dispatches through a runner boundary. The first
+implementation is an `EinoADKPlaceholderRunner`, which keeps the current
+placeholder behavior while leaving a narrow integration point for the real Eino
+runner.
+
 ## Invoke Gateway
 
 The controller-manager starts an invoke gateway on `--gateway-bind-address`

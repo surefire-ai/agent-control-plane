@@ -64,23 +64,20 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := validateRuntimeIdentity(artifact); err != nil {
+	identity := contract.RuntimeIdentityFromMap(artifact.Runtime)
+	runner, err := runnerFor(identity)
+	if err != nil {
 		return err
 	}
 	config.ParsedCompiledArtifact = artifact
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	result := contract.WorkerResult{
-		Status:           contract.WorkerStatusSucceeded,
-		Message:          "agent control plane worker placeholder completed",
-		Config:           config,
-		CompiledArtifact: summarizeArtifact(artifact),
-		StartedAt:        time.Now().UTC(),
+	result, err := runner.Run(ctx, RunRequest{
+		Config:          config,
+		Artifact:        artifact,
+		RuntimeIdentity: identity,
+	})
+	if err != nil {
+		return err
 	}
 
 	return contract.WriteWorkerResult(writer, result)
@@ -116,8 +113,4 @@ func summarizeArtifact(artifact CompiledArtifact) contract.ArtifactSummary {
 		RunnerClass:   identity.RunnerClass,
 		PolicyRef:     artifact.PolicyRef,
 	}
-}
-
-func validateRuntimeIdentity(artifact CompiledArtifact) error {
-	return contract.RuntimeIdentityFromMap(artifact.Runtime).ValidateSupported()
 }

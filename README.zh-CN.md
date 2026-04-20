@@ -238,6 +238,10 @@ Worker result contract v0：
 当前 placeholder worker 只接受默认 Eino runtime identity：`runtime.engine=eino`
 和 `runtime.runnerClass=adk`。缺省值会按默认值处理；显式填写不支持的值会让本次运行以结构化 worker failure 失败。
 
+worker 内部已经通过 runner 边界分发执行。第一版实现是
+`EinoADKPlaceholderRunner`，它会保持当前占位行为，同时为后续接入真实 Eino
+runner 留出明确的集成点。
+
 ## Invoke Gateway
 
 controller-manager 会在 `--gateway-bind-address` 上启动 invoke gateway，默认地址为

@@ -124,6 +124,8 @@ while preserving the Kubernetes-native control-plane contract.
 
 The Phase 2 runtime design lives in
 `docs/phase2/eino-runtime-design.md`.
+Agent pattern, SubAgent, and A2A TODOs live in
+`docs/phase2/agent-patterns-and-a2a-todo.md`.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
@@ -131,6 +133,7 @@ The Phase 2 runtime design lives in
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
+| Agent patterns | Not started. | Add pattern presets such as ReAct, plan-and-execute, router, reflection, tool-calling, and RAG so users do not need to hand-author full graphs for common cases. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
 | Evaluation | `AgentEvaluation` CRD exists. | Add an evaluation reconciler and result reporting. |
 
@@ -149,6 +152,7 @@ Goal: make the platform usable by teams, not only by cluster operators.
 | --- | --- | --- |
 | UI | Not started in this repository. | Build a console for agents, runs, traces, evaluations, and publishing workflows. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
+| SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
 | Tenant | Not started. | Add tenancy model, namespace mapping, RBAC boundaries, quotas, and audit trails. |
 | Governance workflows | Policy CRD exists. | Add review, approval, human-in-the-loop, and exception workflows. |
 
@@ -167,13 +171,14 @@ Goal: scale from single-agent execution to a multi-runtime, multi-agent fabric.
 | --- | --- | --- |
 | Multi-runtime | Runtime interface supports backend selection between `mock` and `worker`. | Add adapters for Eino, LangGraph compatibility, and remote runtimes. |
 | Agent autoscaling | Not started. | Add queue-depth, latency, and cost-aware scaling signals for runtime workers. |
-| Agent mesh | Not started. | Define agent-to-agent discovery, invocation, policy propagation, identity, and trace correlation. |
+| Agent mesh | Not started. | Define agent-to-agent discovery, invocation, policy propagation, identity, trace correlation, and A2A protocol interoperability. |
 
 Phase 4 exit criteria:
 
 - Multiple runtime backends can run compatible agent revisions.
 - Agents scale automatically based on demand and policy limits.
 - Agent-to-agent calls preserve identity, policy, version, and trace context.
+- A2A-compatible endpoints can expose Agent Cards and map tasks, messages, and artifacts to AgentRun records.
 
 ## Local Development
 

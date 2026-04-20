@@ -97,6 +97,8 @@ Release notes 见 `docs/releases/v0.1.0.md`。
 原生控制平面契约不变。
 
 Phase 2 runtime 设计见 `docs/phase2/eino-runtime-design.md`。
+Agent pattern、SubAgent 和 A2A TODO 见
+`docs/phase2/agent-patterns-and-a2a-todo.md`。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
@@ -104,6 +106,7 @@ Phase 2 runtime 设计见 `docs/phase2/eino-runtime-design.md`。
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
+| Agent patterns | 尚未开始。 | 增加 ReAct、plan-and-execute、router、reflection、tool-calling、RAG 等常见范式，避免用户为常见场景手写完整 graph。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
 | Evaluation | 已有 `AgentEvaluation` CRD。 | 增加 evaluation reconciler 和结果上报。 |
 
@@ -122,6 +125,7 @@ Phase 2 退出标准：
 | --- | --- | --- |
 | UI | 本仓库尚未开始。 | 构建用于 agents、runs、traces、evaluations 和发布流程的控制台。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
+| SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
 | Tenant | 尚未开始。 | 增加租户模型、namespace 映射、RBAC 边界、quota 和审计轨迹。 |
 | Governance workflows | 已有 Policy CRD。 | 增加 review、approval、human-in-the-loop 和 exception 工作流。 |
 
@@ -140,13 +144,14 @@ Phase 3 退出标准：
 | --- | --- | --- |
 | Multi-runtime | runtime interface 已支持在 `mock` 和 `worker` backend 之间选择。 | 增加 Eino、LangGraph 兼容层和远程 runtime adapter。 |
 | Agent autoscaling | 尚未开始。 | 增加基于队列深度、延迟和成本的 runtime worker 扩缩容信号。 |
-| Agent mesh | 尚未开始。 | 定义 Agent 间发现、调用、策略传播、身份和 trace 关联。 |
+| Agent mesh | 尚未开始。 | 定义 Agent 间发现、调用、策略传播、身份、trace 关联和 A2A 协议互操作。 |
 
 Phase 4 退出标准：
 
 - 多个 runtime backend 可以运行兼容的 agent revision。
 - Agent 可以基于需求和策略限制自动扩缩容。
 - Agent 到 Agent 的调用能保留 identity、policy、version 和 trace context。
+- A2A-compatible endpoint 可以暴露 Agent Card，并将 task、message 和 artifact 映射到 AgentRun 记录。
 
 ## 本地开发
 

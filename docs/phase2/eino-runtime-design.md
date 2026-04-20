@@ -266,12 +266,21 @@ Minimum first provider contract:
 
 - Should the first real runner use Eino ADK directly, or compile the graph into
   Eino Graph/Workflow primitives first?
+- Should ReAct and other common patterns expand into Eino ADK/Graph at compile
+  time, or should the runtime interpret pattern metadata directly?
 - Should output schema validation happen in the worker only, or also in the
   controller as a defensive check?
 - Should `AgentRun.spec.execution.mode=sync` have any special meaning while the
   underlying execution is still Job-based?
 - How should missing optional capabilities, such as tools and retrieval, be
   represented in output without looking like successful tool execution?
+- Which minimal SubAgent shape should be added before full A2A support:
+  internal `subAgentRefs`, graph `kind: agent`, or an A2A-facing interface block?
+
+## Related TODOs
+
+- Agent patterns, SubAgents, and A2A support:
+  `docs/phase2/agent-patterns-and-a2a-todo.md`
 
 ## References
 

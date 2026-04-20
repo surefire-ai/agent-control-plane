@@ -96,6 +96,8 @@ Release notes 见 `docs/releases/v0.1.0.md`。
 目标：用真正基于 Eino 的 runtime 替换占位 worker，同时保持 Kubernetes
 原生控制平面契约不变。
 
+Phase 2 runtime 设计见 `docs/phase2/eino-runtime-design.md`。
+
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | Eino compile artifact | 已有静态引用 compiler。 | 产出兼容 Eino 的 runner artifact。 |

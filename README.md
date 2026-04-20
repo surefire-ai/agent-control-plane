@@ -122,6 +122,9 @@ Known limits for this phase:
 Goal: replace the placeholder worker with a real Eino-based runtime
 while preserving the Kubernetes-native control-plane contract.
 
+The Phase 2 runtime design lives in
+`docs/phase2/eino-runtime-design.md`.
+
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | Eino compile artifact | Static reference compiler exists. | Emit an Eino-compatible runner artifact. |

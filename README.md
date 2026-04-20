@@ -7,8 +7,7 @@
 Agent Control Plane is a Kubernetes-native control plane for declaring,
 publishing, running, governing, and evaluating AI agents.
 
-This project is owned and maintained by [windosx](https://github.com/windosx).
-The source repository is `github.com/windosx/agent-control-plane`, and the
+The source repository is `github.com/surefire-ai/agent-control-plane`, and the
 Kubernetes API group uses `windosx.com/v1alpha1`.
 
 The current implementation is driven by the EHS hazard-identification examples

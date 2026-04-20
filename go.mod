@@ -1,4 +1,4 @@
-module github.com/windosx/agent-control-plane
+module github.com/surefire-ai/agent-control-plane
 
 go 1.25
 

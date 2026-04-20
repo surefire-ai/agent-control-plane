@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
-	agentruntime "github.com/windosx/agent-control-plane/internal/runtime"
+	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
+	agentruntime "github.com/surefire-ai/agent-control-plane/internal/runtime"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

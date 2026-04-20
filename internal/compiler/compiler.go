@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sort"
 
-	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
-	"github.com/windosx/agent-control-plane/internal/contract"
+	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
+	"github.com/surefire-ai/agent-control-plane/internal/contract"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 

@@ -11,7 +11,7 @@ resources:
 - ../manager
 
 images:
-- name: ghcr.io/windosx/agent-control-plane-controller-manager
+- name: ghcr.io/surefire-ai/agent-control-plane-controller-manager
   newTag: latest
-- name: ghcr.io/windosx/agent-control-plane-worker
+- name: ghcr.io/surefire-ai/agent-control-plane-worker
   newTag: latest

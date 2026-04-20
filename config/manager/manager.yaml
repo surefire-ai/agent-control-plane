@@ -24,14 +24,14 @@ spec:
         runAsGroup: 65532
       containers:
       - name: manager
-        image: ghcr.io/windosx/agent-control-plane-controller-manager:latest
+        image: ghcr.io/surefire-ai/agent-control-plane-controller-manager:latest
         imagePullPolicy: IfNotPresent
         command:
         - /controller-manager
         args:
         - --leader-elect
         - --runtime-backend=worker
-        - --worker-job-image=ghcr.io/windosx/agent-control-plane-worker:latest
+        - --worker-job-image=ghcr.io/surefire-ai/agent-control-plane-worker:latest
         ports:
         - name: metrics
           containerPort: 8080

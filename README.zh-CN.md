@@ -6,8 +6,7 @@
 
 Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发布、运行、治理和评估 AI Agent。
 
-本项目由 [windosx](https://github.com/windosx) 维护。源码仓库是
-`github.com/windosx/agent-control-plane`，Kubernetes API Group 使用
+源码仓库是 `github.com/surefire-ai/agent-control-plane`，Kubernetes API Group 使用
 `windosx.com/v1alpha1`。
 
 当前实现以 `examples/ehs` 和 `config/samples/ehs` 中的 EHS 危害识别样例为起点。

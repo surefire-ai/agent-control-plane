@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	apiv1alpha1 "github.com/windosx/agent-control-plane/api/v1alpha1"
+	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

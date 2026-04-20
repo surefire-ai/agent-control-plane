@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/windosx/agent-control-plane/internal/contract"
+	"github.com/surefire-ai/agent-control-plane/internal/contract"
 )
 
 type Runner interface {

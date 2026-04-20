@@ -1,6 +1,6 @@
 GO ?= go
 CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
-IMAGE_REPOSITORY ?= ghcr.io/windosx
+IMAGE_REPOSITORY ?= ghcr.io/surefire-ai
 IMAGE_TAG ?= latest
 LOCAL_DOCKER_ARCH ?= arm64
 

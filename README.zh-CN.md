@@ -106,7 +106,7 @@ Agent pattern、SubAgent 和 A2A TODO 见
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
-| Agent patterns | 尚未开始。 | 增加 ReAct、plan-and-execute、router、reflection、tool-calling、RAG 等常见范式，避免用户为常见场景手写完整 graph。 |
+| Agent patterns | 尚未开始。 | 增加 ReAct、plan-and-execute、router、reflection、tool-calling、RAG 等常见范式；用户仍声明 Agent CRD，但常见场景不必手写完整 graph。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
 | Evaluation | 已有 `AgentEvaluation` CRD。 | 增加 evaluation reconciler 和结果上报。 |
 

@@ -5,16 +5,19 @@ Eino runtime becomes too concrete.
 
 ## Why This Matters
 
-Users should not have to hand-write a full graph for common agent designs.
-`AgentSpec` should support recognized patterns such as ReAct and provide a path
-for internal SubAgent composition and future A2A interoperability.
+Users should still declare Agents as Kubernetes CRDs. The goal is narrower:
+users should not have to hand-write a full `spec.graph` for common agent
+designs. `AgentSpec` should support recognized patterns such as ReAct while
+still letting users choose models, tools, knowledge, MCP servers, policies,
+interfaces, memory, and observability as normal CRD fields.
 
 ## Agent Pattern Presets
 
 Status: not started.
 
-Add a first-class pattern field so users can declare intent without writing the
-full graph by hand.
+Add a first-class pattern field so users can declare the orchestration pattern
+without writing the full graph by hand. Other Agent inputs remain explicit and
+selectable.
 
 Proposed shape:
 
@@ -28,6 +31,16 @@ spec:
       - rectify-ticket-api
     maxIterations: 6
     stopWhen: final_answer
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+  toolRefs:
+    - rectify-ticket-api
+  policyRef: ehs-default-safety-policy
 ```
 
 Initial presets to support:
@@ -45,6 +58,8 @@ Initial presets to support:
 Compiler TODO:
 
 - Expand `spec.pattern` into `runner.graph` when `spec.graph` is empty.
+- Preserve user-selected models, tools, knowledge, MCP servers, policies, and
+  interfaces as explicit inputs to the pattern expansion.
 - Reject ambiguous configurations where both `pattern` and incompatible
   explicit graph nodes are present.
 - Preserve the original pattern declaration in the compiled artifact.

@@ -133,7 +133,7 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
-| Agent patterns | Not started. | Add pattern presets such as ReAct, plan-and-execute, router, reflection, tool-calling, and RAG so users do not need to hand-author full graphs for common cases. |
+| Agent patterns | Not started. | Add pattern presets such as ReAct, plan-and-execute, router, reflection, tool-calling, and RAG so users can keep declaring Agent CRDs while avoiding hand-authored graphs for common cases. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
 | Evaluation | `AgentEvaluation` CRD exists. | Add an evaluation reconciler and result reporting. |
 

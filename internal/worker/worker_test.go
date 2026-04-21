@@ -18,6 +18,7 @@ func TestRunWritesStructuredResult(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{"task":"identify_hazard","payload":{"text":"inspect line 3"}}`,
 		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"adk"},"runner":{"kind":"EinoADKRunner","models":{"planner":{"provider":"openai","model":"gpt-4.1","credentialRef":{"name":"openai-credentials","key":"apiKey"}}}},"policyRef":"ehs-policy"}`,
 	}
 
@@ -56,6 +57,13 @@ func TestRunWritesStructuredResult(t *testing.T) {
 	if result.Output["validatedModels"] != float64(1) {
 		t.Fatalf("unexpected output payload: %#v", result.Output)
 	}
+	if result.Output["task"] != "identify_hazard" {
+		t.Fatalf("unexpected task payload: %#v", result.Output)
+	}
+	inputKeys, ok := result.Output["inputKeys"].([]interface{})
+	if !ok || len(inputKeys) != 2 {
+		t.Fatalf("unexpected input keys: %#v", result.Output)
+	}
 	if len(result.Artifacts) != 1 || result.Artifacts[0].Name != "runtime-model-bindings" {
 		t.Fatalf("unexpected artifacts: %#v", result.Artifacts)
 	}
@@ -78,6 +86,7 @@ func TestRunRejectsInvalidCompiledArtifact(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{}`,
 		AgentCompiledArtifact: `{`,
 	}
 
@@ -97,6 +106,7 @@ func TestRunDefaultsRunnerClass(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{}`,
 		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino"},"policyRef":"ehs-policy"}`,
 	}
 
@@ -121,6 +131,7 @@ func TestRunAcceptsV1RunnerArtifact(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{"task":"identify_hazard"}`,
 		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","schemaVersion":"v1","runtime":{"engine":"eino","runnerClass":"adk","entrypoint":"ehs.hazard_identification"},"runner":{"kind":"EinoADKRunner","entrypoint":"ehs.hazard_identification","prompts":{"system":{"name":"system","language":"zh-CN","template":"hello"}},"models":{"planner":{"provider":"openai","model":"gpt-4.1","credentialRef":{"name":"openai-credentials","key":"apiKey"}}}},"policyRef":"ehs-policy"}`,
 	}
 
@@ -150,6 +161,7 @@ func TestRunFailsWhenModelCredentialIsMissing(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{"task":"identify_hazard"}`,
 		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"adk"},"runner":{"kind":"EinoADKRunner","models":{"planner":{"provider":"openai","model":"gpt-4.1","credentialRef":{"name":"openai-credentials","key":"apiKey"}}}}}`,
 	}
 
@@ -169,6 +181,7 @@ func TestRunRejectsUnsupportedRuntimeEngine(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{}`,
 		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"langgraph","runnerClass":"adk"},"policyRef":"ehs-policy"}`,
 	}
 
@@ -188,6 +201,7 @@ func TestRunRejectsUnsupportedRunnerClass(t *testing.T) {
 		AgentRunName:          "run-1",
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{}`,
 		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"custom"},"policyRef":"ehs-policy"}`,
 	}
 
@@ -241,5 +255,28 @@ func TestWriteFailurePreservesFailureReason(t *testing.T) {
 	}
 	if result.Message == "" {
 		t.Fatalf("expected failure message, got %#v", result)
+	}
+}
+
+func TestRunRejectsInvalidRunInput(t *testing.T) {
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{`,
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"adk"}}`,
+	}
+
+	err := Run(context.Background(), config, &buffer)
+	if err == nil {
+		t.Fatal("expected invalid run input error")
+	}
+	if !strings.Contains(err.Error(), "AGENT_RUN_INPUT must be valid JSON") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if failureReason(err) != "InvalidRunInput" {
+		t.Fatalf("unexpected failure reason: %q", failureReason(err))
 	}
 }

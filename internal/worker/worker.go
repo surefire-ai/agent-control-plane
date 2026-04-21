@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +17,9 @@ type Config struct {
 	AgentRunName           string                    `json:"agentRunName"`
 	AgentRunNamespace      string                    `json:"agentRunNamespace"`
 	AgentRevision          string                    `json:"agentRevision"`
+	AgentRunInput          string                    `json:"-"`
 	AgentCompiledArtifact  string                    `json:"-"`
+	ParsedRunInput         map[string]interface{}    `json:"runInput,omitempty"`
 	ParsedCompiledArtifact contract.CompiledArtifact `json:"-"`
 }
 
@@ -26,6 +29,7 @@ func ConfigFromEnv() Config {
 		AgentRunName:          os.Getenv("AGENT_RUN_NAME"),
 		AgentRunNamespace:     os.Getenv("AGENT_RUN_NAMESPACE"),
 		AgentRevision:         os.Getenv("AGENT_REVISION"),
+		AgentRunInput:         os.Getenv("AGENT_RUN_INPUT"),
 		AgentCompiledArtifact: os.Getenv("AGENT_COMPILED_ARTIFACT"),
 	}
 }
@@ -43,6 +47,9 @@ func (c Config) Validate() error {
 	if c.AgentRevision == "" {
 		return fmt.Errorf("AGENT_REVISION is required")
 	}
+	if c.AgentRunInput == "" {
+		return fmt.Errorf("AGENT_RUN_INPUT is required")
+	}
 	if c.AgentCompiledArtifact == "" {
 		return fmt.Errorf("AGENT_COMPILED_ARTIFACT is required")
 	}
@@ -57,12 +64,20 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
+	var runInput map[string]interface{}
+	if err := json.Unmarshal([]byte(config.AgentRunInput), &runInput); err != nil {
+		return FailureReasonError{
+			Reason:  "InvalidRunInput",
+			Message: fmt.Sprintf("AGENT_RUN_INPUT must be valid JSON: %v", err),
+		}
+	}
 	identity := artifact.RuntimeIdentity()
 	runner, err := runnerFor(identity)
 	if err != nil {
 		return err
 	}
 	config.ParsedCompiledArtifact = artifact
+	config.ParsedRunInput = runInput
 
 	result, err := runner.Run(ctx, RunRequest{
 		Config:          config,

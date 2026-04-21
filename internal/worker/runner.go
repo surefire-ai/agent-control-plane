@@ -51,9 +51,13 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 	}
 
 	modelCount := len(runtimeInfo.Models)
+	task := taskFromRunInput(request.Config.ParsedRunInput)
 	message := "agent control plane worker placeholder completed"
 	if modelCount > 0 {
 		message = fmt.Sprintf("agent control plane worker placeholder validated %d model binding(s)", modelCount)
+	}
+	if task != "" {
+		message = fmt.Sprintf("%s for task %q", message, task)
 	}
 
 	return contract.WorkerResult{
@@ -63,6 +67,8 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		CompiledArtifact: summarizeArtifact(request.Artifact),
 		Output: map[string]interface{}{
 			"summary":           message,
+			"task":              task,
+			"inputKeys":         sortedInputKeys(request.Config.ParsedRunInput),
 			"validatedModels":   modelCount,
 			"runtimeEntrypoint": runtimeInfo.Entrypoint,
 		},
@@ -149,6 +155,27 @@ func sortedModelNames(modelSets ...map[string]contract.ModelConfig) []string {
 
 func modelAPIKeyEnvName(name string) string {
 	return modelEnvPrefix(name) + "_API_KEY"
+}
+
+func taskFromRunInput(input map[string]interface{}) string {
+	value, ok := input["task"]
+	if !ok {
+		return ""
+	}
+	task, _ := value.(string)
+	return task
+}
+
+func sortedInputKeys(input map[string]interface{}) []string {
+	if len(input) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(input))
+	for key := range input {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func modelEnvPrefix(name string) string {

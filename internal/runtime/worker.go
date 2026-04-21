@@ -112,6 +112,7 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 		{Name: "AGENT_RUN_NAME", Value: request.Run.Name},
 		{Name: "AGENT_RUN_NAMESPACE", Value: request.Run.Namespace},
 		{Name: "AGENT_REVISION", Value: request.Agent.Status.CompiledRevision},
+		{Name: "AGENT_RUN_INPUT", Value: runInputJSON(request.Run)},
 		{Name: "AGENT_COMPILED_ARTIFACT", Value: compiledArtifactJSON(request.Agent)},
 	}
 	env = append(env, modelRuntimeEnvVars(request.Agent.Spec.Models)...)
@@ -179,6 +180,17 @@ func compiledArtifactJSON(agent apiv1alpha1.Agent) string {
 		return "{}"
 	}
 	raw, err := json.Marshal(agent.Status.CompiledArtifact)
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
+}
+
+func runInputJSON(run apiv1alpha1.AgentRun) string {
+	if len(run.Spec.Input) == 0 {
+		return "{}"
+	}
+	raw, err := json.Marshal(run.Spec.Input)
 	if err != nil {
 		return "{}"
 	}

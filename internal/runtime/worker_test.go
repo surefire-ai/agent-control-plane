@@ -56,6 +56,9 @@ func TestWorkerRuntimeCreatesJobAndReportsInProgress(t *testing.T) {
 	if !strings.Contains(envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT"), "AgentCompiledArtifact") {
 		t.Fatalf("unexpected compiled artifact env: %q", envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT"))
 	}
+	if !strings.Contains(envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_RUN_INPUT"), "identify_hazard") {
+		t.Fatalf("expected worker Job to receive AGENT_RUN_INPUT, got %q", envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_RUN_INPUT"))
+	}
 	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_API_KEY") == nil {
 		t.Fatal("expected worker Job to receive MODEL_PLANNER_API_KEY from SecretKeyRef")
 	}
@@ -105,7 +108,7 @@ func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
 	if JSONString(result.TraceRef, "podName") != jobName+"-pod" {
 		t.Fatalf("unexpected trace pod: %#v", result.TraceRef)
 	}
-	if JSONString(result.Output, "summary") != "agent control plane worker placeholder validated 1 model binding(s)" {
+	if JSONString(result.Output, "summary") != "agent control plane worker placeholder validated 1 model binding(s) for task \"identify_hazard\"" {
 		t.Fatalf("unexpected output summary: %#v", result.Output)
 	}
 	if result.Output["compiledArtifact"].Raw == nil {
@@ -273,6 +276,12 @@ func workerRequest() Request {
 				Namespace: "ehs",
 				UID:       types.UID("run-uid"),
 			},
+			Spec: apiv1alpha1.AgentRunSpec{
+				Input: apiv1alpha1.FreeformObject{
+					"task":    JSONValue("identify_hazard"),
+					"payload": JSONValue(map[string]interface{}{"text": "inspect line 3"}),
+				},
+			},
 		},
 	}
 }
@@ -315,7 +324,9 @@ func workerResultLog() string {
     "agentRevision": "sha256:agent"
   },
   "output": {
-    "summary": "agent control plane worker placeholder validated 1 model binding(s)",
+    "summary": "agent control plane worker placeholder validated 1 model binding(s) for task \"identify_hazard\"",
+    "task": "identify_hazard",
+    "inputKeys": ["payload", "task"],
     "validatedModels": 1,
     "runtimeEntrypoint": "ehs.hazard_identification"
   },

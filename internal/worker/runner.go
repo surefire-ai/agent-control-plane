@@ -21,7 +21,9 @@ type RunRequest struct {
 	RuntimeIdentity contract.RuntimeIdentity
 }
 
-type EinoADKPlaceholderRunner struct{}
+type EinoADKPlaceholderRunner struct {
+	Invoker OpenAICompatibleInvoker
+}
 
 type FailureReasonError struct {
 	Reason  string
@@ -54,28 +56,37 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 	modelCount := len(runtimeInfo.Models)
 	task := taskFromRunInput(request.Config.ParsedRunInput)
 	message := "agent control plane worker placeholder completed"
+	resultPayload := map[string]interface{}{
+		"task":              task,
+		"inputKeys":         sortedInputKeys(request.Config.ParsedRunInput),
+		"validatedModels":   modelCount,
+		"runtimeEntrypoint": runtimeInfo.Entrypoint,
+	}
 	if modelCount > 0 {
 		message = fmt.Sprintf("agent control plane worker placeholder validated %d model binding(s)", modelCount)
 	}
 	if task != "" {
 		message = fmt.Sprintf("%s for task %q", message, task)
 	}
+	if invocation, ok, err := r.invokePrimaryModel(ctx, request, runtimeInfo); err != nil {
+		return contract.WorkerResult{}, err
+	} else if ok {
+		message = fmt.Sprintf("agent control plane worker executed model %q for task %q", invocation.ModelName, task)
+		resultPayload["model"] = invocation.ModelName
+		resultPayload["modelResponse"] = invocation.Content
+		artifacts = append(artifacts, invocation.Artifacts...)
+	}
+	resultPayload["summary"] = message
 
 	return contract.WorkerResult{
 		Status:           contract.WorkerStatusSucceeded,
 		Message:          message,
 		Config:           request.Config,
 		CompiledArtifact: summarizeArtifact(request.Artifact),
-		Output: map[string]interface{}{
-			"summary":           message,
-			"task":              task,
-			"inputKeys":         sortedInputKeys(request.Config.ParsedRunInput),
-			"validatedModels":   modelCount,
-			"runtimeEntrypoint": runtimeInfo.Entrypoint,
-		},
-		Artifacts: artifacts,
-		Runtime:   &runtimeInfo,
-		StartedAt: time.Now().UTC(),
+		Output:           resultPayload,
+		Artifacts:        artifacts,
+		Runtime:          &runtimeInfo,
+		StartedAt:        time.Now().UTC(),
 	}, nil
 }
 
@@ -83,7 +94,45 @@ func runnerFor(identity contract.RuntimeIdentity) (Runner, error) {
 	if err := identity.ValidateSupported(); err != nil {
 		return nil, err
 	}
-	return EinoADKPlaceholderRunner{}, nil
+	return EinoADKPlaceholderRunner{Invoker: OpenAICompatibleInvoker{}}, nil
+}
+
+type ModelInvocation struct {
+	ModelName string
+	Content   string
+	Artifacts []contract.WorkerArtifact
+}
+
+func (r EinoADKPlaceholderRunner) invokePrimaryModel(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (ModelInvocation, bool, error) {
+	modelName, modelConfig, ok := primaryModelConfig(request.Artifact)
+	if !ok {
+		return ModelInvocation{}, false, nil
+	}
+	modelRuntime, ok := runtimeInfo.Models[modelName]
+	if !ok {
+		return ModelInvocation{}, false, nil
+	}
+	if strings.TrimSpace(modelRuntime.BaseURL) == "" {
+		return ModelInvocation{}, false, nil
+	}
+
+	systemPrompt := request.Artifact.Runner.Prompts["system"]
+	if strings.TrimSpace(systemPrompt.Template) == "" {
+		return ModelInvocation{}, false, nil
+	}
+
+	result, err := r.Invoker.Invoke(ctx, modelRuntime, modelConfig, systemPrompt, request.Config.ParsedRunInput, request.Artifact.Runner.Output)
+	if err != nil {
+		return ModelInvocation{}, false, err
+	}
+	return ModelInvocation{
+		ModelName: modelName,
+		Content:   result.Content,
+		Artifacts: []contract.WorkerArtifact{
+			{Name: "chat-completion-request", Kind: "json", Inline: result.RequestBody},
+			{Name: "chat-completion-response", Kind: "json", Inline: result.ResponseBody},
+		},
+	}, true, nil
 }
 
 func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contract.RuntimeIdentity) (contract.WorkerRuntimeInfo, []contract.WorkerArtifact, error) {
@@ -152,6 +201,21 @@ func sortedModelNames(modelSets ...map[string]contract.ModelConfig) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func primaryModelConfig(artifact contract.CompiledArtifact) (string, contract.ModelConfig, bool) {
+	names := sortedModelNames(artifact.Runner.Models, artifact.Models)
+	for _, name := range names {
+		model := artifact.Runner.Models[name]
+		if model.Provider == "" && model.Model == "" && model.CredentialRef == nil && model.BaseURL == "" {
+			model = artifact.Models[name]
+		}
+		if model.Model == "" {
+			continue
+		}
+		return name, model, true
+	}
+	return "", contract.ModelConfig{}, false
 }
 
 func modelAPIKeyEnvName(name string) string {

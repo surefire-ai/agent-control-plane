@@ -49,6 +49,7 @@ type ModelInvocationResult struct {
 	RequestBody  map[string]interface{}
 	ResponseBody map[string]interface{}
 	Content      string
+	Parsed       map[string]interface{}
 }
 
 var lookupEnv = os.Getenv
@@ -137,10 +138,18 @@ func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.Work
 	if err := json.Unmarshal(rawResponse, &responseBody); err != nil {
 		responseBody = map[string]interface{}{}
 	}
+	parsed, err := parseModelContent(response.Choices[0].Message.Content)
+	if err != nil {
+		return ModelInvocationResult{}, err
+	}
+	if err := validateOutputSchema(parsed, output); err != nil {
+		return ModelInvocationResult{}, err
+	}
 	return ModelInvocationResult{
 		RequestBody:  requestBody,
 		ResponseBody: responseBody,
 		Content:      strings.TrimSpace(response.Choices[0].Message.Content),
+		Parsed:       parsed,
 	}, nil
 }
 
@@ -187,4 +196,60 @@ func userContent(input map[string]interface{}) string {
 		return "{}"
 	}
 	return string(raw)
+}
+
+func parseModelContent(content string) (map[string]interface{}, error) {
+	trimmed := strings.TrimSpace(content)
+	if trimmed == "" {
+		return nil, FailureReasonError{
+			Reason:  "ModelResponseParseFailed",
+			Message: "model response content was empty",
+		}
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return nil, FailureReasonError{
+			Reason:  "ModelResponseParseFailed",
+			Message: fmt.Sprintf("model response content must be valid JSON object: %v", err),
+		}
+	}
+	return parsed, nil
+}
+
+func validateOutputSchema(result map[string]interface{}, output map[string]interface{}) error {
+	if len(output) == 0 {
+		return nil
+	}
+	rawSchema, ok := output["schema"]
+	if !ok {
+		return nil
+	}
+	schema, ok := rawSchema.(map[string]interface{})
+	if !ok {
+		return FailureReasonError{
+			Reason:  "OutputSchemaValidationFailed",
+			Message: "output schema must be a JSON object",
+		}
+	}
+	if schemaType, _ := schema["type"].(string); schemaType != "" && schemaType != "object" {
+		return FailureReasonError{
+			Reason:  "OutputSchemaValidationFailed",
+			Message: fmt.Sprintf("unsupported output schema type %q", schemaType),
+		}
+	}
+	if required, ok := schema["required"].([]interface{}); ok {
+		for _, item := range required {
+			name, _ := item.(string)
+			if name == "" {
+				continue
+			}
+			if _, exists := result[name]; !exists {
+				return FailureReasonError{
+					Reason:  "OutputSchemaValidationFailed",
+					Message: fmt.Sprintf("model response missing required field %q", name),
+				}
+			}
+		}
+	}
+	return nil
 }

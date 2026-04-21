@@ -74,6 +74,10 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		message = fmt.Sprintf("agent control plane worker executed model %q for task %q", invocation.ModelName, task)
 		resultPayload["model"] = invocation.ModelName
 		resultPayload["modelResponse"] = invocation.Content
+		resultPayload["result"] = invocation.Parsed
+		if summary, _ := invocation.Parsed["summary"].(string); strings.TrimSpace(summary) != "" {
+			message = summary
+		}
 		artifacts = append(artifacts, invocation.Artifacts...)
 	}
 	resultPayload["summary"] = message
@@ -100,6 +104,7 @@ func runnerFor(identity contract.RuntimeIdentity) (Runner, error) {
 type ModelInvocation struct {
 	ModelName string
 	Content   string
+	Parsed    map[string]interface{}
 	Artifacts []contract.WorkerArtifact
 }
 
@@ -128,6 +133,7 @@ func (r EinoADKPlaceholderRunner) invokePrimaryModel(ctx context.Context, reques
 	return ModelInvocation{
 		ModelName: modelName,
 		Content:   result.Content,
+		Parsed:    result.Parsed,
 		Artifacts: []contract.WorkerArtifact{
 			{Name: "chat-completion-request", Kind: "json", Inline: result.RequestBody},
 			{Name: "chat-completion-response", Kind: "json", Inline: result.ResponseBody},

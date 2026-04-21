@@ -62,6 +62,9 @@ func TestOpenAICompatibleInvokerInvoke(t *testing.T) {
 	if result.Content != "{\"summary\":\"inspection complete\"}" {
 		t.Fatalf("unexpected content: %q", result.Content)
 	}
+	if result.Parsed["summary"] != "inspection complete" {
+		t.Fatalf("unexpected parsed result: %#v", result.Parsed)
+	}
 	if result.RequestBody["model"] != "gpt-4.1" {
 		t.Fatalf("unexpected request body: %#v", result.RequestBody)
 	}
@@ -88,5 +91,29 @@ func TestOpenAICompatibleInvokerRejectsNonSuccessStatus(t *testing.T) {
 	)
 	if err == nil || !strings.Contains(err.Error(), "model call returned status") {
 		t.Fatalf("expected status error, got %v", err)
+	}
+}
+
+func TestOpenAICompatibleInvokerRejectsSchemaMismatch(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"hazards\":[]}"}}]}`))
+	}))
+	defer server.Close()
+
+	_, err := OpenAICompatibleInvoker{Client: server.Client()}.Invoke(
+		context.Background(),
+		contract.WorkerModelRuntime{
+			BaseURL:   server.URL,
+			APIKeyEnv: "MODEL_PLANNER_API_KEY",
+		},
+		contract.ModelConfig{Model: "gpt-4.1"},
+		contract.PromptSpec{Template: "hello"},
+		map[string]interface{}{"task": "identify_hazard"},
+		map[string]interface{}{"schema": map[string]interface{}{"type": "object", "required": []interface{}{"summary"}}},
+	)
+	if err == nil || !strings.Contains(err.Error(), "missing required field") {
+		t.Fatalf("expected schema validation error, got %v", err)
 	}
 }

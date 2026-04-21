@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -69,6 +71,43 @@ func TestRunWritesStructuredResult(t *testing.T) {
 	}
 	if result.Artifacts[1].Inline["userInput"] == nil {
 		t.Fatalf("expected prompt preview to include user input: %#v", result.Artifacts[1])
+	}
+}
+
+func TestRunExecutesModelAndProducesStructuredResult(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-1","choices":[{"message":{"role":"assistant","content":"{\"summary\":\"inspection complete\",\"hazards\":[]}"}}]}`))
+	}))
+	defer server.Close()
+
+	var buffer bytes.Buffer
+	config := Config{
+		AgentName:             "hazard-agent",
+		AgentRunName:          "run-1",
+		AgentRunNamespace:     "ehs",
+		AgentRevision:         "sha256:test",
+		AgentRunInput:         `{"task":"identify_hazard","payload":{"text":"inspect line 3"}}`,
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"adk"},"runner":{"kind":"EinoADKRunner","prompts":{"system":{"name":"system","language":"zh-CN","template":"You are an EHS assistant."}},"models":{"planner":{"provider":"openai","model":"gpt-4.1","baseURL":"` + server.URL + `","credentialRef":{"name":"openai-credentials","key":"apiKey"}}},"output":{"schema":{"type":"object","required":["summary"]}}},"policyRef":"ehs-policy"}`,
+	}
+
+	if err := Run(context.Background(), config, &buffer); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	var result contract.WorkerResult
+	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
+		t.Fatalf("worker output is not JSON: %v", err)
+	}
+	if result.Output["model"] != "planner" {
+		t.Fatalf("expected model execution metadata, got %#v", result.Output)
+	}
+	parsed, ok := result.Output["result"].(map[string]interface{})
+	if !ok || parsed["summary"] != "inspection complete" {
+		t.Fatalf("expected parsed model result, got %#v", result.Output)
+	}
+	if len(result.Artifacts) < 4 {
+		t.Fatalf("expected prompt and chat completion artifacts, got %#v", result.Artifacts)
 	}
 }
 

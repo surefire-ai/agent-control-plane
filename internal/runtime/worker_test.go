@@ -56,6 +56,18 @@ func TestWorkerRuntimeCreatesJobAndReportsInProgress(t *testing.T) {
 	if !strings.Contains(envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT"), "AgentCompiledArtifact") {
 		t.Fatalf("unexpected compiled artifact env: %q", envValue(job.Spec.Template.Spec.Containers[0].Env, "AGENT_COMPILED_ARTIFACT"))
 	}
+	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_API_KEY") == nil {
+		t.Fatal("expected worker Job to receive MODEL_PLANNER_API_KEY from SecretKeyRef")
+	}
+	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_API_KEY").SecretKeyRef == nil {
+		t.Fatalf("expected planner API key to come from SecretKeyRef, got %#v", envVarSource(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_API_KEY"))
+	}
+	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_API_KEY").SecretKeyRef.Name != "openai-credentials" {
+		t.Fatalf("unexpected secret ref: %#v", envVarSource(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_API_KEY"))
+	}
+	if envValue(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_BASE_URL") != "https://api.openai.com/v1" {
+		t.Fatalf("unexpected planner base URL env: %#v", job.Spec.Template.Spec.Containers[0].Env)
+	}
 }
 
 func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
@@ -225,6 +237,16 @@ func workerRequest() Request {
 	return Request{
 		Agent: apiv1alpha1.Agent{
 			ObjectMeta: metav1.ObjectMeta{Name: "hazard-agent"},
+			Spec: apiv1alpha1.AgentSpec{
+				Models: map[string]apiv1alpha1.ModelSpec{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       "https://api.openai.com/v1",
+						CredentialRef: &apiv1alpha1.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+			},
 			Status: apiv1alpha1.AgentStatus{
 				CompiledRevision: "sha256:agent",
 				CompiledArtifact: apiv1alpha1.FreeformObject{
@@ -253,6 +275,15 @@ func envValue(env []corev1.EnvVar, name string) string {
 		}
 	}
 	return ""
+}
+
+func envVarSource(env []corev1.EnvVar, name string) *corev1.EnvVarSource {
+	for _, item := range env {
+		if item.Name == name {
+			return item.ValueFrom
+		}
+	}
+	return nil
 }
 
 type staticPodLogReader struct {

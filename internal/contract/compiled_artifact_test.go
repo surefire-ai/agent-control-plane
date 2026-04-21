@@ -41,7 +41,7 @@ func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
 			"kind":"EinoADKRunner",
 			"entrypoint":"ehs.hazard_identification",
 			"prompts":{"system":{"name":"system","language":"zh-CN","template":"hello"}},
-			"models":{"planner":{"provider":"openai","model":"gpt-4.1","temperature":0.1,"maxTokens":4000,"timeoutSeconds":60}},
+			"models":{"planner":{"provider":"openai","model":"gpt-4.1","baseURL":"https://api.openai.com/v1","credentialRef":{"name":"openai-credentials","key":"apiKey"},"temperature":0.1,"maxTokens":4000,"timeoutSeconds":60}},
 			"output":{"schema":{"type":"object"}}
 		},
 		"policyRef":"ehs-policy"
@@ -64,6 +64,12 @@ func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
 	}
 	if artifact.Runner.Models["planner"].MaxTokens != 4000 {
 		t.Fatalf("unexpected model: %#v", artifact.Runner.Models)
+	}
+	if artifact.Runner.Models["planner"].BaseURL != "https://api.openai.com/v1" {
+		t.Fatalf("unexpected model baseURL: %#v", artifact.Runner.Models)
+	}
+	if artifact.Runner.Models["planner"].CredentialRef == nil || artifact.Runner.Models["planner"].CredentialRef.Name != "openai-credentials" {
+		t.Fatalf("unexpected model credentialRef: %#v", artifact.Runner.Models)
 	}
 }
 

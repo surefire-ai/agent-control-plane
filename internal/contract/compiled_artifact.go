@@ -56,10 +56,17 @@ type PromptSpec struct {
 type ModelConfig struct {
 	Provider       string                 `json:"provider,omitempty"`
 	Model          string                 `json:"model,omitempty"`
+	BaseURL        string                 `json:"baseURL,omitempty"`
+	CredentialRef  *SecretKeyReference    `json:"credentialRef,omitempty"`
 	Temperature    float64                `json:"temperature,omitempty"`
 	MaxTokens      int32                  `json:"maxTokens,omitempty"`
 	TimeoutSeconds int32                  `json:"timeoutSeconds,omitempty"`
 	Extra          map[string]interface{} `json:"-"`
+}
+
+type SecretKeyReference struct {
+	Name string `json:"name,omitempty"`
+	Key  string `json:"key,omitempty"`
 }
 
 func ParseCompiledArtifact(raw string) (CompiledArtifact, error) {

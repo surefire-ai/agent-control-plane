@@ -144,6 +144,18 @@ spec:
               models:
                 additionalProperties:
                   properties:
+                    baseURL:
+                      type: string
+                    credentialRef:
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
                     maxTokens:
                       format: int32
                       type: integer

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
@@ -106,6 +107,15 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 	ttlSecondsAfterFinished := int32(300)
 	runAsUser := int64(65532)
 	runAsGroup := int64(65532)
+	env := []corev1.EnvVar{
+		{Name: "AGENT_NAME", Value: request.Agent.Name},
+		{Name: "AGENT_RUN_NAME", Value: request.Run.Name},
+		{Name: "AGENT_RUN_NAMESPACE", Value: request.Run.Namespace},
+		{Name: "AGENT_REVISION", Value: request.Agent.Status.CompiledRevision},
+		{Name: "AGENT_COMPILED_ARTIFACT", Value: compiledArtifactJSON(request.Agent)},
+	}
+	env = append(env, modelRuntimeEnvVars(request.Agent.Spec.Models)...)
+
 	return batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -155,13 +165,7 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 									Drop: []corev1.Capability{"ALL"},
 								},
 							},
-							Env: []corev1.EnvVar{
-								{Name: "AGENT_NAME", Value: request.Agent.Name},
-								{Name: "AGENT_RUN_NAME", Value: request.Run.Name},
-								{Name: "AGENT_RUN_NAMESPACE", Value: request.Run.Namespace},
-								{Name: "AGENT_REVISION", Value: request.Agent.Status.CompiledRevision},
-								{Name: "AGENT_COMPILED_ARTIFACT", Value: compiledArtifactJSON(request.Agent)},
-							},
+							Env: env,
 						},
 					},
 				},
@@ -183,6 +187,66 @@ func compiledArtifactJSON(agent apiv1alpha1.Agent) string {
 
 func boolPtr(value bool) *bool {
 	return &value
+}
+
+func modelRuntimeEnvVars(models map[string]apiv1alpha1.ModelSpec) []corev1.EnvVar {
+	if len(models) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(models))
+	for name := range models {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	env := make([]corev1.EnvVar, 0, len(names)*2)
+	for _, name := range names {
+		model := models[name]
+		prefix := modelEnvPrefix(name)
+		if model.BaseURL != "" {
+			env = append(env, corev1.EnvVar{
+				Name:  prefix + "_BASE_URL",
+				Value: model.BaseURL,
+			})
+		}
+		if model.CredentialRef != nil && model.CredentialRef.Name != "" && model.CredentialRef.Key != "" {
+			env = append(env, corev1.EnvVar{
+				Name: prefix + "_API_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: model.CredentialRef.Name},
+						Key:                  model.CredentialRef.Key,
+					},
+				},
+			})
+		}
+	}
+	return env
+}
+
+func modelEnvPrefix(name string) string {
+	var builder strings.Builder
+	lastUnderscore := false
+	for _, r := range name {
+		switch {
+		case 'a' <= r && r <= 'z':
+			builder.WriteRune(r - ('a' - 'A'))
+			lastUnderscore = false
+		case 'A' <= r && r <= 'Z', '0' <= r && r <= '9':
+			builder.WriteRune(r)
+			lastUnderscore = false
+		case !lastUnderscore:
+			builder.WriteByte('_')
+			lastUnderscore = true
+		}
+	}
+
+	prefix := strings.Trim(builder.String(), "_")
+	if prefix == "" {
+		prefix = "MODEL"
+	}
+	return "MODEL_" + prefix
 }
 
 func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job batchv1.Job) (Result, error) {

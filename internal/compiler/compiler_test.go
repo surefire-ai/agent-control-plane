@@ -59,6 +59,12 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if runner.Models["planner"].Provider != "openai" {
 		t.Fatalf("expected planner model in runner artifact, got %#v", runner.Models)
 	}
+	if runner.Models["planner"].BaseURL != "https://api.openai.com/v1" {
+		t.Fatalf("expected planner base URL in runner artifact, got %#v", runner.Models)
+	}
+	if runner.Models["planner"].CredentialRef == nil || runner.Models["planner"].CredentialRef.Name != "openai-credentials" {
+		t.Fatalf("expected planner credential ref in runner artifact, got %#v", runner.Models)
+	}
 	if runner.Output == nil {
 		t.Fatalf("expected output schema in runner artifact, got %#v", runner)
 	}
@@ -150,6 +156,8 @@ func testAgent() apiv1alpha1.Agent {
 				"planner": {
 					Provider:       "openai",
 					Model:          "gpt-4.1",
+					BaseURL:        "https://api.openai.com/v1",
+					CredentialRef:  &apiv1alpha1.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
 					Temperature:    0.1,
 					MaxTokens:      4000,
 					TimeoutSeconds: 60,

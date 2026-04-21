@@ -40,11 +40,13 @@ type AgentRuntimeSpec struct {
 }
 
 type ModelSpec struct {
-	Provider       string  `json:"provider,omitempty"`
-	Model          string  `json:"model,omitempty"`
-	Temperature    float64 `json:"temperature,omitempty"`
-	MaxTokens      int32   `json:"maxTokens,omitempty"`
-	TimeoutSeconds int32   `json:"timeoutSeconds,omitempty"`
+	Provider       string              `json:"provider,omitempty"`
+	Model          string              `json:"model,omitempty"`
+	BaseURL        string              `json:"baseURL,omitempty"`
+	CredentialRef  *SecretKeyReference `json:"credentialRef,omitempty"`
+	Temperature    float64             `json:"temperature,omitempty"`
+	MaxTokens      int32               `json:"maxTokens,omitempty"`
+	TimeoutSeconds int32               `json:"timeoutSeconds,omitempty"`
 }
 
 type AgentIdentitySpec struct {

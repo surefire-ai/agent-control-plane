@@ -255,7 +255,7 @@ OpenAI-compatible endpoint。
 
 ```bash
 kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f config/samples/ehs
+kubectl apply -k config/samples/ehs
 ```
 
 2. 基于示例清单创建模型凭据 Secret：
@@ -265,6 +265,9 @@ cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.ya
 # 编辑 /tmp/openai-credentials.yaml，将 REPLACE_WITH_REAL_API_KEY 替换为真实值
 kubectl apply -f /tmp/openai-credentials.yaml
 ```
+
+在示例 Secret 模板存在的情况下，不要再用 `kubectl apply -f config/samples/ehs`；
+请改用 `-k`，这样默认样例安装不会把占位凭据清单一起 apply 进去。
 
 3. 以 `--runtime-backend=worker` 运行 controller-manager，然后调用样例
    Agent 或直接 apply 样例 `AgentRun`。

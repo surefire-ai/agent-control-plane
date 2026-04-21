@@ -287,7 +287,7 @@ OpenAI-compatible endpoint.
 
 ```bash
 kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f config/samples/ehs
+kubectl apply -k config/samples/ehs
 ```
 
 2. Create the model credential Secret from the example manifest:
@@ -297,6 +297,9 @@ cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.ya
 # edit /tmp/openai-credentials.yaml and replace REPLACE_WITH_REAL_API_KEY
 kubectl apply -f /tmp/openai-credentials.yaml
 ```
+
+Do not apply `config/samples/ehs` with `-f` once the example Secret template is present;
+use `-k` so the placeholder credential manifest stays out of the default sample install.
 
 3. Run the controller-manager with `--runtime-backend=worker`, then invoke the
    sample Agent or apply the sample `AgentRun`.

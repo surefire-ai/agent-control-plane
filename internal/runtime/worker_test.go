@@ -316,7 +316,7 @@ func (r staticPodLogReader) ReadJobPodLogs(ctx context.Context, namespace string
 func workerResultLog() string {
 	return `{
   "status": "succeeded",
-  "message": "agent control plane worker placeholder validated 1 model binding(s)",
+  "message": "agent control plane worker placeholder validated 1 model binding(s) for task \"identify_hazard\"",
   "config": {
     "agentName": "hazard-agent",
     "agentRunName": "run-1",
@@ -341,6 +341,32 @@ func workerResultLog() string {
             "model": "gpt-4.1",
             "apiKeyEnv": "MODEL_PLANNER_API_KEY",
             "credentialInjected": true
+          }
+        }
+      }
+    },
+    {
+      "name": "prompt-preview",
+      "kind": "json",
+      "inline": {
+        "system": {
+          "name": "system",
+          "language": "zh-CN",
+          "template": "You are an EHS assistant.",
+          "variables": [
+            {
+              "name": "risk_matrix_version",
+              "required": true
+            }
+          ],
+          "outputConstraints": {
+            "format": "json_schema"
+          }
+        },
+        "userInput": {
+          "task": "identify_hazard",
+          "payload": {
+            "text": "inspect line 3"
           }
         }
       }

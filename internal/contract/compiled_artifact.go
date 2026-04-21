@@ -47,10 +47,17 @@ type ArtifactRunner struct {
 }
 
 type PromptSpec struct {
-	Name     string                 `json:"name,omitempty"`
-	Language string                 `json:"language,omitempty"`
-	Template string                 `json:"template,omitempty"`
-	Extra    map[string]interface{} `json:"-"`
+	Name              string                 `json:"name,omitempty"`
+	Language          string                 `json:"language,omitempty"`
+	Template          string                 `json:"template,omitempty"`
+	Variables         []PromptVariableSpec   `json:"variables,omitempty"`
+	OutputConstraints map[string]interface{} `json:"outputConstraints,omitempty"`
+	Extra             map[string]interface{} `json:"-"`
+}
+
+type PromptVariableSpec struct {
+	Name     string `json:"name,omitempty"`
+	Required bool   `json:"required,omitempty"`
 }
 
 type ModelConfig struct {

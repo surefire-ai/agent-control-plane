@@ -73,11 +73,12 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace string) (compiler.ReferenceIndex, error) {
 	refs := compiler.ReferenceIndex{
-		Prompts:        map[string]struct{}{},
-		KnowledgeBases: map[string]struct{}{},
-		Tools:          map[string]struct{}{},
-		MCPServers:     map[string]struct{}{},
-		Policies:       map[string]struct{}{},
+		Prompts:         map[string]struct{}{},
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{},
+		KnowledgeBases:  map[string]struct{}{},
+		Tools:           map[string]struct{}{},
+		MCPServers:      map[string]struct{}{},
+		Policies:        map[string]struct{}{},
 	}
 
 	var prompts apiv1alpha1.PromptTemplateList
@@ -86,6 +87,7 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 	}
 	for _, item := range prompts.Items {
 		refs.Prompts[item.Name] = struct{}{}
+		refs.PromptTemplates[item.Name] = item.Spec
 	}
 
 	var knowledgeBases apiv1alpha1.KnowledgeBaseList

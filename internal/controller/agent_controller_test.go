@@ -19,7 +19,13 @@ func TestBuildReferenceIndexListsNamespaceResources(t *testing.T) {
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(
-			&apiv1alpha1.PromptTemplate{ObjectMeta: metav1.ObjectMeta{Name: "system", Namespace: "ehs"}},
+			&apiv1alpha1.PromptTemplate{
+				ObjectMeta: metav1.ObjectMeta{Name: "system", Namespace: "ehs"},
+				Spec: apiv1alpha1.PromptTemplateSpec{
+					Language: "zh-CN",
+					Template: "You are a system prompt.",
+				},
+			},
 			&apiv1alpha1.KnowledgeBase{ObjectMeta: metav1.ObjectMeta{Name: "regulations", Namespace: "ehs"}},
 			&apiv1alpha1.ToolProvider{ObjectMeta: metav1.ObjectMeta{Name: "vision", Namespace: "ehs"}},
 			&apiv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "docs", Namespace: "ehs"}},
@@ -34,6 +40,9 @@ func TestBuildReferenceIndexListsNamespaceResources(t *testing.T) {
 	}
 
 	assertContains(t, refs.Prompts, "system")
+	if refs.PromptTemplates["system"].Template != "You are a system prompt." {
+		t.Fatalf("expected prompt template spec to be indexed, got %#v", refs.PromptTemplates["system"])
+	}
 	assertContains(t, refs.KnowledgeBases, "regulations")
 	assertContains(t, refs.Tools, "vision")
 	assertContains(t, refs.MCPServers, "docs")

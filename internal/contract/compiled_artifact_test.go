@@ -40,7 +40,7 @@ func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
 		"runner":{
 			"kind":"EinoADKRunner",
 			"entrypoint":"ehs.hazard_identification",
-			"prompts":{"system":{"name":"system","language":"zh-CN","template":"hello"}},
+			"prompts":{"system":{"name":"system","language":"zh-CN","template":"hello","variables":[{"name":"risk_matrix_version","required":true}],"outputConstraints":{"format":"json_schema"}}},
 			"models":{"planner":{"provider":"openai","model":"gpt-4.1","baseURL":"https://api.openai.com/v1","credentialRef":{"name":"openai-credentials","key":"apiKey"},"temperature":0.1,"maxTokens":4000,"timeoutSeconds":60}},
 			"output":{"schema":{"type":"object"}}
 		},
@@ -61,6 +61,12 @@ func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
 	}
 	if artifact.Runner.Prompts["system"].Language != "zh-CN" {
 		t.Fatalf("unexpected prompt: %#v", artifact.Runner.Prompts)
+	}
+	if len(artifact.Runner.Prompts["system"].Variables) != 1 || artifact.Runner.Prompts["system"].Variables[0].Name != "risk_matrix_version" {
+		t.Fatalf("unexpected prompt variables: %#v", artifact.Runner.Prompts)
+	}
+	if artifact.Runner.Prompts["system"].OutputConstraints["format"] != "json_schema" {
+		t.Fatalf("unexpected prompt output constraints: %#v", artifact.Runner.Prompts)
 	}
 	if artifact.Runner.Models["planner"].MaxTokens != 4000 {
 		t.Fatalf("unexpected model: %#v", artifact.Runner.Models)

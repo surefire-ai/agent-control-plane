@@ -15,7 +15,10 @@ import (
 func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	agent := testAgent()
 	refs := ReferenceIndex{
-		Prompts:        set("ehs-hazard-identification-system"),
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
 		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
 		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
 		MCPServers:     set("ehs-docs-mcp"),
@@ -56,6 +59,15 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if runner.Prompts["system"].Name != "ehs-hazard-identification-system" {
 		t.Fatalf("expected system prompt in runner artifact, got %#v", runner.Prompts)
 	}
+	if runner.Prompts["system"].Language != "zh-CN" {
+		t.Fatalf("expected system prompt language in runner artifact, got %#v", runner.Prompts)
+	}
+	if !strings.Contains(runner.Prompts["system"].Template, "EHS") {
+		t.Fatalf("expected system prompt template in runner artifact, got %#v", runner.Prompts)
+	}
+	if len(runner.Prompts["system"].Variables) != 1 || runner.Prompts["system"].Variables[0].Name != "risk_matrix_version" {
+		t.Fatalf("expected prompt variables in runner artifact, got %#v", runner.Prompts)
+	}
 	if runner.Models["planner"].Provider != "openai" {
 		t.Fatalf("expected planner model in runner artifact, got %#v", runner.Models)
 	}
@@ -72,7 +84,10 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 
 func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
 	refs := ReferenceIndex{
-		Prompts:        set("ehs-hazard-identification-system"),
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
 		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
 		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
 		MCPServers:     set("ehs-docs-mcp"),
@@ -95,7 +110,10 @@ func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
 
 func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
 	result, err := CompileAgent(testAgent(), ReferenceIndex{
-		Prompts:        set("ehs-hazard-identification-system"),
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
 		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
 		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
 		MCPServers:     set("ehs-docs-mcp"),
@@ -178,6 +196,19 @@ func testAgent() apiv1alpha1.Agent {
 					Schema: apiv1alpha1.JSONSchema{Raw: []byte(`{"type":"object"}`)},
 				},
 			},
+		},
+	}
+}
+
+func promptTemplateSpec() apiv1alpha1.PromptTemplateSpec {
+	return apiv1alpha1.PromptTemplateSpec{
+		Language: "zh-CN",
+		Template: "You are an EHS assistant.",
+		Variables: []apiv1alpha1.PromptVariableSpec{
+			{Name: "risk_matrix_version", Required: true},
+		},
+		OutputConstraints: apiv1alpha1.FreeformObject{
+			"format": apiextensionsv1.JSON{Raw: []byte(`"json_schema"`)},
 		},
 	}
 }

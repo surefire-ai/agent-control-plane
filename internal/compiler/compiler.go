@@ -13,11 +13,12 @@ import (
 )
 
 type ReferenceIndex struct {
-	Prompts        map[string]struct{}
-	KnowledgeBases map[string]struct{}
-	Tools          map[string]struct{}
-	MCPServers     map[string]struct{}
-	Policies       map[string]struct{}
+	Prompts         map[string]struct{}
+	PromptTemplates map[string]apiv1alpha1.PromptTemplateSpec
+	KnowledgeBases  map[string]struct{}
+	Tools           map[string]struct{}
+	MCPServers      map[string]struct{}
+	Policies        map[string]struct{}
 }
 
 type Result struct {
@@ -31,14 +32,14 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 		return Result{}, fmt.Errorf("missing references: %v", missing)
 	}
 
-	artifact := artifactFor(agent)
+	artifact := artifactFor(agent, refs)
 	return Result{
 		Revision: revisionFor(artifact),
 		Artifact: artifact,
 	}, nil
 }
 
-func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
+func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.FreeformObject {
 	return apiv1alpha1.FreeformObject{
 		"apiVersion":    jsonValue(apiv1alpha1.Group + "/" + apiv1alpha1.Version),
 		"kind":          jsonValue(contract.CompiledArtifactKind),
@@ -49,7 +50,7 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 			"generation": agent.Generation,
 		}),
 		"runtime":       jsonValue(runtimeForArtifact(agent.Spec.Runtime)),
-		"runner":        jsonValue(runnerForArtifact(agent.Spec)),
+		"runner":        jsonValue(runnerForArtifact(agent.Spec, refs)),
 		"models":        jsonValue(agent.Spec.Models),
 		"identity":      jsonValue(agent.Spec.Identity),
 		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
@@ -64,7 +65,7 @@ func artifactFor(agent apiv1alpha1.Agent) apiv1alpha1.FreeformObject {
 	}
 }
 
-func runnerForArtifact(spec apiv1alpha1.AgentSpec) map[string]interface{} {
+func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[string]interface{} {
 	runtime := runtimeForArtifact(spec.Runtime)
 	return map[string]interface{}{
 		"kind":       "EinoADKRunner",
@@ -75,15 +76,40 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec) map[string]interface{} {
 			"edges":       spec.Graph.Edges,
 		},
 		"prompts": map[string]interface{}{
-			"system": map[string]interface{}{
-				"name": spec.PromptRefs.System,
-			},
+			"system": promptForArtifact(spec.PromptRefs.System, refs.PromptTemplates),
 		},
 		"models": spec.Models,
 		"output": map[string]interface{}{
 			"schema": spec.Interfaces.Output.Schema,
 		},
 	}
+}
+
+func promptForArtifact(name string, prompts map[string]apiv1alpha1.PromptTemplateSpec) map[string]interface{} {
+	prompt := map[string]interface{}{
+		"name": name,
+	}
+	if name == "" || prompts == nil {
+		return prompt
+	}
+	spec, ok := prompts[name]
+	if !ok {
+		return prompt
+	}
+
+	variables := make([]map[string]interface{}, 0, len(spec.Variables))
+	for _, variable := range spec.Variables {
+		variables = append(variables, map[string]interface{}{
+			"name":     variable.Name,
+			"required": variable.Required,
+		})
+	}
+
+	prompt["language"] = spec.Language
+	prompt["template"] = spec.Template
+	prompt["variables"] = variables
+	prompt["outputConstraints"] = spec.OutputConstraints
+	return prompt
 }
 
 func runtimeForArtifact(runtime apiv1alpha1.AgentRuntimeSpec) apiv1alpha1.AgentRuntimeSpec {

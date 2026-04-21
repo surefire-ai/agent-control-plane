@@ -49,6 +49,7 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 	if err != nil {
 		return contract.WorkerResult{}, err
 	}
+	artifacts = append(artifacts, promptPreviewArtifact(request.Artifact, request.Config.ParsedRunInput))
 
 	modelCount := len(runtimeInfo.Models)
 	task := taskFromRunInput(request.Config.ParsedRunInput)
@@ -176,6 +177,25 @@ func sortedInputKeys(input map[string]interface{}) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func promptPreviewArtifact(artifact contract.CompiledArtifact, input map[string]interface{}) contract.WorkerArtifact {
+	systemPrompt := artifact.Runner.Prompts["system"]
+	inline := map[string]interface{}{
+		"system": map[string]interface{}{
+			"name":              systemPrompt.Name,
+			"language":          systemPrompt.Language,
+			"template":          systemPrompt.Template,
+			"variables":         systemPrompt.Variables,
+			"outputConstraints": systemPrompt.OutputConstraints,
+		},
+		"userInput": input,
+	}
+	return contract.WorkerArtifact{
+		Name:   "prompt-preview",
+		Kind:   "json",
+		Inline: inline,
+	}
 }
 
 func modelEnvPrefix(name string) string {

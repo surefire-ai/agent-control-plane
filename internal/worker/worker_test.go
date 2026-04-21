@@ -19,7 +19,7 @@ func TestRunWritesStructuredResult(t *testing.T) {
 		AgentRunNamespace:     "ehs",
 		AgentRevision:         "sha256:test",
 		AgentRunInput:         `{"task":"identify_hazard","payload":{"text":"inspect line 3"}}`,
-		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"adk"},"runner":{"kind":"EinoADKRunner","models":{"planner":{"provider":"openai","model":"gpt-4.1","credentialRef":{"name":"openai-credentials","key":"apiKey"}}}},"policyRef":"ehs-policy"}`,
+		AgentCompiledArtifact: `{"apiVersion":"windosx.com/v1alpha1","kind":"AgentCompiledArtifact","runtime":{"engine":"eino","runnerClass":"adk"},"runner":{"kind":"EinoADKRunner","prompts":{"system":{"name":"system","language":"zh-CN","template":"You are an EHS assistant.","variables":[{"name":"risk_matrix_version","required":true}],"outputConstraints":{"format":"json_schema"}}},"models":{"planner":{"provider":"openai","model":"gpt-4.1","credentialRef":{"name":"openai-credentials","key":"apiKey"}}}},"policyRef":"ehs-policy"}`,
 	}
 
 	if err := Run(context.Background(), config, &buffer); err != nil {
@@ -64,8 +64,11 @@ func TestRunWritesStructuredResult(t *testing.T) {
 	if !ok || len(inputKeys) != 2 {
 		t.Fatalf("unexpected input keys: %#v", result.Output)
 	}
-	if len(result.Artifacts) != 1 || result.Artifacts[0].Name != "runtime-model-bindings" {
+	if len(result.Artifacts) != 2 || result.Artifacts[0].Name != "runtime-model-bindings" || result.Artifacts[1].Name != "prompt-preview" {
 		t.Fatalf("unexpected artifacts: %#v", result.Artifacts)
+	}
+	if result.Artifacts[1].Inline["userInput"] == nil {
+		t.Fatalf("expected prompt preview to include user input: %#v", result.Artifacts[1])
 	}
 }
 

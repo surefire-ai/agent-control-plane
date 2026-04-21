@@ -108,7 +108,7 @@ func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
 	if JSONString(result.TraceRef, "podName") != jobName+"-pod" {
 		t.Fatalf("unexpected trace pod: %#v", result.TraceRef)
 	}
-	if JSONString(result.Output, "summary") != "agent control plane worker placeholder validated 1 model binding(s) for task \"identify_hazard\"" {
+	if JSONString(result.Output, "summary") != "inspection complete" {
 		t.Fatalf("unexpected output summary: %#v", result.Output)
 	}
 	if result.Output["compiledArtifact"].Raw == nil {
@@ -122,6 +122,12 @@ func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
 	}
 	if result.Output["artifacts"].Raw == nil {
 		t.Fatalf("expected artifacts payload to be preserved: %#v", result.Output)
+	}
+	if JSONString(result.Output, "overallRiskLevel") != "medium" {
+		t.Fatalf("expected structured risk level to be promoted, got %#v", result.Output)
+	}
+	if JSONString(result.Output, "summary") != "inspection complete" {
+		t.Fatalf("expected structured summary to be promoted, got %#v", result.Output)
 	}
 }
 
@@ -328,7 +334,15 @@ func workerResultLog() string {
     "task": "identify_hazard",
     "inputKeys": ["payload", "task"],
     "validatedModels": 1,
-    "runtimeEntrypoint": "ehs.hazard_identification"
+    "runtimeEntrypoint": "ehs.hazard_identification",
+    "result": {
+      "summary": "inspection complete",
+      "hazards": [],
+      "overallRiskLevel": "medium",
+      "nextActions": ["notify supervisor"],
+      "confidence": 0.93,
+      "needsHumanReview": false
+    }
   },
   "artifacts": [
     {

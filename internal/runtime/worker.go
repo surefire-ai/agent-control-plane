@@ -321,6 +321,7 @@ func workerOutput(summary string, result contract.WorkerResult) apiv1alpha1.Free
 		if resultSummary, ok := result.Output["summary"].(string); ok && resultSummary != "" {
 			output["summary"] = JSONValue(resultSummary)
 		}
+		mergeStructuredResult(output, result.Output)
 		output["result"] = JSONValue(result.Output)
 	}
 	if len(result.Artifacts) > 0 {
@@ -330,6 +331,19 @@ func workerOutput(summary string, result contract.WorkerResult) apiv1alpha1.Free
 		output["runtime"] = JSONValue(result.Runtime)
 	}
 	return output
+}
+
+func mergeStructuredResult(output apiv1alpha1.FreeformObject, workerOutput map[string]interface{}) {
+	structured, ok := workerOutput["result"].(map[string]interface{})
+	if !ok || len(structured) == 0 {
+		return
+	}
+	for key, value := range structured {
+		output[key] = JSONValue(value)
+	}
+	if summary, ok := structured["summary"].(string); ok && summary != "" {
+		output["summary"] = JSONValue(summary)
+	}
 }
 
 func workerTraceRef(job batchv1.Job, logs PodLogs) apiv1alpha1.FreeformObject {

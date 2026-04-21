@@ -291,7 +291,7 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 }
 
 func workerOutput(summary string, result contract.WorkerResult) apiv1alpha1.FreeformObject {
-	return apiv1alpha1.FreeformObject{
+	output := apiv1alpha1.FreeformObject{
 		"summary":          JSONValue(summary),
 		"hazards":          JSONValue([]interface{}{}),
 		"overallRiskLevel": JSONValue("low"),
@@ -305,6 +305,19 @@ func workerOutput(summary string, result contract.WorkerResult) apiv1alpha1.Free
 			"message": result.Message,
 		}),
 	}
+	if result.Output != nil {
+		if resultSummary, ok := result.Output["summary"].(string); ok && resultSummary != "" {
+			output["summary"] = JSONValue(resultSummary)
+		}
+		output["result"] = JSONValue(result.Output)
+	}
+	if len(result.Artifacts) > 0 {
+		output["artifacts"] = JSONValue(result.Artifacts)
+	}
+	if result.Runtime != nil {
+		output["runtime"] = JSONValue(result.Runtime)
+	}
+	return output
 }
 
 func workerTraceRef(job batchv1.Job, logs PodLogs) apiv1alpha1.FreeformObject {

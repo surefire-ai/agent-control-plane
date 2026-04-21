@@ -10,6 +10,23 @@ func TestParseWorkerResultAcceptsSucceededResult(t *testing.T) {
 	result, err := ParseWorkerResult(`{
   "status": "succeeded",
   "message": "done",
+  "output": {
+    "summary": "validated runtime"
+  },
+  "artifacts": [
+    {
+      "name": "model-runtime",
+      "kind": "json",
+      "inline": {
+        "models": 1
+      }
+    }
+  ],
+  "runtime": {
+    "engine": "eino",
+    "runnerClass": "adk",
+    "runner": "EinoADKPlaceholderRunner"
+  },
   "compiledArtifact": {
     "kind": "AgentCompiledArtifact",
     "runtimeEngine": "eino",
@@ -27,6 +44,15 @@ func TestParseWorkerResultAcceptsSucceededResult(t *testing.T) {
 	}
 	if result.CompiledArtifact.RunnerClass != "adk" {
 		t.Fatalf("unexpected artifact summary: %#v", result.CompiledArtifact)
+	}
+	if result.Output["summary"] != "validated runtime" {
+		t.Fatalf("unexpected output: %#v", result.Output)
+	}
+	if len(result.Artifacts) != 1 || result.Artifacts[0].Name != "model-runtime" {
+		t.Fatalf("unexpected artifacts: %#v", result.Artifacts)
+	}
+	if result.Runtime == nil || result.Runtime.Runner != "EinoADKPlaceholderRunner" {
+		t.Fatalf("unexpected runtime info: %#v", result.Runtime)
 	}
 }
 

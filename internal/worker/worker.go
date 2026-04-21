@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -78,7 +79,7 @@ func Run(ctx context.Context, config Config, writer io.Writer) error {
 func WriteFailure(writer io.Writer, err error) error {
 	result := contract.WorkerResult{
 		Status:    contract.WorkerStatusFailed,
-		Reason:    "WorkerFailed",
+		Reason:    failureReason(err),
 		Message:   err.Error(),
 		StartedAt: time.Now().UTC(),
 	}
@@ -87,4 +88,12 @@ func WriteFailure(writer io.Writer, err error) error {
 
 func summarizeArtifact(artifact contract.CompiledArtifact) contract.ArtifactSummary {
 	return artifact.Summary()
+}
+
+func failureReason(err error) string {
+	var reasoned FailureReasonError
+	if errors.As(err, &reasoned) && reasoned.Reason != "" {
+		return reasoned.Reason
+	}
+	return "WorkerFailed"
 }

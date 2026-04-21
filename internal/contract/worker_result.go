@@ -16,12 +16,37 @@ const (
 )
 
 type WorkerResult struct {
-	Status           WorkerStatus    `json:"status"`
-	Reason           string          `json:"reason,omitempty"`
-	Message          string          `json:"message"`
-	Config           interface{}     `json:"config,omitempty"`
-	CompiledArtifact ArtifactSummary `json:"compiledArtifact,omitempty"`
-	StartedAt        time.Time       `json:"startedAt,omitempty"`
+	Status           WorkerStatus           `json:"status"`
+	Reason           string                 `json:"reason,omitempty"`
+	Message          string                 `json:"message"`
+	Config           interface{}            `json:"config,omitempty"`
+	CompiledArtifact ArtifactSummary        `json:"compiledArtifact,omitempty"`
+	Output           map[string]interface{} `json:"output,omitempty"`
+	Artifacts        []WorkerArtifact       `json:"artifacts,omitempty"`
+	Runtime          *WorkerRuntimeInfo     `json:"runtime,omitempty"`
+	StartedAt        time.Time              `json:"startedAt,omitempty"`
+}
+
+type WorkerArtifact struct {
+	Name   string                 `json:"name,omitempty"`
+	Kind   string                 `json:"kind,omitempty"`
+	Inline map[string]interface{} `json:"inline,omitempty"`
+}
+
+type WorkerRuntimeInfo struct {
+	Engine      string                        `json:"engine,omitempty"`
+	RunnerClass string                        `json:"runnerClass,omitempty"`
+	Runner      string                        `json:"runner,omitempty"`
+	Entrypoint  string                        `json:"entrypoint,omitempty"`
+	Models      map[string]WorkerModelRuntime `json:"models,omitempty"`
+}
+
+type WorkerModelRuntime struct {
+	Provider           string `json:"provider,omitempty"`
+	Model              string `json:"model,omitempty"`
+	BaseURL            string `json:"baseURL,omitempty"`
+	APIKeyEnv          string `json:"apiKeyEnv,omitempty"`
+	CredentialInjected bool   `json:"credentialInjected,omitempty"`
 }
 
 type ArtifactSummary struct {

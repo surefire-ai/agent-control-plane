@@ -105,11 +105,20 @@ func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
 	if JSONString(result.TraceRef, "podName") != jobName+"-pod" {
 		t.Fatalf("unexpected trace pod: %#v", result.TraceRef)
 	}
-	if JSONString(result.Output, "summary") != "agent control plane worker placeholder completed" {
+	if JSONString(result.Output, "summary") != "agent control plane worker placeholder validated 1 model binding(s)" {
 		t.Fatalf("unexpected output summary: %#v", result.Output)
 	}
 	if result.Output["compiledArtifact"].Raw == nil {
 		t.Fatalf("expected compiled artifact summary in output: %#v", result.Output)
+	}
+	if result.Output["result"].Raw == nil {
+		t.Fatalf("expected worker output payload to be preserved: %#v", result.Output)
+	}
+	if result.Output["runtime"].Raw == nil {
+		t.Fatalf("expected runtime payload to be preserved: %#v", result.Output)
+	}
+	if result.Output["artifacts"].Raw == nil {
+		t.Fatalf("expected artifacts payload to be preserved: %#v", result.Output)
 	}
 }
 
@@ -173,13 +182,13 @@ func TestWorkerRuntimeReturnsStructuredFailureWhenWorkerFailed(t *testing.T) {
 	if !errors.As(err, &failure) {
 		t.Fatalf("expected structured runtime failure, got %T %v", err, err)
 	}
-	if failure.Reason != "WorkerFailed" {
+	if failure.Reason != "MissingModelCredentials" {
 		t.Fatalf("unexpected failure reason: %#v", failure)
 	}
 	if JSONString(failure.TraceRef, "podName") != jobName+"-pod" {
 		t.Fatalf("unexpected trace ref: %#v", failure.TraceRef)
 	}
-	if JSONString(failure.Output, "summary") != "AGENT_COMPILED_ARTIFACT kind is required" {
+	if JSONString(failure.Output, "summary") != "missing model credentials for \"planner\" via MODEL_PLANNER_API_KEY" {
 		t.Fatalf("unexpected failure output: %#v", failure.Output)
 	}
 }
@@ -298,12 +307,47 @@ func (r staticPodLogReader) ReadJobPodLogs(ctx context.Context, namespace string
 func workerResultLog() string {
 	return `{
   "status": "succeeded",
-  "message": "agent control plane worker placeholder completed",
+  "message": "agent control plane worker placeholder validated 1 model binding(s)",
   "config": {
     "agentName": "hazard-agent",
     "agentRunName": "run-1",
     "agentRunNamespace": "ehs",
     "agentRevision": "sha256:agent"
+  },
+  "output": {
+    "summary": "agent control plane worker placeholder validated 1 model binding(s)",
+    "validatedModels": 1,
+    "runtimeEntrypoint": "ehs.hazard_identification"
+  },
+  "artifacts": [
+    {
+      "name": "runtime-model-bindings",
+      "kind": "json",
+      "inline": {
+        "models": {
+          "planner": {
+            "provider": "openai",
+            "model": "gpt-4.1",
+            "apiKeyEnv": "MODEL_PLANNER_API_KEY",
+            "credentialInjected": true
+          }
+        }
+      }
+    }
+  ],
+  "runtime": {
+    "engine": "eino",
+    "runnerClass": "adk",
+    "runner": "EinoADKPlaceholderRunner",
+    "entrypoint": "ehs.hazard_identification",
+    "models": {
+      "planner": {
+        "provider": "openai",
+        "model": "gpt-4.1",
+        "apiKeyEnv": "MODEL_PLANNER_API_KEY",
+        "credentialInjected": true
+      }
+    }
   },
   "compiledArtifact": {
     "apiVersion": "windosx.com/v1alpha1",
@@ -319,8 +363,8 @@ func workerResultLog() string {
 func workerFailureLog() string {
 	return `{
   "status": "failed",
-  "reason": "WorkerFailed",
-  "message": "AGENT_COMPILED_ARTIFACT kind is required",
+  "reason": "MissingModelCredentials",
+  "message": "missing model credentials for \"planner\" via MODEL_PLANNER_API_KEY",
   "startedAt": "2026-04-17T06:16:59.241012625Z"
 }`
 }

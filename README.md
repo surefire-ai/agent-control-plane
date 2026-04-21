@@ -131,6 +131,7 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | --- | --- | --- |
 | Eino compile artifact | Static reference compiler, typed compiled artifact decoder, and v1 runner artifact emission exist. | Enrich the runner artifact with fully resolved prompt/tool/knowledge content. |
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
+| Model credentials | Not started. | Add `ModelSpec` credential refs backed by Kubernetes Secrets, preserve only refs in compiled artifacts, and inject credentials into worker Jobs without leaking secrets. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Agent patterns | Not started. | Add pattern presets such as ReAct, plan-and-execute, router, reflection, tool-calling, and RAG so users can keep declaring Agent CRDs while avoiding hand-authored graphs for common cases. |

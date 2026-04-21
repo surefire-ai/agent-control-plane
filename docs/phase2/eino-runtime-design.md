@@ -221,16 +221,57 @@ All failures still emit a structured worker failure document when possible.
 
 ## Configuration and Secrets
 
-Model credentials must not be embedded in the compiled artifact. The first
-runner should load provider credentials from worker environment variables. A
-later iteration can add Kubernetes Secret references and scoped runtime service
-accounts.
+Model credentials must not be embedded in the compiled artifact or written back
+into `Agent.status`, `AgentRun.status`, worker logs, or durable artifacts.
+Phase 2 should treat Kubernetes `Secret` as the canonical source of model
+credentials, while keeping non-secret endpoint metadata explicit in the Agent
+spec.
+
+Recommended first API shape:
+
+```yaml
+spec:
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      baseURL: https://api.openai.com/v1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
+```
+
+Recommended contract rules:
+
+- `credentialRef` points to a same-namespace Kubernetes `Secret` key.
+- `baseURL` can remain inline because it is configuration, not a secret.
+- A future `endpointRef` or provider-specific secret bundle can be added if
+  some providers require secret endpoint metadata.
+- The compiled artifact should preserve only the reference metadata needed by
+  the runtime, never the resolved secret value.
+- Cross-namespace secret resolution should stay out of scope for Phase 2 unless
+  an explicit policy model is introduced.
+
+Recommended Phase 2 execution path:
+
+1. The compiler preserves `credentialRef` metadata in the compiled artifact.
+2. The runtime reconciler resolves the referenced `Secret` when building the
+   worker `Job`.
+3. The worker Pod receives provider credentials through environment variables or
+   projected secret volumes.
+4. The worker reads only runtime-local values such as
+   `MODEL_PLANNER_API_KEY` and optional `MODEL_PLANNER_BASE_URL`.
 
 Minimum first provider contract:
 
-| Provider | Environment |
+| Provider | Worker runtime input |
 | --- | --- |
-| OpenAI-compatible | `OPENAI_API_KEY`, optional `OPENAI_BASE_URL` |
+| OpenAI-compatible | `MODEL_<NAME>_API_KEY`, optional `MODEL_<NAME>_BASE_URL` |
+
+The first implementation should prefer environment variable injection because it
+keeps the worker simple and avoids granting the worker direct Kubernetes API
+read access to Secrets. Tests should explicitly verify that secret values never
+appear in worker result payloads, status fields, compiled artifacts, or logs.
 
 ## Test Plan
 
@@ -253,13 +294,16 @@ Minimum first provider contract:
    decoded by the typed contract.
 3. **Worker output extension**: add optional `output`, `artifacts`, and
    `runtime` fields to `WorkerResult`.
-4. **Eino runner skeleton**: add a real runner type behind `Runner`, initially
+4. **Credential references**: add model secret references to the Agent API and
+   compiled artifact, resolve them into worker Job environment variables, and
+   verify secrets never leak through status or logs.
+5. **Eino runner skeleton**: add a real runner type behind `Runner`, initially
    with injected interfaces and no external model call.
-5. **SDK integration**: import Eino and build the first ChatModel/ADK execution
+6. **SDK integration**: import Eino and build the first ChatModel/ADK execution
    path.
-6. **EHS happy path**: execute text-only hazard identification and write
+7. **EHS happy path**: execute text-only hazard identification and write
    structured output.
-7. **OrbStack validation**: build images, deploy, invoke gateway, and confirm
+8. **OrbStack validation**: build images, deploy, invoke gateway, and confirm
    `AgentRun.status.output.result`.
 
 ## Open Questions

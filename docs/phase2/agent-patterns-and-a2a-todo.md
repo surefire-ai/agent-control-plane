@@ -35,6 +35,9 @@ spec:
     planner:
       provider: openai
       model: gpt-4.1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
   knowledgeRefs:
     - name: regulations
       ref: ehs-regulations
@@ -60,6 +63,8 @@ Compiler TODO:
 - Expand `spec.pattern` into `runner.graph` when `spec.graph` is empty.
 - Preserve user-selected models, tools, knowledge, MCP servers, policies, and
   interfaces as explicit inputs to the pattern expansion.
+- Preserve model credential references during pattern expansion without
+  resolving or copying secret values into the compiled artifact payload.
 - Reject ambiguous configurations where both `pattern` and incompatible
   explicit graph nodes are present.
 - Preserve the original pattern declaration in the compiled artifact.

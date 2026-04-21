@@ -43,6 +43,10 @@ docker-build-worker-local:
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCAL_DOCKER_ARCH) $(GO) build -o bin/agent-control-plane-worker ./cmd/worker
 	docker build -f Dockerfile.worker.local -t agent-control-plane-worker:dev .
 
+.PHONY: docker-build-controller-local
+docker-build-controller-local:
+	docker build --build-arg TARGETARCH=$(LOCAL_DOCKER_ARCH) -f Dockerfile.controller-manager -t agent-control-plane-controller-manager:dev .
+
 .PHONY: run
 run:
 	$(GO) run ./cmd/controller-manager

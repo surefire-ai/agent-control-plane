@@ -74,7 +74,7 @@ Status date: 2026-04-20.
 | Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
 | Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
-| Runtime execution | Bootstrap | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs, receives the compiled artifact, and reports placeholder output. |
+| Runtime execution | Partial | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs, resolves prompt templates, validates model bindings, can call an OpenAI-compatible Chat Completions endpoint, and writes structured output back to `AgentRun`. |
 | Policy | Spec only | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. Enforcement before runtime dispatch is pending. |
 | Evaluation | Spec only | `AgentEvaluation` CRD exists. Evaluation reconciliation and result reporting are pending. |
 
@@ -131,7 +131,7 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | --- | --- | --- |
 | Eino compile artifact | Static reference compiler, typed compiled artifact decoder, and v1 runner artifact emission exist. | Enrich the runner artifact with fully resolved prompt/tool/knowledge content. |
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
-| Model credentials | Not started. | Add `ModelSpec` credential refs backed by Kubernetes Secrets, preserve only refs in compiled artifacts, and inject credentials into worker Jobs without leaking secrets. |
+| Model credentials | In progress. | Sample Agents can reference same-namespace Kubernetes Secrets, and worker Jobs receive secret-backed model credentials without writing secret values into status or artifacts. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Agent patterns | Not started. | Add pattern presets such as ReAct, plan-and-execute, router, reflection, tool-calling, and RAG so users can keep declaring Agent CRDs while avoiding hand-authored graphs for common cases. |
@@ -277,6 +277,44 @@ For local OrbStack validation, build the local worker image with:
 ```bash
 make docker-build-worker-local
 ```
+
+## EHS Model-Backed Validation
+
+The EHS sample can now exercise the first Phase 2 text execution path against an
+OpenAI-compatible endpoint.
+
+1. Apply the EHS sample resources:
+
+```bash
+kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f config/samples/ehs
+```
+
+2. Create the model credential Secret from the example manifest:
+
+```bash
+cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.yaml
+# edit /tmp/openai-credentials.yaml and replace REPLACE_WITH_REAL_API_KEY
+kubectl apply -f /tmp/openai-credentials.yaml
+```
+
+3. Run the controller-manager with `--runtime-backend=worker`, then invoke the
+   sample Agent or apply the sample `AgentRun`.
+
+4. Inspect the structured output:
+
+```bash
+kubectl -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.output}'
+```
+
+Current behavior notes:
+
+- The worker currently prefers the `planner` model when multiple model slots are declared.
+- The first text execution path expects an OpenAI-compatible `/chat/completions`
+  endpoint and structured JSON output that satisfies `spec.interfaces.output.schema`.
+- `status.output.result` keeps the raw worker payload, while top-level fields
+  such as `summary` and `overallRiskLevel` are promoted to
+  `AgentRun.status.output` for easier consumption.
 
 ## Runtime Backends
 

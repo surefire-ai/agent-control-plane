@@ -104,7 +104,7 @@ Agent pattern、SubAgent 和 A2A TODO 见
 | --- | --- | --- |
 | Eino compile artifact | 已有静态引用 compiler、typed compiled artifact decoder 和 v1 runner artifact 输出。 | 继续把 prompt/tool/knowledge 内容解析进 runner artifact。 |
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
-| Model credentials | 尚未开始。 | 为 `ModelSpec` 增加基于 Kubernetes Secret 的 credential 引用，只在 compiled artifact 中保留引用元数据，并在 worker Job 注入运行时凭据且避免泄漏密钥。 |
+| Model credentials | 进行中。 | Sample Agent 已可通过同 namespace 的 Kubernetes Secret 引用模型凭据，worker Job 会注入密钥但不会把明文写入 status 或 artifacts。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Agent patterns | 尚未开始。 | 增加 ReAct、plan-and-execute、router、reflection、tool-calling、RAG 等常见范式；用户仍声明 Agent CRD，但常见场景不必手写完整 graph。 |
@@ -245,6 +245,44 @@ make undeploy
 ```bash
 make docker-build-worker-local
 ```
+
+## EHS 模型执行验证
+
+EHS 样例现在已经可以验证 Phase 2 的第一条文本执行路径，并对接
+OpenAI-compatible endpoint。
+
+1. 应用 EHS 样例资源：
+
+```bash
+kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f config/samples/ehs
+```
+
+2. 基于示例清单创建模型凭据 Secret：
+
+```bash
+cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.yaml
+# 编辑 /tmp/openai-credentials.yaml，将 REPLACE_WITH_REAL_API_KEY 替换为真实值
+kubectl apply -f /tmp/openai-credentials.yaml
+```
+
+3. 以 `--runtime-backend=worker` 运行 controller-manager，然后调用样例
+   Agent 或直接 apply 样例 `AgentRun`。
+
+4. 查看结构化输出：
+
+```bash
+kubectl -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.output}'
+```
+
+当前行为说明：
+
+- 当声明多个模型槽位时，worker 当前优先选择 `planner` 模型。
+- 第一条文本执行路径要求目标 endpoint 兼容 OpenAI `/chat/completions`
+  协议，并返回满足 `spec.interfaces.output.schema` 的结构化 JSON。
+- `status.output.result` 保留 worker 原始 payload，而 `summary`、
+  `overallRiskLevel` 等顶层字段会提升到 `AgentRun.status.output`，
+  便于直接消费。
 
 ## Runtime Backends
 

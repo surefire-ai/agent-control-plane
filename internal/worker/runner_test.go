@@ -25,3 +25,20 @@ func TestRunnerForRejectsUnsupportedIdentity(t *testing.T) {
 		t.Fatal("expected unsupported identity error")
 	}
 }
+
+func TestPrimaryModelConfigPrefersPlanner(t *testing.T) {
+	name, model, ok := primaryModelConfig(contract.CompiledArtifact{
+		Runner: contract.ArtifactRunner{
+			Models: map[string]contract.ModelConfig{
+				"extractor": {Provider: "openai", Model: "gpt-4.1-mini"},
+				"planner":   {Provider: "openai", Model: "gpt-4.1"},
+			},
+		},
+	})
+	if !ok {
+		t.Fatal("expected primary model config")
+	}
+	if name != "planner" || model.Model != "gpt-4.1" {
+		t.Fatalf("expected planner model to be selected, got %q %#v", name, model)
+	}
+}

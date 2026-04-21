@@ -210,18 +210,29 @@ func sortedModelNames(modelSets ...map[string]contract.ModelConfig) []string {
 }
 
 func primaryModelConfig(artifact contract.CompiledArtifact) (string, contract.ModelConfig, bool) {
+	if model, ok := preferredModelConfig("planner", artifact); ok {
+		return "planner", model, true
+	}
 	names := sortedModelNames(artifact.Runner.Models, artifact.Models)
 	for _, name := range names {
-		model := artifact.Runner.Models[name]
-		if model.Provider == "" && model.Model == "" && model.CredentialRef == nil && model.BaseURL == "" {
-			model = artifact.Models[name]
-		}
-		if model.Model == "" {
+		model, ok := preferredModelConfig(name, artifact)
+		if !ok || model.Model == "" {
 			continue
 		}
 		return name, model, true
 	}
 	return "", contract.ModelConfig{}, false
+}
+
+func preferredModelConfig(name string, artifact contract.CompiledArtifact) (contract.ModelConfig, bool) {
+	model := artifact.Runner.Models[name]
+	if model.Provider == "" && model.Model == "" && model.CredentialRef == nil && model.BaseURL == "" {
+		model = artifact.Models[name]
+	}
+	if model.Provider == "" && model.Model == "" && model.CredentialRef == nil && model.BaseURL == "" {
+		return contract.ModelConfig{}, false
+	}
+	return model, true
 }
 
 func modelAPIKeyEnvName(name string) string {

@@ -978,8 +978,124 @@ func TestPlaceholderRunnerRejectsUnsupportedStepNodeKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if err.Error() != `graph step "classify_task" with kind "function" is not supported yet` {
+	if err.Error() != `graph node "classify_task" is missing implementation` {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPlaceholderRunnerExecutesStepFunctionNode(t *testing.T) {
+	runner := EinoADKPlaceholderRunner{}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"node": "score_risk",
+					"input": map[string]interface{}{
+						"hazards": []interface{}{
+							map[string]interface{}{"riskLevel": "medium"},
+							map[string]interface{}{"riskLevel": "high"},
+						},
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":           "score_risk",
+							"kind":           "function",
+							"implementation": "app.skills.ehs:score_risk_by_matrix",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, ok := result.Output["step"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected function step output, got %#v", result.Output)
+	}
+	if step["node"] != "score_risk" || step["implementation"] != "app.skills.ehs:score_risk_by_matrix" {
+		t.Fatalf("unexpected function step metadata: %#v", step)
+	}
+	parsed, _ := step["result"].(map[string]interface{})
+	if parsed["overallRiskLevel"] != "high" {
+		t.Fatalf("unexpected function result: %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerAutoStepSequenceExecutesFunctionNode(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"identified\",\"hazards\":[{\"riskLevel\":\"high\"}],\"overallRiskLevel\":\"high\",\"nextActions\":[],\"confidence\":0.88,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker: EinoOpenAIInvoker{Client: modelServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{"auto": true},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "identify_hazards", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "score_risk", "kind": "function", "implementation": "app.skills.ehs:score_risk_by_matrix"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "identify_hazards"},
+						map[string]interface{}{"from": "identify_hazards", "to": "score_risk"},
+						map[string]interface{}{"from": "score_risk", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, _ := result.Output["step"].(map[string]interface{})
+	finalState, _ := step["finalState"].(map[string]interface{})
+	if finalState["overallRiskLevel"] != "high" {
+		t.Fatalf("expected function result merged into state, got %#v", finalState)
 	}
 }
 

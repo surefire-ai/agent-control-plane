@@ -137,6 +137,9 @@ func (r EinoADKPlaceholderRunner) executeGraphStepNode(ctx context.Context, requ
 	case "retrieval":
 		output, artifacts, err := r.executeStepRetrieval(ctx, request, runtimeInfo, step, node)
 		return output, artifacts, true, err
+	case "function":
+		output, artifacts, err := r.executeStepFunction(ctx, request, runtimeInfo, step, node)
+		return output, artifacts, true, err
 	default:
 		return nil, nil, false, FailureReasonError{
 			Reason:  "UnsupportedGraphNode",
@@ -288,6 +291,108 @@ func (r EinoADKPlaceholderRunner) executeStepRetrieval(ctx context.Context, requ
 		return nil, nil, err
 	}
 	return result.Output, result.Artifacts, nil
+}
+
+func (r EinoADKPlaceholderRunner) executeStepFunction(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo, step RequestedStep, node map[string]interface{}) (map[string]interface{}, []contract.WorkerArtifact, error) {
+	_ = ctx
+	_ = runtimeInfo
+	implementation, _ := node["implementation"].(string)
+	if strings.TrimSpace(implementation) == "" {
+		return nil, nil, FailureReasonError{
+			Reason:  "UnsupportedGraphNode",
+			Message: fmt.Sprintf("graph node %q is missing implementation", step.Node),
+		}
+	}
+	stepInput := initialStepState(request.Config.ParsedRunInput, step.Input)
+	output, err := executeBuiltinFunction(implementation, stepInput)
+	if err != nil {
+		return nil, nil, err
+	}
+	return map[string]interface{}{
+			"node":           step.Node,
+			"kind":           "function",
+			"implementation": implementation,
+			"input":          stepInput,
+			"result":         output,
+		}, []contract.WorkerArtifact{
+			{Name: "step-function-result", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "implementation": implementation, "result": output}},
+		}, nil
+}
+
+func executeBuiltinFunction(implementation string, state map[string]interface{}) (map[string]interface{}, error) {
+	switch implementation {
+	case "app.skills.ehs:score_risk_by_matrix":
+		return scoreRiskByMatrix(state), nil
+	default:
+		return nil, FailureReasonError{
+			Reason:  "UnsupportedGraphNode",
+			Message: fmt.Sprintf("function implementation %q is not supported yet", implementation),
+		}
+	}
+}
+
+func scoreRiskByMatrix(state map[string]interface{}) map[string]interface{} {
+	hazards := hazardsFromState(state)
+	overall := highestRiskLevel(hazards)
+	if overall == "" {
+		if existing, _ := state["overallRiskLevel"].(string); strings.TrimSpace(existing) != "" {
+			overall = existing
+		} else {
+			overall = "low"
+		}
+	}
+	return map[string]interface{}{
+		"overallRiskLevel": overall,
+		"hazards":          hazards,
+		"riskScored":       true,
+	}
+}
+
+func hazardsFromState(state map[string]interface{}) []interface{} {
+	if hazards, ok := state["hazards"].([]interface{}); ok {
+		return hazards
+	}
+	if identifyHazards, ok := state["identify_hazards"].(map[string]interface{}); ok {
+		if result, ok := identifyHazards["result"].(map[string]interface{}); ok {
+			if hazards, ok := result["hazards"].([]interface{}); ok {
+				return hazards
+			}
+		}
+	}
+	return nil
+}
+
+func highestRiskLevel(hazards []interface{}) string {
+	best := ""
+	bestRank := -1
+	for _, raw := range hazards {
+		hazard, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		level, _ := hazard["riskLevel"].(string)
+		rank := riskRank(level)
+		if rank > bestRank {
+			best = level
+			bestRank = rank
+		}
+	}
+	return best
+}
+
+func riskRank(level string) int {
+	switch strings.TrimSpace(level) {
+	case "critical":
+		return 3
+	case "high":
+		return 2
+	case "medium":
+		return 1
+	case "low":
+		return 0
+	default:
+		return -1
+	}
 }
 
 func stringSequence(value interface{}) ([]string, error) {

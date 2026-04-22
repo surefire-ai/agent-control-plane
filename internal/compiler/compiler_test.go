@@ -18,8 +18,6 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 		Type:          "react",
 		Version:       "v1",
 		ModelRef:      "planner",
-		ToolRefs:      []string{"rectify-ticket-api"},
-		KnowledgeRefs: []string{"ehs-regulations"},
 		MaxIterations: 6,
 		StopWhen:      "final_answer",
 	}
@@ -121,7 +119,7 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 		t.Fatalf("expected knowledge details in runner artifact, got %#v", runner.Knowledge)
 	}
 	nodes, _ := runner.Graph["nodes"].([]interface{})
-	if len(nodes) != 4 {
+	if len(nodes) != 7 {
 		t.Fatalf("expected merged graph nodes in runner artifact, got %#v", runner.Graph)
 	}
 	if result.Artifact["pattern"].Raw == nil {
@@ -276,7 +274,6 @@ func TestCompileAgentExpandsReactPatternWhenGraphIsEmpty(t *testing.T) {
 		Version:       "v1",
 		ModelRef:      "planner",
 		ToolRefs:      []string{"rectify-ticket-api"},
-		KnowledgeRefs: []string{"ehs-regulations"},
 		MaxIterations: 4,
 		StopWhen:      "final_answer",
 	}
@@ -309,15 +306,15 @@ func TestCompileAgentExpandsReactPatternWhenGraphIsEmpty(t *testing.T) {
 
 	runner := runnerArtifact(t, result.Artifact["runner"])
 	nodes, _ := runner.Graph["nodes"].([]interface{})
-	if len(nodes) != 4 {
+	if len(nodes) != 7 {
 		t.Fatalf("expected react preset graph plus skill node, got %#v", runner.Graph)
 	}
 	edges, _ := runner.Graph["edges"].([]interface{})
 	if len(edges) == 0 {
 		t.Fatalf("expected react preset edges, got %#v", runner.Graph)
 	}
-	if _, ok := runner.Knowledge["ehs-regulations"]; !ok {
-		t.Fatalf("expected pattern knowledge ref to be merged into runner knowledge, got %#v", runner.Knowledge)
+	if _, ok := runner.Knowledge["regulations"]; !ok {
+		t.Fatalf("expected agent knowledge ref to be merged into runner knowledge, got %#v", runner.Knowledge)
 	}
 }
 

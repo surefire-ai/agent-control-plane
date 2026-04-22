@@ -164,7 +164,7 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | Model credentials | In progress. | Sample Agents can reference same-namespace Kubernetes Secrets, and worker Jobs receive secret-backed model credentials without writing secret values into status or artifacts. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
-| Agent patterns | Partial | `spec.pattern` exists, the compiler preserves pattern metadata, and `react` can expand into a runner graph when `spec.graph` is empty. More presets and runtime semantics are still pending. |
+| Agent patterns | Partial | `spec.pattern` exists, the compiler preserves pattern metadata, and `react` can expand into a runner graph that consumes the agent's selected tools and knowledge when `spec.graph` is empty. More runtime semantics are still pending. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
 | Evaluation | `AgentEvaluation` CRD exists. | Add an evaluation reconciler and result reporting. |
 

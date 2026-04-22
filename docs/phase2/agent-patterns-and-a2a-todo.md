@@ -55,7 +55,6 @@ Initial presets to support:
 | `router` | Classify task and route to specialized branch or SubAgent. |
 | `reflection` | Generate, critique, and revise. |
 | `tool_calling` | Model-driven structured tool calls without full graph authoring. |
-| `rag` | Retrieval-augmented generation with knowledge refs. |
 | `workflow` | Deterministic graph/workflow compiled from explicit nodes. |
 
 ## Skill Support
@@ -94,7 +93,7 @@ Compiler TODO:
 Runtime TODO:
 
 - Surface resolved skills in worker runtime metadata and traces.
-- Allow pattern presets such as `react`, `router`, and `rag` to consume skill
+- Allow pattern presets such as `react` and `router` to consume skill
   bundles as first-class inputs.
 - Keep skill expansion compatible with future SubAgent and A2A boundaries.
 
@@ -102,6 +101,8 @@ Compiler TODO:
 
 - Added `spec.pattern` and first-pass `react` expansion into `runner.graph`
   when `spec.graph` is empty.
+- `react` should consume the normal `knowledgeRefs` and `toolRefs` selection,
+  rather than requiring a separate `rag` preset.
 - Preserve user-selected models, tools, knowledge, MCP servers, policies, and
   interfaces as explicit inputs to the pattern expansion.
 - Preserve model credential references during pattern expansion without

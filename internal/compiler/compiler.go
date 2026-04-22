@@ -85,7 +85,7 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 	resolvedPromptRefs := resolvedPromptRefs(spec, refs.SkillSpecs)
 	resolvedToolRefs := resolvedToolRefs(spec.ToolRefs, spec.Pattern, spec.SkillRefs, refs.SkillSpecs)
 	resolvedKnowledgeRefs := resolvedKnowledgeRefs(spec.KnowledgeRefs, spec.Pattern, spec.SkillRefs, refs.SkillSpecs)
-	resolvedGraph := resolvedGraph(spec, refs.SkillSpecs)
+	resolvedGraph := resolvedGraph(spec, refs.SkillSpecs, resolvedToolRefs, resolvedKnowledgeRefs)
 	return map[string]interface{}{
 		"kind":       "EinoADKRunner",
 		"entrypoint": runtime.Entrypoint,
@@ -301,14 +301,14 @@ func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec, specs map[string
 	return skills
 }
 
-func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) apiv1alpha1.AgentGraphSpec {
+func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec, toolRefs []string, knowledgeRefs []apiv1alpha1.KnowledgeBindingSpec) apiv1alpha1.AgentGraphSpec {
 	graph := apiv1alpha1.AgentGraphSpec{
 		StateSchema: spec.Graph.StateSchema,
 		Nodes:       append([]apiv1alpha1.AgentGraphNode(nil), spec.Graph.Nodes...),
 		Edges:       append([]apiv1alpha1.AgentGraphEdge(nil), spec.Graph.Edges...),
 	}
 	if len(graph.Nodes) == 0 && len(graph.Edges) == 0 && spec.Pattern != nil {
-		graph = expandPatternGraph(spec.Pattern, graph)
+		graph = expandPatternGraph(spec.Pattern, graph, toolRefs, knowledgeRefs)
 	}
 	if len(spec.SkillRefs) == 0 {
 		return graph
@@ -329,32 +329,47 @@ func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.Ski
 	return graph
 }
 
-func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
+func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec, toolRefs []string, knowledgeRefs []apiv1alpha1.KnowledgeBindingSpec) apiv1alpha1.AgentGraphSpec {
 	if pattern == nil {
 		return graph
 	}
 	switch strings.TrimSpace(pattern.Type) {
 	case "react":
-		return reactPatternGraph(pattern, graph)
+		return reactPatternGraph(pattern, graph, toolRefs, knowledgeRefs)
 	default:
 		return graph
 	}
 }
 
-func reactPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
+func reactPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec, toolRefs []string, knowledgeRefs []apiv1alpha1.KnowledgeBindingSpec) apiv1alpha1.AgentGraphSpec {
 	modelRef := strings.TrimSpace(pattern.ModelRef)
 	if modelRef == "" {
 		modelRef = "planner"
 	}
 
-	nodes := []apiv1alpha1.AgentGraphNode{
-		{Name: "reason", Kind: "llm", ModelRef: modelRef},
-	}
-	edges := []apiv1alpha1.AgentGraphEdge{
-		{From: "START", To: "reason"},
+	nodes := make([]apiv1alpha1.AgentGraphNode, 0, len(toolRefs)+len(knowledgeRefs)+2)
+	edges := make([]apiv1alpha1.AgentGraphEdge, 0, len(toolRefs)+len(knowledgeRefs)+3)
+
+	previous := "START"
+	for _, binding := range knowledgeRefs {
+		bindingName := knowledgeBindingName(binding)
+		if bindingName == "" {
+			continue
+		}
+		nodeName := patternKnowledgeNodeName(bindingName)
+		nodes = append(nodes, apiv1alpha1.AgentGraphNode{
+			Name:         nodeName,
+			Kind:         "retrieval",
+			KnowledgeRef: bindingName,
+		})
+		edges = append(edges, apiv1alpha1.AgentGraphEdge{From: previous, To: nodeName})
+		previous = nodeName
 	}
 
-	for _, toolRef := range pattern.ToolRefs {
+	nodes = append(nodes, apiv1alpha1.AgentGraphNode{Name: "reason", Kind: "llm", ModelRef: modelRef})
+	edges = append(edges, apiv1alpha1.AgentGraphEdge{From: previous, To: "reason"})
+
+	for _, toolRef := range toolRefs {
 		toolRef = strings.TrimSpace(toolRef)
 		if toolRef == "" {
 			continue
@@ -369,10 +384,10 @@ func reactPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.
 	}
 
 	nodes = append(nodes, apiv1alpha1.AgentGraphNode{Name: "finalize", Kind: "llm", ModelRef: modelRef})
-	if len(pattern.ToolRefs) == 0 {
+	if len(toolRefs) == 0 {
 		edges = append(edges, apiv1alpha1.AgentGraphEdge{From: "reason", To: "finalize"})
 	} else {
-		for _, toolRef := range pattern.ToolRefs {
+		for _, toolRef := range toolRefs {
 			toolRef = strings.TrimSpace(toolRef)
 			if toolRef == "" {
 				continue
@@ -390,6 +405,18 @@ func reactPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.
 
 func patternToolNodeName(toolRef string) string {
 	return "tool_" + strings.ReplaceAll(strings.TrimSpace(toolRef), "-", "_")
+}
+
+func patternKnowledgeNodeName(bindingName string) string {
+	return "retrieve_" + strings.ReplaceAll(strings.TrimSpace(bindingName), "-", "_")
+}
+
+func knowledgeBindingName(binding apiv1alpha1.KnowledgeBindingSpec) string {
+	name := strings.TrimSpace(binding.Name)
+	if name != "" {
+		return name
+	}
+	return strings.TrimSpace(binding.Ref)
 }
 
 func patternExpansionMetadata(spec apiv1alpha1.AgentSpec) map[string]interface{} {

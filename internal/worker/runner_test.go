@@ -543,6 +543,116 @@ func TestPlaceholderRunnerRejectsUnsupportedStepNodeKind(t *testing.T) {
 					"nodes": []interface{}{
 						map[string]interface{}{
 							"name": "classify_task",
+							"kind": "function",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != `graph step "classify_task" with kind "function" is not supported yet` {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPlaceholderRunnerExecutesStepLLMNode(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"step complete\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.88,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer server.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker: OpenAICompatibleInvoker{Client: server.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"node": "classify_task",
+					"input": map[string]interface{}{
+						"text": "配电箱门未关闭",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":     "classify_task",
+							"kind":     "llm",
+							"modelRef": "planner",
+						},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       server.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, ok := result.Output["step"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected step output, got %#v", result.Output)
+	}
+	if step["node"] != "classify_task" || step["model"] != "planner" {
+		t.Fatalf("unexpected llm step metadata: %#v", step)
+	}
+	parsed, _ := step["result"].(map[string]interface{})
+	if parsed["summary"] != "step complete" {
+		t.Fatalf("unexpected llm step result: %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerRejectsStepLLMNodeWithoutModelRef(t *testing.T) {
+	runner := EinoADKPlaceholderRunner{}
+	_, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"node": "classify_task",
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name": "classify_task",
 							"kind": "llm",
 						},
 					},
@@ -554,7 +664,7 @@ func TestPlaceholderRunnerRejectsUnsupportedStepNodeKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if err.Error() != `graph step "classify_task" with kind "llm" is not supported yet` {
+	if err.Error() != `graph node "classify_task" is missing modelRef` {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -29,6 +29,9 @@ func (r EinoADKPlaceholderRunner) invokeRequestedStep(ctx context.Context, reque
 
 	kind, _ := node["kind"].(string)
 	switch kind {
+	case "llm":
+		output, artifacts, err := r.executeStepLLM(ctx, request, runtimeInfo, step, node)
+		return output, artifacts, true, err
 	case "tool":
 		output, artifacts, err := r.executeStepTool(ctx, request, runtimeInfo, step, node)
 		return output, artifacts, true, err
@@ -41,6 +44,56 @@ func (r EinoADKPlaceholderRunner) invokeRequestedStep(ctx context.Context, reque
 			Message: fmt.Sprintf("graph step %q with kind %q is not supported yet", step.Node, kind),
 		}
 	}
+}
+
+func (r EinoADKPlaceholderRunner) executeStepLLM(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo, step RequestedStep, node map[string]interface{}) (map[string]interface{}, []contract.WorkerArtifact, error) {
+	modelName, _ := node["modelRef"].(string)
+	if strings.TrimSpace(modelName) == "" {
+		return nil, nil, FailureReasonError{
+			Reason:  "UnknownModel",
+			Message: fmt.Sprintf("graph node %q is missing modelRef", step.Node),
+		}
+	}
+	modelConfig, ok := preferredModelConfig(modelName, request.Artifact)
+	if !ok {
+		return nil, nil, FailureReasonError{
+			Reason:  "UnknownModel",
+			Message: fmt.Sprintf("unknown model %q for graph node %q", modelName, step.Node),
+		}
+	}
+	modelRuntime, ok := runtimeInfo.Models[modelName]
+	if !ok {
+		return nil, nil, FailureReasonError{
+			Reason:  "UnknownModel",
+			Message: fmt.Sprintf("model runtime binding missing for %q", modelName),
+		}
+	}
+	systemPrompt := request.Artifact.Runner.Prompts["system"]
+	if strings.TrimSpace(systemPrompt.Template) == "" {
+		return nil, nil, FailureReasonError{
+			Reason:  "ModelRequestBuildFailed",
+			Message: fmt.Sprintf("graph node %q has no usable system prompt", step.Node),
+		}
+	}
+	modelInput := step.Input
+	if len(modelInput) == 0 {
+		modelInput = request.Config.ParsedRunInput
+	}
+	result, err := r.Invoker.Invoke(ctx, modelRuntime, modelConfig, systemPrompt, modelInput, request.Artifact.Runner.Output)
+	if err != nil {
+		return nil, nil, err
+	}
+	return map[string]interface{}{
+			"node":     step.Node,
+			"kind":     "llm",
+			"model":    modelName,
+			"input":    modelInput,
+			"result":   result.Parsed,
+			"response": result.Content,
+		}, []contract.WorkerArtifact{
+			{Name: "step-chat-completion-request", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "model": modelName, "request": result.RequestBody}},
+			{Name: "step-chat-completion-response", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "model": modelName, "response": result.ResponseBody}},
+		}, nil
 }
 
 func requestedStep(input map[string]interface{}) (RequestedStep, bool, error) {

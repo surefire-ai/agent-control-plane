@@ -13,6 +13,25 @@ Kubernetes API group uses `windosx.com/v1alpha1`.
 The current implementation is driven by the EHS hazard-identification examples
 in `examples/ehs` and `config/samples/ehs`.
 
+## Project Positioning
+
+Agent Control Plane should be understood as a Kubernetes operator for AI agents,
+not as a standalone SDK or a one-shot workflow runner.
+
+- The **operator layer** is responsible for reconciling CRDs such as `Agent`,
+  `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`, and
+  `AgentPolicy`.
+- The **control-plane controllers** compile desired state into deterministic
+  runtime artifacts, publish status, enforce platform contracts, and dispatch
+  runs to execution backends.
+- The **execution layer** lives behind worker and runtime backends. It is where
+  model calls, tool calls, retrieval, checkpoints, and future graph execution
+  happen.
+
+In other words, the project is not trying to put all agent logic inside the
+operator process. The operator owns declaration, reconciliation, scheduling,
+and governance; workers own execution.
+
 ## What It Provides
 
 - `Agent` declares runtime, models, prompts, knowledge, tools, MCP servers,
@@ -54,6 +73,7 @@ code.
 
 ## Architecture Direction
 
+- The repository is building toward an **Agent Control Plane Operator for Kubernetes**.
 - Go hosts the Kubernetes API types, CRD controllers, compiler, admission
   checks, runtime dispatch, and future gateway.
 - Go is expected to host the Eino-based runtime worker.
@@ -62,6 +82,16 @@ code.
 - PostgreSQL, pgvector, S3-compatible storage, and a queue are expected to
   provide state, retrieval, artifacts, and async execution as the system matures.
 - TypeScript can host the future console, marketplace UI, and generated SDKs.
+
+### Control Plane Boundary
+
+- `controller-manager` is the operator control plane. It watches CRDs,
+  reconciles desired state, compiles artifacts, and manages run lifecycle.
+- `worker` is the execution-side runtime entrypoint. It consumes compiled
+  artifacts and run input, then performs model execution and future tool or
+  retrieval work.
+- CRDs remain the declarative API surface between platform users and the
+  operator.
 
 ## Current Progress
 

@@ -11,6 +11,22 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 
 当前实现以 `examples/ehs` 和 `config/samples/ehs` 中的 EHS 危害识别样例为起点。
 
+## 项目定位
+
+Agent Control Plane 应该被理解为一个面向 AI Agent 的 Kubernetes Operator，
+而不是一个独立 SDK，也不是只跑一次的工作流脚本。
+
+- **operator 层** 负责持续 reconcile `Agent`、`AgentRun`、
+  `PromptTemplate`、`ToolProvider`、`KnowledgeBase`、`AgentPolicy`
+  等 CRD。
+- **控制面 controller** 负责把期望状态编译成确定性的 runtime artifact，
+  发布 status，执行平台契约，并把运行请求分发给执行 backend。
+- **执行层** 位于 worker 和 runtime backend 后面，负责模型调用、tool
+  调用、retrieval、checkpoint，以及未来的图执行。
+
+换句话说，这个项目并不是要把所有 Agent 逻辑都塞进 operator 进程里。
+operator 负责声明、reconcile、调度和治理；worker 负责执行。
+
 ## 项目能力
 
 - `Agent` 声明 runtime、模型、prompt、知识库、工具、MCP Server、策略、图结构、接口、记忆和可观测性配置。
@@ -34,11 +50,18 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 
 ## 架构方向
 
+- 本仓库正在朝 **Agent Control Plane Operator for Kubernetes** 的方向演进。
 - Go 承载 Kubernetes API 类型、CRD controller、compiler、admission check、runtime dispatch，以及未来的 gateway。
 - Go 预计承载基于 Eino 的 runtime worker。
 - 默认 runner 方向是 `runtime.engine: eino` 与 `runtime.runnerClass: adk`；LangGraph 保留为未来兼容 adapter。
 - PostgreSQL、pgvector、S3 兼容存储和队列预计用于状态、检索、产物和异步执行。
 - TypeScript 可用于未来的控制台、Marketplace UI 和生成式 SDK。
+
+### 控制面边界
+
+- `controller-manager` 是 operator 控制面，负责监听 CRD、reconcile 期望状态、编译 artifact，并管理 run lifecycle。
+- `worker` 是执行侧 runtime 入口，负责消费 compiled artifact 和 run input，并执行模型调用以及未来的 tool/retrieval 工作。
+- CRD 仍然是平台用户与 operator 之间的声明式 API 边界。
 
 ## 当前进度
 

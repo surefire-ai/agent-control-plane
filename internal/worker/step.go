@@ -304,31 +304,22 @@ func (r EinoADKPlaceholderRunner) executeStepFunction(ctx context.Context, reque
 		}
 	}
 	stepInput := initialStepState(request.Config.ParsedRunInput, step.Input)
-	output, err := executeBuiltinFunction(implementation, stepInput)
+	skillName, functionName, fn, err := resolveBuiltinSkillFunction(implementation)
 	if err != nil {
 		return nil, nil, err
 	}
+	output := fn(stepInput)
 	return map[string]interface{}{
 			"node":           step.Node,
 			"kind":           "function",
 			"implementation": implementation,
+			"skill":          skillName,
+			"function":       functionName,
 			"input":          stepInput,
 			"result":         output,
 		}, []contract.WorkerArtifact{
-			{Name: "step-function-result", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "implementation": implementation, "result": output}},
+			{Name: "step-function-result", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "implementation": implementation, "skill": skillName, "function": functionName, "result": output}},
 		}, nil
-}
-
-func executeBuiltinFunction(implementation string, state map[string]interface{}) (map[string]interface{}, error) {
-	switch implementation {
-	case "app.skills.ehs:score_risk_by_matrix":
-		return scoreRiskByMatrix(state), nil
-	default:
-		return nil, FailureReasonError{
-			Reason:  "UnsupportedGraphNode",
-			Message: fmt.Sprintf("function implementation %q is not supported yet", implementation),
-		}
-	}
 }
 
 func scoreRiskByMatrix(state map[string]interface{}) map[string]interface{} {

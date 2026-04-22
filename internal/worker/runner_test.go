@@ -1027,9 +1027,22 @@ func TestPlaceholderRunnerExecutesStepFunctionNode(t *testing.T) {
 	if step["node"] != "score_risk" || step["implementation"] != "app.skills.ehs:score_risk_by_matrix" {
 		t.Fatalf("unexpected function step metadata: %#v", step)
 	}
+	if step["skill"] != "ehs" || step["function"] != "score_risk_by_matrix" {
+		t.Fatalf("expected builtin skill metadata, got %#v", step)
+	}
 	parsed, _ := step["result"].(map[string]interface{})
 	if parsed["overallRiskLevel"] != "high" {
 		t.Fatalf("unexpected function result: %#v", step)
+	}
+}
+
+func TestResolveBuiltinSkillFunctionRejectsUnknownSkill(t *testing.T) {
+	_, _, _, err := resolveBuiltinSkillFunction("app.skills.unknown:do_work")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != `skill "unknown" is not supported yet` {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

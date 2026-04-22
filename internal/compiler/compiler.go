@@ -19,6 +19,8 @@ type ReferenceIndex struct {
 	KnowledgeSpecs  map[string]apiv1alpha1.KnowledgeBaseSpec
 	Tools           map[string]struct{}
 	ToolSpecs       map[string]apiv1alpha1.ToolProviderSpec
+	Skills          map[string]struct{}
+	SkillSpecs      map[string]apiv1alpha1.SkillSpec
 	MCPServers      map[string]struct{}
 	Policies        map[string]struct{}
 }
@@ -83,7 +85,7 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 		},
 		"models":    spec.Models,
 		"tools":     toolsForArtifact(spec.ToolRefs, refs.ToolSpecs),
-		"skills":    skillsForArtifact(spec.SkillRefs),
+		"skills":    skillsForArtifact(spec.SkillRefs, refs.SkillSpecs),
 		"knowledge": knowledgeForArtifact(spec.KnowledgeRefs, refs.KnowledgeSpecs),
 		"output": map[string]interface{}{
 			"schema": spec.Interfaces.Output.Schema,
@@ -143,7 +145,7 @@ func toolsForArtifact(toolRefs []string, specs map[string]apiv1alpha1.ToolProvid
 	return tools
 }
 
-func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec) map[string]interface{} {
+func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec, specs map[string]apiv1alpha1.SkillSpec) map[string]interface{} {
 	if len(bindings) == 0 {
 		return nil
 	}
@@ -153,10 +155,18 @@ func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec) map[string]inter
 		if key == "" {
 			key = binding.Ref
 		}
-		skills[key] = map[string]interface{}{
+		entry := map[string]interface{}{
 			"name": binding.Name,
 			"ref":  binding.Ref,
 		}
+		if spec, ok := specs[binding.Ref]; ok {
+			entry["description"] = spec.Description
+			entry["promptRefs"] = spec.PromptRefs
+			entry["knowledgeRefs"] = spec.KnowledgeRefs
+			entry["toolRefs"] = spec.ToolRefs
+			entry["functions"] = spec.Functions
+		}
+		skills[key] = entry
 	}
 	return skills
 }
@@ -228,6 +238,11 @@ func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []strin
 	for _, toolRef := range agent.Spec.ToolRefs {
 		if !contains(refs.Tools, toolRef) {
 			missing = append(missing, "ToolProvider/"+toolRef)
+		}
+	}
+	for _, skillRef := range agent.Spec.SkillRefs {
+		if !contains(refs.Skills, skillRef.Ref) {
+			missing = append(missing, "Skill/"+skillRef.Ref)
 		}
 	}
 	for _, mcpRef := range agent.Spec.MCPRefs {

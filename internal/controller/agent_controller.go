@@ -79,6 +79,8 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 		KnowledgeSpecs:  map[string]apiv1alpha1.KnowledgeBaseSpec{},
 		Tools:           map[string]struct{}{},
 		ToolSpecs:       map[string]apiv1alpha1.ToolProviderSpec{},
+		Skills:          map[string]struct{}{},
+		SkillSpecs:      map[string]apiv1alpha1.SkillSpec{},
 		MCPServers:      map[string]struct{}{},
 		Policies:        map[string]struct{}{},
 	}
@@ -108,6 +110,15 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 	for _, item := range tools.Items {
 		refs.Tools[item.Name] = struct{}{}
 		refs.ToolSpecs[item.Name] = item.Spec
+	}
+
+	var skills apiv1alpha1.SkillList
+	if err := reader.List(ctx, &skills, client.InNamespace(namespace)); err != nil {
+		return compiler.ReferenceIndex{}, err
+	}
+	for _, item := range skills.Items {
+		refs.Skills[item.Name] = struct{}{}
+		refs.SkillSpecs[item.Name] = item.Spec
 	}
 
 	var mcpServers apiv1alpha1.MCPServerList

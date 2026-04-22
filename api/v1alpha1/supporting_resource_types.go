@@ -40,6 +40,14 @@ type ToolProviderSpec struct {
 	HTTP        FreeformObject `json:"http,omitempty"`
 }
 
+type SkillSpec struct {
+	Description   string                 `json:"description,omitempty"`
+	PromptRefs    AgentPromptRefs        `json:"promptRefs,omitempty"`
+	KnowledgeRefs []KnowledgeBindingSpec `json:"knowledgeRefs,omitempty"`
+	ToolRefs      []string               `json:"toolRefs,omitempty"`
+	Functions     []string               `json:"functions,omitempty"`
+}
+
 type ToolSchemaSpec struct {
 	Input  JSONSchema `json:"input,omitempty"`
 	Output JSONSchema `json:"output,omitempty"`
@@ -148,6 +156,22 @@ type ToolProviderList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ToolProvider `json:"items"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+type Skill struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SkillSpec      `json:"spec,omitempty"`
+	Status            ResourceStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+type SkillList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Skill `json:"items"`
 }
 
 // +kubebuilder:object:root=true

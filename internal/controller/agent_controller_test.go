@@ -28,6 +28,7 @@ func TestBuildReferenceIndexListsNamespaceResources(t *testing.T) {
 			},
 			&apiv1alpha1.KnowledgeBase{ObjectMeta: metav1.ObjectMeta{Name: "regulations", Namespace: "ehs"}},
 			&apiv1alpha1.ToolProvider{ObjectMeta: metav1.ObjectMeta{Name: "vision", Namespace: "ehs"}},
+			&apiv1alpha1.Skill{ObjectMeta: metav1.ObjectMeta{Name: "risk-scoring", Namespace: "ehs"}},
 			&apiv1alpha1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "docs", Namespace: "ehs"}},
 			&apiv1alpha1.AgentPolicy{ObjectMeta: metav1.ObjectMeta{Name: "policy", Namespace: "ehs"}},
 			&apiv1alpha1.ToolProvider{ObjectMeta: metav1.ObjectMeta{Name: "other-namespace-tool", Namespace: "default"}},
@@ -45,6 +46,7 @@ func TestBuildReferenceIndexListsNamespaceResources(t *testing.T) {
 	}
 	assertContains(t, refs.KnowledgeBases, "regulations")
 	assertContains(t, refs.Tools, "vision")
+	assertContains(t, refs.Skills, "risk-scoring")
 	assertContains(t, refs.MCPServers, "docs")
 	assertContains(t, refs.Policies, "policy")
 	assertNotContains(t, refs.Tools, "other-namespace-tool")

@@ -27,6 +27,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&KnowledgeBaseList{},
 		&ToolProvider{},
 		&ToolProviderList{},
+		&Skill{},
+		&SkillList{},
 		&MCPServer{},
 		&MCPServerList{},
 		&AgentPolicy{},

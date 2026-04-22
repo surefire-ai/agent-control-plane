@@ -50,6 +50,16 @@ type ArtifactRunner struct {
 }
 
 type SkillSpec struct {
+	Name          string                      `json:"name,omitempty"`
+	Ref           string                      `json:"ref,omitempty"`
+	Description   string                      `json:"description,omitempty"`
+	PromptRefs    map[string]string           `json:"promptRefs,omitempty"`
+	KnowledgeRefs []CompiledSkillKnowledgeRef `json:"knowledgeRefs,omitempty"`
+	ToolRefs      []string                    `json:"toolRefs,omitempty"`
+	Functions     []string                    `json:"functions,omitempty"`
+}
+
+type CompiledSkillKnowledgeRef struct {
 	Name string `json:"name,omitempty"`
 	Ref  string `json:"ref,omitempty"`
 }

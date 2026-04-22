@@ -22,8 +22,15 @@ type RunRequest struct {
 }
 
 type EinoADKPlaceholderRunner struct {
-	Invoker     OpenAICompatibleInvoker
+	Invoker     ModelInvoker
 	ToolInvoker HTTPToolInvoker
+}
+
+func (r EinoADKPlaceholderRunner) modelInvoker() ModelInvoker {
+	if r.Invoker != nil {
+		return r.Invoker
+	}
+	return EinoOpenAIInvoker{}
 }
 
 type FailureReasonError struct {
@@ -119,7 +126,7 @@ func runnerFor(identity contract.RuntimeIdentity) (Runner, error) {
 	if err := identity.ValidateSupported(); err != nil {
 		return nil, err
 	}
-	return EinoADKPlaceholderRunner{Invoker: OpenAICompatibleInvoker{}}, nil
+	return EinoADKPlaceholderRunner{Invoker: EinoOpenAIInvoker{}}, nil
 }
 
 type ModelInvocation struct {
@@ -152,7 +159,7 @@ func (r EinoADKPlaceholderRunner) invokePrimaryModel(ctx context.Context, reques
 		return ModelInvocation{}, false, nil
 	}
 
-	result, err := r.Invoker.Invoke(ctx, modelRuntime, modelConfig, systemPrompt, request.Config.ParsedRunInput, request.Artifact.Runner.Output)
+	result, err := r.modelInvoker().Invoke(ctx, modelRuntime, modelConfig, systemPrompt, request.Config.ParsedRunInput, request.Artifact.Runner.Output)
 	if err != nil {
 		return ModelInvocation{}, false, err
 	}

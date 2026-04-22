@@ -17,6 +17,10 @@ type HTTPDoer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type ModelInvoker interface {
+	Invoke(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, prompt contract.PromptSpec, input map[string]interface{}, output map[string]interface{}) (ModelInvocationResult, error)
+}
+
 type OpenAICompatibleInvoker struct {
 	Client HTTPDoer
 }

@@ -79,7 +79,7 @@ func (r EinoADKPlaceholderRunner) executeStepLLM(ctx context.Context, request Ru
 	if len(modelInput) == 0 {
 		modelInput = request.Config.ParsedRunInput
 	}
-	result, err := r.Invoker.Invoke(ctx, modelRuntime, modelConfig, systemPrompt, modelInput, request.Artifact.Runner.Output)
+	result, err := r.modelInvoker().Invoke(ctx, modelRuntime, modelConfig, systemPrompt, modelInput, request.Artifact.Runner.Output)
 	if err != nil {
 		return nil, nil, err
 	}

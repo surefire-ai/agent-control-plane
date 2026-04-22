@@ -568,7 +568,7 @@ func TestPlaceholderRunnerExecutesStepLLMNode(t *testing.T) {
 	defer server.Close()
 
 	runner := EinoADKPlaceholderRunner{
-		Invoker: OpenAICompatibleInvoker{Client: server.Client()},
+		Invoker: EinoOpenAIInvoker{Client: server.Client()},
 	}
 	result, err := runner.Run(context.Background(), RunRequest{
 		Config: Config{

@@ -759,6 +759,169 @@ func TestPlaceholderRunnerExecutesAutoStepSequenceFromGraphEdges(t *testing.T) {
 	}
 }
 
+func TestPlaceholderRunnerAutoStepSequenceMatchesInputCondition(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"ok\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.88,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker: EinoOpenAIInvoker{Client: modelServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"auto": true,
+				},
+				"payload": map[string]interface{}{
+					"images": []interface{}{"s3://ehs/image-1.jpg"},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "extract_facts", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "inspect_images", "kind": "llm", "modelRef": "planner"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "extract_facts"},
+						map[string]interface{}{"from": "extract_facts", "to": "inspect_images", "when": "input.payload.images != null && len(input.payload.images) > 0"},
+						map[string]interface{}{"from": "inspect_images", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, _ := result.Output["step"].(map[string]interface{})
+	sequence, _ := step["sequence"].([]string)
+	if len(sequence) != 2 || sequence[1] != "inspect_images" {
+		t.Fatalf("expected conditional image path, got %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerAutoStepSequenceMatchesFinalResponseCondition(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"reviewed\",\"hazards\":[],\"overallRiskLevel\":\"high\",\"nextActions\":[],\"confidence\":0.88,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	toolServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ticketId":"T-106","status":"created"}`))
+	}))
+	defer toolServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker:     EinoOpenAIInvoker{Client: modelServer.Client()},
+		ToolInvoker: EinoToolInvoker{Client: toolServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{"auto": true},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "review_output", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "create_ticket", "kind": "tool", "toolRef": "rectify-ticket-api"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "review_output"},
+						map[string]interface{}{"from": "review_output", "to": "create_ticket", "when": "finalResponse.overallRiskLevel in ['high', 'critical']"},
+						map[string]interface{}{"from": "review_output", "to": "END"},
+						map[string]interface{}{"from": "create_ticket", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": toolServer.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, _ := result.Output["step"].(map[string]interface{})
+	sequence, _ := step["sequence"].([]string)
+	if len(sequence) != 2 || sequence[1] != "create_ticket" {
+		t.Fatalf("expected high-risk branch to create ticket, got %#v", step)
+	}
+}
+
 func TestRequestedStepRejectsInvalidSequence(t *testing.T) {
 	_, _, err := requestedStep(map[string]interface{}{
 		"step": map[string]interface{}{

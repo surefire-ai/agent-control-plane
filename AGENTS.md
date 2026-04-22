@@ -1,0 +1,212 @@
+# AGENTS.md
+
+This file guides AI collaborators working in this repository.
+
+## Project Identity
+
+Agent Control Plane is a Kubernetes-native control plane for AI agents.
+
+Treat this project as an **operator plus runtime system**, not as a generic app
+or a prompt playground.
+
+- The **operator/control plane** lives in `api/`, `internal/controller/`,
+  `internal/compiler/`, `internal/gateway/`, and `internal/runtime/`.
+- The **execution plane** lives in `cmd/worker/` and `internal/worker/`.
+- The declarative API surface is defined by Kubernetes CRDs under
+  `api/v1alpha1/` and generated manifests under `config/crd/bases/`.
+
+Current repository direction:
+
+- Default runtime direction is `runtime.engine=eino` with
+  `runtime.runnerClass=adk`.
+- `Skill` is a reusable capability bundle.
+- `Pattern` is a compile-time convenience layer.
+- `react` is the first supported pattern preset.
+- Do **not** introduce a separate `rag` preset. ReAct should consume the
+  agent's normal `knowledgeRefs` and `toolRefs`.
+
+## What To Optimize For
+
+When making changes, optimize for these goals in order:
+
+1. Preserve a clean boundary between control plane and execution plane.
+2. Keep CRDs and compiled artifacts deterministic and auditable.
+3. Prefer incremental extension of the existing model over broad redesign.
+4. Keep the worker runtime simple enough to validate locally in Kubernetes.
+5. Make changes that support the current roadmap:
+   `Skill -> Pattern -> Runtime semantics -> SubAgent/A2A`.
+
+## Architectural Guardrails
+
+### 1. Do not collapse controller and worker responsibilities
+
+Keep these responsibilities separate:
+
+- `controller-manager` reconciles resources, compiles artifacts, manages status,
+  and dispatches runs.
+- `worker` consumes compiled artifacts and run input, then executes models,
+  tools, retrieval, and future graph semantics.
+
+Do not move execution logic into controllers just because it seems convenient.
+
+### 2. CRDs are the product surface
+
+If you add new behavior, prefer expressing it through:
+
+- typed API fields in `api/v1alpha1/`
+- compiled artifact data in `internal/compiler/`
+- runtime interpretation in `internal/worker/`
+
+Avoid hidden behavior that only exists in worker code without an API or
+artifact representation.
+
+### 3. Compiler first, runtime second
+
+For new orchestration features:
+
+1. add or refine API shape
+2. validate references and ambiguity in the compiler
+3. encode the behavior into compiled artifacts
+4. only then interpret it in the worker/runtime
+
+This is especially important for:
+
+- `Skill`
+- `Pattern`
+- future `SubAgent`
+- future A2A interoperability
+
+### 4. Prefer one obvious path
+
+Do not add parallel abstractions unless there is a strong reason.
+
+Examples:
+
+- Do not add a separate `rag` preset; make `react` consume `knowledgeRefs`.
+- Do not create a second skill system outside `Skill` CRDs.
+- Do not create a second runtime contract outside compiled artifacts and
+  `AgentRun`.
+
+## Current Implementation Truths
+
+These are current facts of the repo and should be preserved unless the user
+explicitly asks for a directional change:
+
+- `Agent`, `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`,
+  `MCPServer`, `AgentPolicy`, `AgentEvaluation`, and `Skill` are CRD-backed
+  resources.
+- `Skill` can currently contribute prompts, tools, knowledge, functions, and
+  graph fragments.
+- `react` can expand into a runner graph when `spec.graph` is empty.
+- ReAct expansion should consume normal agent-selected knowledge and tools.
+- Worker execution currently supports model, tool, retrieval, function, and
+  step-based graph execution in a staged form.
+- OrbStack local Kubernetes smoke validation is part of the intended developer
+  workflow.
+
+## File Ownership Guide
+
+- `api/v1alpha1/`
+  - API types and declarative surface
+  - if edited, regenerate deepcopy and CRDs
+- `internal/compiler/`
+  - reference validation, pattern expansion, artifact construction
+- `internal/contract/`
+  - typed artifact and worker result contracts
+- `internal/controller/`
+  - reconciliation and status lifecycle
+- `internal/runtime/`
+  - worker Job construction and runtime dispatch
+- `internal/worker/`
+  - execution semantics
+- `config/crd/bases/`
+  - generated CRD output, never hand-author as source of truth
+- `config/samples/`
+  - canonical samples and smoke overlays
+- `docs/phase2/`
+  - roadmap and design docs for the runtime direction
+
+## Required Workflow For Code Changes
+
+If you change API types:
+
+1. update `api/v1alpha1/...`
+2. run `make generate manifests`
+3. verify generated files changed as expected
+
+If you change compiler, runtime, or worker behavior:
+
+1. update focused tests first or alongside the change
+2. run at least the affected package tests
+3. run `make test` before finishing
+
+If you change samples or local validation behavior:
+
+1. keep `config/samples/ehs` as the canonical sample source
+2. keep `config/samples/ehs-orbstack-smoke` aligned with the local smoke path
+3. prefer `kustomize`-based sample application
+
+## Commands You Should Actually Use
+
+Use these commands by default:
+
+```bash
+make test
+make generate manifests
+make build
+make k8s-smoke-ehs
+```
+
+Useful targeted commands:
+
+```bash
+go test ./internal/compiler/...
+go test ./internal/worker/...
+go test ./internal/runtime/...
+```
+
+## Local Validation Expectations
+
+Before concluding substantial runtime or compiler work:
+
+- run `make test`
+- run `git diff --check`
+
+For changes affecting worker execution, runtime dispatch, or EHS samples, also
+prefer validating with local Kubernetes when available:
+
+```bash
+make k8s-smoke-ehs
+```
+
+## Anti-Patterns To Avoid
+
+Do not:
+
+- add secret values to status, artifacts, logs, or compiled artifacts
+- bypass `Secret` references by inlining credentials into specs
+- hand-edit generated deepcopy or CRD files without regenerating from source
+- introduce major product concepts without a typed API and compiler story
+- add speculative frameworks that are not on the current roadmap
+- split samples across duplicate directories
+
+## Documentation Expectations
+
+When behavior changes materially, update the relevant docs:
+
+- `README.md`
+- `README.zh-CN.md`
+- `docs/phase2/eino-runtime-design.md`
+- `docs/phase2/agent-patterns-and-a2a-todo.md`
+
+Keep docs aligned with current truth. Do not leave roadmap tables claiming
+"Not started" when code already exists.
+
+## When In Doubt
+
+If a change could go in multiple directions, prefer the option that:
+
+- extends the existing CRD/compiler/runtime pipeline
+- preserves deterministic compiled artifacts
+- keeps runtime semantics explicit
+- helps future `SubAgent` and A2A work instead of creating a parallel model

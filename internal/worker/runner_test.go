@@ -197,3 +197,91 @@ func TestPlaceholderRunnerExecutesRequestedTool(t *testing.T) {
 		t.Fatalf("unexpected tool output: %#v", toolCall)
 	}
 }
+
+func TestPlaceholderRunnerExecutesGraphToolNode(t *testing.T) {
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ticketId":"T-102","status":"created"}`))
+	}))
+	defer server.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		ToolInvoker: HTTPToolInvoker{Client: server.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"toolCall": map[string]interface{}{
+					"node": "create_ticket",
+					"input": map[string]interface{}{
+						"title": "Repair cabinet",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":    "create_ticket",
+							"kind":    "tool",
+							"toolRef": "rectify-ticket-api",
+						},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": server.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	toolCall, ok := result.Output["toolCall"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected toolCall output, got %#v", result.Output)
+	}
+	if toolCall["name"] != "rectify-ticket-api" || toolCall["node"] != "create_ticket" {
+		t.Fatalf("unexpected graph tool metadata: %#v", toolCall)
+	}
+	output, _ := toolCall["output"].(map[string]interface{})
+	if output["ticketId"] != "T-102" {
+		t.Fatalf("unexpected graph tool output: %#v", toolCall)
+	}
+}
+
+func TestRequestedToolCallRejectsMissingNameAndNode(t *testing.T) {
+	_, _, err := requestedToolCall(map[string]interface{}{
+		"toolCall": map[string]interface{}{
+			"input": map[string]interface{}{},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if err.Error() != "toolCall.name or toolCall.node is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

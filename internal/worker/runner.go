@@ -163,34 +163,57 @@ func (r EinoADKPlaceholderRunner) invokeRequestedTool(ctx context.Context, reque
 	if !ok {
 		return ExecutedToolInvocation{}, false, nil
 	}
-	spec, ok := request.Artifact.Runner.Tools[call.Name]
+	toolName := call.Name
+	nodeName := call.Node
+	if nodeName != "" {
+		resolved, err := toolNameForGraphNode(request.Artifact, nodeName)
+		if err != nil {
+			return ExecutedToolInvocation{}, false, err
+		}
+		toolName = resolved
+	}
+	spec, ok := request.Artifact.Runner.Tools[toolName]
 	if !ok {
 		return ExecutedToolInvocation{}, false, FailureReasonError{
 			Reason:  "UnknownTool",
-			Message: fmt.Sprintf("unknown tool %q", call.Name),
+			Message: fmt.Sprintf("unknown tool %q", toolName),
 		}
 	}
-	runtime, ok := runtimeInfo.Tools[call.Name]
+	runtime, ok := runtimeInfo.Tools[toolName]
 	if !ok {
 		return ExecutedToolInvocation{}, false, FailureReasonError{
 			Reason:  "UnknownTool",
-			Message: fmt.Sprintf("tool runtime binding missing for %q", call.Name),
+			Message: fmt.Sprintf("tool runtime binding missing for %q", toolName),
 		}
 	}
-	spec.Name = call.Name
+	spec.Name = toolName
 	result, err := r.ToolInvoker.Invoke(ctx, runtime, spec, call.Input)
 	if err != nil {
 		return ExecutedToolInvocation{}, false, err
 	}
+	output := map[string]interface{}{
+		"name":   toolName,
+		"input":  call.Input,
+		"output": result.Output,
+	}
+	requestInline := map[string]interface{}{
+		"name":  toolName,
+		"input": result.RequestBody,
+	}
+	responseInline := map[string]interface{}{
+		"name":   toolName,
+		"output": result.ResponseBody,
+	}
+	if nodeName != "" {
+		output["node"] = nodeName
+		requestInline["node"] = nodeName
+		responseInline["node"] = nodeName
+	}
 	return ExecutedToolInvocation{
-		Output: map[string]interface{}{
-			"name":   call.Name,
-			"input":  call.Input,
-			"output": result.Output,
-		},
+		Output: output,
 		Artifacts: []contract.WorkerArtifact{
-			{Name: "tool-request", Kind: "json", Inline: map[string]interface{}{"name": call.Name, "input": result.RequestBody}},
-			{Name: "tool-response", Kind: "json", Inline: map[string]interface{}{"name": call.Name, "output": result.ResponseBody}},
+			{Name: "tool-request", Kind: "json", Inline: requestInline},
+			{Name: "tool-response", Kind: "json", Inline: responseInline},
 		},
 	}, true, nil
 }
@@ -456,6 +479,7 @@ func envPrefix(kind string, name string) string {
 
 type RequestedToolCall struct {
 	Name  string
+	Node  string
 	Input map[string]interface{}
 }
 
@@ -472,15 +496,55 @@ func requestedToolCall(input map[string]interface{}) (RequestedToolCall, bool, e
 		}
 	}
 	name, _ := raw["name"].(string)
-	if strings.TrimSpace(name) == "" {
+	node, _ := raw["node"].(string)
+	if strings.TrimSpace(name) == "" && strings.TrimSpace(node) == "" {
 		return RequestedToolCall{}, false, FailureReasonError{
 			Reason:  "InvalidToolCallRequest",
-			Message: "toolCall.name is required",
+			Message: "toolCall.name or toolCall.node is required",
 		}
 	}
 	callInput, _ := raw["input"].(map[string]interface{})
 	if callInput == nil {
 		callInput = map[string]interface{}{}
 	}
-	return RequestedToolCall{Name: name, Input: callInput}, true, nil
+	return RequestedToolCall{Name: name, Node: node, Input: callInput}, true, nil
+}
+
+func toolNameForGraphNode(artifact contract.CompiledArtifact, nodeName string) (string, error) {
+	nodes, ok := artifact.Runner.Graph["nodes"].([]interface{})
+	if !ok {
+		return "", FailureReasonError{
+			Reason:  "UnknownGraphNode",
+			Message: fmt.Sprintf("graph node %q was not found", nodeName),
+		}
+	}
+	for _, raw := range nodes {
+		node, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := node["name"].(string)
+		if name != nodeName {
+			continue
+		}
+		kind, _ := node["kind"].(string)
+		if kind != "tool" {
+			return "", FailureReasonError{
+				Reason:  "UnsupportedGraphNode",
+				Message: fmt.Sprintf("graph node %q is not a tool node", nodeName),
+			}
+		}
+		toolRef, _ := node["toolRef"].(string)
+		if strings.TrimSpace(toolRef) == "" {
+			return "", FailureReasonError{
+				Reason:  "UnknownTool",
+				Message: fmt.Sprintf("graph node %q is missing toolRef", nodeName),
+			}
+		}
+		return toolRef, nil
+	}
+	return "", FailureReasonError{
+		Reason:  "UnknownGraphNode",
+		Message: fmt.Sprintf("graph node %q was not found", nodeName),
+	}
 }

@@ -58,6 +58,7 @@ func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.Freef
 		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
 		"knowledgeRefs": jsonValue(agent.Spec.KnowledgeRefs),
 		"toolRefs":      jsonValue(agent.Spec.ToolRefs),
+		"skillRefs":     jsonValue(agent.Spec.SkillRefs),
 		"mcpRefs":       jsonValue(agent.Spec.MCPRefs),
 		"policyRef":     jsonValue(agent.Spec.PolicyRef),
 		"interfaces":    jsonValue(agent.Spec.Interfaces),
@@ -82,6 +83,7 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 		},
 		"models":    spec.Models,
 		"tools":     toolsForArtifact(spec.ToolRefs, refs.ToolSpecs),
+		"skills":    skillsForArtifact(spec.SkillRefs),
 		"knowledge": knowledgeForArtifact(spec.KnowledgeRefs, refs.KnowledgeSpecs),
 		"output": map[string]interface{}{
 			"schema": spec.Interfaces.Output.Schema,
@@ -139,6 +141,24 @@ func toolsForArtifact(toolRefs []string, specs map[string]apiv1alpha1.ToolProvid
 		tools[name] = entry
 	}
 	return tools
+}
+
+func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec) map[string]interface{} {
+	if len(bindings) == 0 {
+		return nil
+	}
+	skills := make(map[string]interface{}, len(bindings))
+	for _, binding := range bindings {
+		key := binding.Name
+		if key == "" {
+			key = binding.Ref
+		}
+		skills[key] = map[string]interface{}{
+			"name": binding.Name,
+			"ref":  binding.Ref,
+		}
+	}
+	return skills
 }
 
 func knowledgeForArtifact(bindings []apiv1alpha1.KnowledgeBindingSpec, specs map[string]apiv1alpha1.KnowledgeBaseSpec) map[string]interface{} {

@@ -17,6 +17,7 @@ type AgentSpec struct {
 	PromptRefs    AgentPromptRefs        `json:"promptRefs,omitempty"`
 	KnowledgeRefs []KnowledgeBindingSpec `json:"knowledgeRefs,omitempty"`
 	ToolRefs      []string               `json:"toolRefs,omitempty"`
+	SkillRefs     []SkillBindingSpec     `json:"skillRefs,omitempty"`
 	MCPRefs       []string               `json:"mcpRefs,omitempty"`
 	PolicyRef     string                 `json:"policyRef,omitempty"`
 	Interfaces    AgentInterfaceSpec     `json:"interfaces,omitempty"`
@@ -63,6 +64,11 @@ type KnowledgeBindingSpec struct {
 	Name      string         `json:"name"`
 	Ref       string         `json:"ref"`
 	Retrieval FreeformObject `json:"retrieval,omitempty"`
+}
+
+type SkillBindingSpec struct {
+	Name string `json:"name"`
+	Ref  string `json:"ref"`
 }
 
 type AgentInterfaceSpec struct {

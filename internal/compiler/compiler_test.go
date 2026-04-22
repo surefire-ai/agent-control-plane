@@ -91,6 +91,9 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if runner.Tools["vision-inspection-tool"].Type != "multimodal" {
 		t.Fatalf("expected tool details in runner artifact, got %#v", runner.Tools)
 	}
+	if runner.Skills["risk-scoring"].Ref != "ehs-risk-scoring-skill" {
+		t.Fatalf("expected skill details in runner artifact, got %#v", runner.Skills)
+	}
 	if runner.Knowledge["regulations"].Ref != "ehs-regulations" || runner.Knowledge["regulations"].Description != "法规库" {
 		t.Fatalf("expected knowledge details in runner artifact, got %#v", runner.Knowledge)
 	}
@@ -167,6 +170,9 @@ func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
 	if artifact.Runner.Tools["vision-inspection-tool"].Type != "multimodal" {
 		t.Fatalf("unexpected tools: %#v", artifact.Runner.Tools)
 	}
+	if artifact.Runner.Skills["risk-scoring"].Ref != "ehs-risk-scoring-skill" {
+		t.Fatalf("unexpected skills: %#v", artifact.Runner.Skills)
+	}
 	if artifact.Runner.Knowledge["regulations"].Ref != "ehs-regulations" {
 		t.Fatalf("unexpected knowledge: %#v", artifact.Runner.Knowledge)
 	}
@@ -224,7 +230,10 @@ func testAgent() apiv1alpha1.Agent {
 				{Name: "regulations", Ref: "ehs-regulations"},
 				{Name: "cases", Ref: "ehs-hazard-cases"},
 			},
-			ToolRefs:  []string{"vision-inspection-tool", "rectify-ticket-api"},
+			ToolRefs: []string{"vision-inspection-tool", "rectify-ticket-api"},
+			SkillRefs: []apiv1alpha1.SkillBindingSpec{
+				{Name: "risk-scoring", Ref: "ehs-risk-scoring-skill"},
+			},
 			MCPRefs:   []string{"ehs-docs-mcp"},
 			PolicyRef: "ehs-default-safety-policy",
 			Interfaces: apiv1alpha1.AgentInterfaceSpec{

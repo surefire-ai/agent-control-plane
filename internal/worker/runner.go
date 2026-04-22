@@ -23,7 +23,7 @@ type RunRequest struct {
 
 type EinoADKPlaceholderRunner struct {
 	Invoker     ModelInvoker
-	ToolInvoker HTTPToolInvoker
+	ToolInvoker ToolInvoker
 }
 
 func (r EinoADKPlaceholderRunner) modelInvoker() ModelInvoker {
@@ -31,6 +31,13 @@ func (r EinoADKPlaceholderRunner) modelInvoker() ModelInvoker {
 		return r.Invoker
 	}
 	return EinoOpenAIInvoker{}
+}
+
+func (r EinoADKPlaceholderRunner) toolInvoker() ToolInvoker {
+	if r.ToolInvoker != nil {
+		return r.ToolInvoker
+	}
+	return EinoToolInvoker{}
 }
 
 type FailureReasonError struct {
@@ -210,7 +217,7 @@ func (r EinoADKPlaceholderRunner) executeToolCall(ctx context.Context, request R
 		}
 	}
 	spec.Name = toolName
-	result, err := r.ToolInvoker.Invoke(ctx, runtime, spec, call.Input)
+	result, err := r.toolInvoker().Invoke(ctx, runtime, spec, call.Input)
 	if err != nil {
 		return ExecutedToolInvocation{}, false, err
 	}

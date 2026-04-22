@@ -9,6 +9,11 @@ import (
 	"net/http"
 	"strings"
 
+	einojsonschema "github.com/eino-contrib/jsonschema"
+
+	einotool "github.com/cloudwego/eino/components/tool"
+	einoschema "github.com/cloudwego/eino/schema"
+
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
 )
 
@@ -16,11 +21,59 @@ type HTTPToolInvoker struct {
 	Client HTTPDoer
 }
 
+type ToolInvoker interface {
+	Invoke(ctx context.Context, runtime contract.WorkerToolRuntime, spec contract.ToolSpec, input map[string]interface{}) (ToolInvocationResult, error)
+}
+
 type ToolInvocationResult struct {
 	Name         string
 	RequestBody  map[string]interface{}
 	ResponseBody map[string]interface{}
 	Output       map[string]interface{}
+}
+
+type EinoHTTPTool struct {
+	Runtime contract.WorkerToolRuntime
+	Spec    contract.ToolSpec
+	Invoker HTTPToolInvoker
+}
+
+var _ einotool.InvokableTool = (*EinoHTTPTool)(nil)
+
+type EinoToolInvoker struct {
+	Client HTTPDoer
+}
+
+func (i EinoToolInvoker) Invoke(ctx context.Context, runtime contract.WorkerToolRuntime, spec contract.ToolSpec, input map[string]interface{}) (ToolInvocationResult, error) {
+	tool := EinoHTTPTool{
+		Runtime: runtime,
+		Spec:    spec,
+		Invoker: HTTPToolInvoker{Client: i.Client},
+	}
+	rawInput, err := json.Marshal(input)
+	if err != nil {
+		return ToolInvocationResult{}, FailureReasonError{
+			Reason:  "ToolRequestBuildFailed",
+			Message: fmt.Sprintf("failed to marshal tool input: %v", err),
+		}
+	}
+	result, err := tool.InvokableRun(ctx, string(rawInput))
+	if err != nil {
+		return ToolInvocationResult{}, err
+	}
+	var output map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &output); err != nil {
+		return ToolInvocationResult{}, FailureReasonError{
+			Reason:  "ToolResponseParseFailed",
+			Message: fmt.Sprintf("tool response must be valid JSON object: %v", err),
+		}
+	}
+	return ToolInvocationResult{
+		Name:         spec.Name,
+		RequestBody:  input,
+		ResponseBody: output,
+		Output:       output,
+	}, nil
 }
 
 func (i HTTPToolInvoker) Invoke(ctx context.Context, runtime contract.WorkerToolRuntime, spec contract.ToolSpec, input map[string]interface{}) (ToolInvocationResult, error) {
@@ -125,6 +178,65 @@ func (i HTTPToolInvoker) Invoke(ctx context.Context, runtime contract.WorkerTool
 		ResponseBody: responseBody,
 		Output:       responseBody,
 	}, nil
+}
+
+func (t EinoHTTPTool) Info(ctx context.Context) (*einoschema.ToolInfo, error) {
+	_ = ctx
+	info := &einoschema.ToolInfo{
+		Name:  t.Spec.Name,
+		Desc:  t.Spec.Description,
+		Extra: map[string]any{"type": t.Spec.Type},
+	}
+	inputSchema := nestedObject(t.Spec.Schema, "input")
+	if len(inputSchema) == 0 {
+		return info, nil
+	}
+
+	schemaBytes, err := json.Marshal(inputSchema)
+	if err != nil {
+		return nil, FailureReasonError{
+			Reason:  "ToolRequestBuildFailed",
+			Message: fmt.Sprintf("failed to marshal tool input schema: %v", err),
+		}
+	}
+	var schema einojsonschema.Schema
+	if err := json.Unmarshal(schemaBytes, &schema); err != nil {
+		return nil, FailureReasonError{
+			Reason:  "ToolRequestBuildFailed",
+			Message: fmt.Sprintf("failed to convert tool input schema: %v", err),
+		}
+	}
+	info.ParamsOneOf = einoschema.NewParamsOneOfByJSONSchema(&schema)
+	return info, nil
+}
+
+func (t EinoHTTPTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...einotool.Option) (string, error) {
+	_ = opts
+	var input map[string]interface{}
+	if strings.TrimSpace(argumentsInJSON) != "" {
+		if err := json.Unmarshal([]byte(argumentsInJSON), &input); err != nil {
+			return "", FailureReasonError{
+				Reason:  "ToolRequestBuildFailed",
+				Message: fmt.Sprintf("tool input must be valid JSON object: %v", err),
+			}
+		}
+	}
+	if input == nil {
+		input = map[string]interface{}{}
+	}
+
+	result, err := t.Invoker.Invoke(ctx, t.Runtime, t.Spec, input)
+	if err != nil {
+		return "", err
+	}
+	rawOutput, err := json.Marshal(result.Output)
+	if err != nil {
+		return "", FailureReasonError{
+			Reason:  "ToolResponseParseFailed",
+			Message: fmt.Sprintf("failed to marshal tool output: %v", err),
+		}
+	}
+	return string(rawOutput), nil
 }
 
 func validateToolOutputSchema(result map[string]interface{}, schema map[string]interface{}) error {

@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
@@ -131,5 +133,67 @@ func TestPlaceholderRunnerReportsResolvedDependencies(t *testing.T) {
 	}
 	if got := result.Output["resolvedKnowledge"]; got != 1 {
 		t.Fatalf("expected resolvedKnowledge=1, got %#v", got)
+	}
+}
+
+func TestPlaceholderRunnerExecutesRequestedTool(t *testing.T) {
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ticketId":"T-101","status":"created"}`))
+	}))
+	defer server.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		ToolInvoker: HTTPToolInvoker{Client: server.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"toolCall": map[string]interface{}{
+					"name": "rectify-ticket-api",
+					"input": map[string]interface{}{
+						"title": "Repair cabinet",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": server.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	toolCall, ok := result.Output["toolCall"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected toolCall output, got %#v", result.Output)
+	}
+	output, _ := toolCall["output"].(map[string]interface{})
+	if output["ticketId"] != "T-101" {
+		t.Fatalf("unexpected tool output: %#v", toolCall)
 	}
 }

@@ -231,25 +231,5 @@ func validateOutputSchema(result map[string]interface{}, output map[string]inter
 			Message: "output schema must be a JSON object",
 		}
 	}
-	if schemaType, _ := schema["type"].(string); schemaType != "" && schemaType != "object" {
-		return FailureReasonError{
-			Reason:  "OutputSchemaValidationFailed",
-			Message: fmt.Sprintf("unsupported output schema type %q", schemaType),
-		}
-	}
-	if required, ok := schema["required"].([]interface{}); ok {
-		for _, item := range required {
-			name, _ := item.(string)
-			if name == "" {
-				continue
-			}
-			if _, exists := result[name]; !exists {
-				return FailureReasonError{
-					Reason:  "OutputSchemaValidationFailed",
-					Message: fmt.Sprintf("model response missing required field %q", name),
-				}
-			}
-		}
-	}
-	return nil
+	return validateSchemaObject(result, schema)
 }

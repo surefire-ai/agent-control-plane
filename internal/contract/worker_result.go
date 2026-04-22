@@ -52,9 +52,11 @@ type WorkerModelRuntime struct {
 }
 
 type WorkerToolRuntime struct {
-	Type         string   `json:"type,omitempty"`
-	Description  string   `json:"description,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
+	Type               string   `json:"type,omitempty"`
+	Description        string   `json:"description,omitempty"`
+	Capabilities       []string `json:"capabilities,omitempty"`
+	AuthTokenEnv       string   `json:"authTokenEnv,omitempty"`
+	CredentialInjected bool     `json:"credentialInjected,omitempty"`
 }
 
 type WorkerKnowledgeRuntime struct {

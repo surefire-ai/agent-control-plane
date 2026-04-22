@@ -71,6 +71,15 @@ func TestWorkerRuntimeCreatesJobAndReportsInProgress(t *testing.T) {
 	if envValue(job.Spec.Template.Spec.Containers[0].Env, "MODEL_PLANNER_BASE_URL") != "https://api.openai.com/v1" {
 		t.Fatalf("unexpected planner base URL env: %#v", job.Spec.Template.Spec.Containers[0].Env)
 	}
+	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "TOOL_RECTIFY_TICKET_API_AUTH_TOKEN") == nil {
+		t.Fatal("expected worker Job to receive TOOL_RECTIFY_TICKET_API_AUTH_TOKEN from SecretKeyRef")
+	}
+	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "TOOL_RECTIFY_TICKET_API_AUTH_TOKEN").SecretKeyRef == nil {
+		t.Fatalf("expected tool auth token to come from SecretKeyRef, got %#v", envVarSource(job.Spec.Template.Spec.Containers[0].Env, "TOOL_RECTIFY_TICKET_API_AUTH_TOKEN"))
+	}
+	if envVarSource(job.Spec.Template.Spec.Containers[0].Env, "TOOL_RECTIFY_TICKET_API_AUTH_TOKEN").SecretKeyRef.Name != "ehs-api-secret" {
+		t.Fatalf("unexpected tool secret ref: %#v", envVarSource(job.Spec.Template.Spec.Containers[0].Env, "TOOL_RECTIFY_TICKET_API_AUTH_TOKEN"))
+	}
 }
 
 func TestWorkerRuntimeReturnsResultWhenJobSucceeded(t *testing.T) {
@@ -272,6 +281,26 @@ func workerRequest() Request {
 					"runtime": JSONValue(map[string]interface{}{
 						"engine":      "eino",
 						"runnerClass": "adk",
+					}),
+					"runner": JSONValue(map[string]interface{}{
+						"kind": "EinoADKRunner",
+						"tools": map[string]interface{}{
+							"rectify-ticket-api": map[string]interface{}{
+								"name": "rectify-ticket-api",
+								"type": "http",
+								"http": map[string]interface{}{
+									"url":    "https://ehs-api.internal/api/v1/tickets",
+									"method": "POST",
+									"auth": map[string]interface{}{
+										"type": "bearerToken",
+										"secretRef": map[string]interface{}{
+											"name": "ehs-api-secret",
+											"key":  "token",
+										},
+									},
+								},
+							},
+						},
 					}),
 				},
 			},

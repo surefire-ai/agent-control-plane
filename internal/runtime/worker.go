@@ -116,6 +116,7 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 		{Name: "AGENT_COMPILED_ARTIFACT", Value: compiledArtifactJSON(request.Agent)},
 	}
 	env = append(env, modelRuntimeEnvVars(request.Agent.Spec.Models)...)
+	env = append(env, toolRuntimeEnvVars(request.Agent)...)
 
 	return batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -238,6 +239,14 @@ func modelRuntimeEnvVars(models map[string]apiv1alpha1.ModelSpec) []corev1.EnvVa
 }
 
 func modelEnvPrefix(name string) string {
+	return envPrefix("MODEL", name)
+}
+
+func toolEnvPrefix(name string) string {
+	return envPrefix("TOOL", name)
+}
+
+func envPrefix(kind string, name string) string {
 	var builder strings.Builder
 	lastUnderscore := false
 	for _, r := range name {
@@ -256,9 +265,65 @@ func modelEnvPrefix(name string) string {
 
 	prefix := strings.Trim(builder.String(), "_")
 	if prefix == "" {
-		prefix = "MODEL"
+		prefix = kind
 	}
-	return "MODEL_" + prefix
+	return kind + "_" + prefix
+}
+
+func toolRuntimeEnvVars(agent apiv1alpha1.Agent) []corev1.EnvVar {
+	artifact, ok := parsedCompiledArtifact(agent)
+	if !ok || len(artifact.Runner.Tools) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(artifact.Runner.Tools))
+	for name := range artifact.Runner.Tools {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	env := make([]corev1.EnvVar, 0, len(names))
+	for _, name := range names {
+		tool := artifact.Runner.Tools[name]
+		auth := nestedMap(tool.HTTP, "auth")
+		secretRef := nestedMap(auth, "secretRef")
+		authType, _ := auth["type"].(string)
+		secretName, _ := secretRef["name"].(string)
+		secretKey, _ := secretRef["key"].(string)
+		if authType != "bearerToken" || secretName == "" || secretKey == "" {
+			continue
+		}
+		env = append(env, corev1.EnvVar{
+			Name: toolEnvPrefix(name) + "_AUTH_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
+					Key:                  secretKey,
+				},
+			},
+		})
+	}
+	return env
+}
+
+func parsedCompiledArtifact(agent apiv1alpha1.Agent) (contract.CompiledArtifact, bool) {
+	raw, err := json.Marshal(agent.Status.CompiledArtifact)
+	if err != nil || string(raw) == "null" {
+		return contract.CompiledArtifact{}, false
+	}
+	artifact, err := contract.ParseCompiledArtifact(string(raw))
+	if err != nil {
+		return contract.CompiledArtifact{}, false
+	}
+	return artifact, true
+}
+
+func nestedMap(values map[string]interface{}, key string) map[string]interface{} {
+	if len(values) == 0 {
+		return nil
+	}
+	output, _ := values[key].(map[string]interface{})
+	return output
 }
 
 func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job batchv1.Job) (Result, error) {

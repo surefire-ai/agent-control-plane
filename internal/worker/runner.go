@@ -22,7 +22,8 @@ type RunRequest struct {
 }
 
 type EinoADKPlaceholderRunner struct {
-	Invoker OpenAICompatibleInvoker
+	Invoker     OpenAICompatibleInvoker
+	ToolInvoker HTTPToolInvoker
 }
 
 type FailureReasonError struct {
@@ -82,6 +83,12 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		}
 		artifacts = append(artifacts, invocation.Artifacts...)
 	}
+	if toolInvocation, ok, err := r.invokeRequestedTool(ctx, request, runtimeInfo); err != nil {
+		return contract.WorkerResult{}, err
+	} else if ok {
+		resultPayload["toolCall"] = toolInvocation.Output
+		artifacts = append(artifacts, toolInvocation.Artifacts...)
+	}
 	resultPayload["summary"] = message
 
 	return contract.WorkerResult{
@@ -107,6 +114,11 @@ type ModelInvocation struct {
 	ModelName string
 	Content   string
 	Parsed    map[string]interface{}
+	Artifacts []contract.WorkerArtifact
+}
+
+type ExecutedToolInvocation struct {
+	Output    map[string]interface{}
 	Artifacts []contract.WorkerArtifact
 }
 
@@ -139,6 +151,46 @@ func (r EinoADKPlaceholderRunner) invokePrimaryModel(ctx context.Context, reques
 		Artifacts: []contract.WorkerArtifact{
 			{Name: "chat-completion-request", Kind: "json", Inline: result.RequestBody},
 			{Name: "chat-completion-response", Kind: "json", Inline: result.ResponseBody},
+		},
+	}, true, nil
+}
+
+func (r EinoADKPlaceholderRunner) invokeRequestedTool(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (ExecutedToolInvocation, bool, error) {
+	call, ok, err := requestedToolCall(request.Config.ParsedRunInput)
+	if err != nil {
+		return ExecutedToolInvocation{}, false, err
+	}
+	if !ok {
+		return ExecutedToolInvocation{}, false, nil
+	}
+	spec, ok := request.Artifact.Runner.Tools[call.Name]
+	if !ok {
+		return ExecutedToolInvocation{}, false, FailureReasonError{
+			Reason:  "UnknownTool",
+			Message: fmt.Sprintf("unknown tool %q", call.Name),
+		}
+	}
+	runtime, ok := runtimeInfo.Tools[call.Name]
+	if !ok {
+		return ExecutedToolInvocation{}, false, FailureReasonError{
+			Reason:  "UnknownTool",
+			Message: fmt.Sprintf("tool runtime binding missing for %q", call.Name),
+		}
+	}
+	spec.Name = call.Name
+	result, err := r.ToolInvoker.Invoke(ctx, runtime, spec, call.Input)
+	if err != nil {
+		return ExecutedToolInvocation{}, false, err
+	}
+	return ExecutedToolInvocation{
+		Output: map[string]interface{}{
+			"name":   call.Name,
+			"input":  call.Input,
+			"output": result.Output,
+		},
+		Artifacts: []contract.WorkerArtifact{
+			{Name: "tool-request", Kind: "json", Inline: map[string]interface{}{"name": call.Name, "input": result.RequestBody}},
+			{Name: "tool-response", Kind: "json", Inline: map[string]interface{}{"name": call.Name, "output": result.ResponseBody}},
 		},
 	}, true, nil
 }
@@ -196,10 +248,14 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 		},
 	}
 	for name, tool := range artifact.Runner.Tools {
+		authEnv := toolAuthTokenEnvName(name, tool)
+		credentialInjected := authEnv == "" || strings.TrimSpace(os.Getenv(authEnv)) != ""
 		info.Tools[name] = contract.WorkerToolRuntime{
-			Type:         tool.Type,
-			Description:  tool.Description,
-			Capabilities: toolCapabilities(tool),
+			Type:               tool.Type,
+			Description:        tool.Description,
+			Capabilities:       toolCapabilities(tool),
+			AuthTokenEnv:       authEnv,
+			CredentialInjected: credentialInjected,
 		}
 	}
 	for name, knowledge := range artifact.Runner.Knowledge {
@@ -268,6 +324,14 @@ func preferredModelConfig(name string, artifact contract.CompiledArtifact) (cont
 
 func modelAPIKeyEnvName(name string) string {
 	return modelEnvPrefix(name) + "_API_KEY"
+}
+
+func toolAuthTokenEnvName(name string, tool contract.ToolSpec) string {
+	authType := strings.TrimSpace(stringValue(nestedObject(tool.HTTP, "auth"), "type"))
+	if authType != "bearerToken" {
+		return ""
+	}
+	return toolEnvPrefix(name) + "_AUTH_TOKEN"
 }
 
 func toolCapabilities(tool contract.ToolSpec) []string {
@@ -360,6 +424,14 @@ func promptPreviewArtifact(artifact contract.CompiledArtifact, input map[string]
 }
 
 func modelEnvPrefix(name string) string {
+	return envPrefix("MODEL", name)
+}
+
+func toolEnvPrefix(name string) string {
+	return envPrefix("TOOL", name)
+}
+
+func envPrefix(kind string, name string) string {
 	var builder strings.Builder
 	lastUnderscore := false
 	for _, r := range name {
@@ -377,7 +449,38 @@ func modelEnvPrefix(name string) string {
 	}
 	prefix := strings.Trim(builder.String(), "_")
 	if prefix == "" {
-		prefix = "MODEL"
+		prefix = kind
 	}
-	return "MODEL_" + prefix
+	return kind + "_" + prefix
+}
+
+type RequestedToolCall struct {
+	Name  string
+	Input map[string]interface{}
+}
+
+func requestedToolCall(input map[string]interface{}) (RequestedToolCall, bool, error) {
+	value, ok := input["toolCall"]
+	if !ok {
+		return RequestedToolCall{}, false, nil
+	}
+	raw, ok := value.(map[string]interface{})
+	if !ok {
+		return RequestedToolCall{}, false, FailureReasonError{
+			Reason:  "InvalidToolCallRequest",
+			Message: "toolCall must be a JSON object",
+		}
+	}
+	name, _ := raw["name"].(string)
+	if strings.TrimSpace(name) == "" {
+		return RequestedToolCall{}, false, FailureReasonError{
+			Reason:  "InvalidToolCallRequest",
+			Message: "toolCall.name is required",
+		}
+	}
+	callInput, _ := raw["input"].(map[string]interface{})
+	if callInput == nil {
+		callInput = map[string]interface{}{}
+	}
+	return RequestedToolCall{Name: name, Input: callInput}, true, nil
 }

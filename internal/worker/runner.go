@@ -83,6 +83,12 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		}
 		artifacts = append(artifacts, invocation.Artifacts...)
 	}
+	if stepOutput, stepArtifacts, ok, err := r.invokeRequestedStep(ctx, request, runtimeInfo); err != nil {
+		return contract.WorkerResult{}, err
+	} else if ok {
+		resultPayload["step"] = stepOutput
+		artifacts = append(artifacts, stepArtifacts...)
+	}
 	if toolInvocation, ok, err := r.invokeRequestedTool(ctx, request, runtimeInfo); err != nil {
 		return contract.WorkerResult{}, err
 	} else if ok {
@@ -169,6 +175,10 @@ func (r EinoADKPlaceholderRunner) invokeRequestedTool(ctx context.Context, reque
 	if !ok {
 		return ExecutedToolInvocation{}, false, nil
 	}
+	return r.executeToolCall(ctx, request, runtimeInfo, call)
+}
+
+func (r EinoADKPlaceholderRunner) executeToolCall(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo, call RequestedToolCall) (ExecutedToolInvocation, bool, error) {
 	toolName := call.Name
 	nodeName := call.Node
 	if nodeName != "" {

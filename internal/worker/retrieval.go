@@ -35,7 +35,10 @@ func (r EinoADKPlaceholderRunner) invokeRequestedRetrieval(ctx context.Context, 
 	if !ok {
 		return ExecutedRetrievalInvocation{}, false, nil
 	}
+	return r.executeRetrievalCall(ctx, request, runtimeInfo, call)
+}
 
+func (r EinoADKPlaceholderRunner) executeRetrievalCall(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo, call RequestedRetrievalCall) (ExecutedRetrievalInvocation, bool, error) {
 	knowledgeName := call.Name
 	nodeName := call.Node
 	if nodeName != "" {

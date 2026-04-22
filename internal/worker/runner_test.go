@@ -399,3 +399,162 @@ func TestRequestedRetrievalCallRejectsMissingQuery(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestPlaceholderRunnerExecutesStepToolNode(t *testing.T) {
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"ticketId":"T-103","status":"created"}`))
+	}))
+	defer server.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		ToolInvoker: HTTPToolInvoker{Client: server.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"node": "create_ticket",
+					"input": map[string]interface{}{
+						"title": "Repair cabinet",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":    "create_ticket",
+							"kind":    "tool",
+							"toolRef": "rectify-ticket-api",
+						},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": server.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, ok := result.Output["step"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected step output, got %#v", result.Output)
+	}
+	if step["node"] != "create_ticket" || step["name"] != "rectify-ticket-api" {
+		t.Fatalf("unexpected step tool metadata: %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerExecutesStepRetrievalNode(t *testing.T) {
+	runner := EinoADKPlaceholderRunner{}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"node": "retrieve_regulations",
+					"input": map[string]interface{}{
+						"query": "危化品 储存 风险",
+						"topK":  1,
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":         "retrieve_regulations",
+							"kind":         "retrieval",
+							"knowledgeRef": "regulations",
+						},
+					},
+				},
+				Knowledge: map[string]contract.KnowledgeSpec{
+					"regulations": {
+						Name:        "regulations",
+						Ref:         "ehs-regulations",
+						Description: "法规库",
+						Sources: []map[string]interface{}{
+							{"name": "国家安全生产法规", "uri": "s3://ehs-kb/regulations/national/"},
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, ok := result.Output["step"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected step output, got %#v", result.Output)
+	}
+	if step["node"] != "retrieve_regulations" || step["name"] != "regulations" {
+		t.Fatalf("unexpected step retrieval metadata: %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerRejectsUnsupportedStepNodeKind(t *testing.T) {
+	runner := EinoADKPlaceholderRunner{}
+	_, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"node": "classify_task",
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name": "classify_task",
+							"kind": "llm",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != `graph step "classify_task" with kind "llm" is not supported yet` {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

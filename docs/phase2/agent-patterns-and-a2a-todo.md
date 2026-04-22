@@ -58,6 +58,46 @@ Initial presets to support:
 | `rag` | Retrieval-augmented generation with knowledge refs. |
 | `workflow` | Deterministic graph/workflow compiled from explicit nodes. |
 
+## Skill Support
+
+Status: not started.
+
+Add first-class reusable skills so common capability bundles can be attached to
+an Agent without forcing users to inline every tool, knowledge binding, prompt,
+or graph fragment manually.
+
+Proposed shape:
+
+```yaml
+spec:
+  skillRefs:
+    - name: hazard_triage
+      ref: ehs-hazard-triage-skill
+    - name: ticketing
+      ref: ehs-ticketing-skill
+```
+
+API TODO:
+
+- Add `Skill` CRD or an equivalent packaged capability surface.
+- Add `AgentSpec.skillRefs`.
+- Define how a skill contributes tools, knowledge, prompts, policies, and graph
+  fragments without making the final compiled graph ambiguous.
+
+Compiler TODO:
+
+- Resolve skill references before pattern expansion.
+- Merge skill-provided tool, knowledge, prompt, and graph metadata into the
+  compiled artifact with deterministic precedence rules.
+- Preserve the selected skill revisions in `Agent.status.compiledArtifact`.
+
+Runtime TODO:
+
+- Surface resolved skills in worker runtime metadata and traces.
+- Allow pattern presets such as `react`, `router`, and `rag` to consume skill
+  bundles as first-class inputs.
+- Keep skill expansion compatible with future SubAgent and A2A boundaries.
+
 Compiler TODO:
 
 - Expand `spec.pattern` into `runner.graph` when `spec.graph` is empty.

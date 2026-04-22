@@ -11,6 +11,7 @@ import (
 type RequestedStep struct {
 	Node     string
 	Sequence []string
+	Auto     bool
 	Input    map[string]interface{}
 }
 
@@ -21,6 +22,13 @@ func (r EinoADKPlaceholderRunner) invokeRequestedStep(ctx context.Context, reque
 	}
 	if !ok {
 		return nil, nil, false, nil
+	}
+	if step.Auto {
+		sequence, err := linearGraphSequence(request.Artifact)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		step.Sequence = sequence
 	}
 	if len(step.Sequence) > 0 {
 		output, artifacts, err := r.executeStepSequence(ctx, request, runtimeInfo, step)
@@ -147,17 +155,18 @@ func requestedStep(input map[string]interface{}) (RequestedStep, bool, error) {
 	if err != nil {
 		return RequestedStep{}, false, err
 	}
-	if strings.TrimSpace(node) == "" && len(sequence) == 0 {
+	auto, _ := raw["auto"].(bool)
+	if strings.TrimSpace(node) == "" && len(sequence) == 0 && !auto {
 		return RequestedStep{}, false, FailureReasonError{
 			Reason:  "InvalidStepRequest",
-			Message: "step.node or step.sequence is required",
+			Message: "step.node, step.sequence, or step.auto is required",
 		}
 	}
 	stepInput, _ := raw["input"].(map[string]interface{})
 	if stepInput == nil {
 		stepInput = map[string]interface{}{}
 	}
-	return RequestedStep{Node: node, Sequence: sequence, Input: stepInput}, true, nil
+	return RequestedStep{Node: node, Sequence: sequence, Auto: auto, Input: stepInput}, true, nil
 }
 
 func graphNodeByName(artifact contract.CompiledArtifact, nodeName string) (map[string]interface{}, error) {
@@ -250,6 +259,81 @@ func stringSequence(value interface{}) ([]string, error) {
 		sequence = append(sequence, name)
 	}
 	return sequence, nil
+}
+
+func linearGraphSequence(artifact contract.CompiledArtifact) ([]string, error) {
+	edges, ok := artifact.Runner.Graph["edges"].([]interface{})
+	if !ok || len(edges) == 0 {
+		return nil, FailureReasonError{
+			Reason:  "InvalidStepRequest",
+			Message: "graph does not expose edges for automatic execution",
+		}
+	}
+
+	sequence := make([]string, 0, len(edges))
+	current := "START"
+	visited := map[string]struct{}{}
+	for stepCount := 0; stepCount < len(edges)+1; stepCount++ {
+		next, done, err := nextLinearEdge(edges, current)
+		if err != nil {
+			return nil, err
+		}
+		if done {
+			return sequence, nil
+		}
+		if _, seen := visited[next]; seen {
+			return nil, FailureReasonError{
+				Reason:  "InvalidStepRequest",
+				Message: fmt.Sprintf("automatic graph execution detected a cycle at %q", next),
+			}
+		}
+		visited[next] = struct{}{}
+		sequence = append(sequence, next)
+		current = next
+	}
+
+	return nil, FailureReasonError{
+		Reason:  "InvalidStepRequest",
+		Message: "automatic graph execution exceeded the edge walk limit",
+	}
+}
+
+func nextLinearEdge(edges []interface{}, from string) (string, bool, error) {
+	var unconditional []string
+	for _, raw := range edges {
+		edge, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		edgeFrom, _ := edge["from"].(string)
+		if edgeFrom != from {
+			continue
+		}
+		if when, _ := edge["when"].(string); strings.TrimSpace(when) != "" {
+			continue
+		}
+		to, _ := edge["to"].(string)
+		if strings.TrimSpace(to) == "" {
+			continue
+		}
+		unconditional = append(unconditional, to)
+	}
+	if len(unconditional) == 0 {
+		return "", false, FailureReasonError{
+			Reason:  "InvalidStepRequest",
+			Message: fmt.Sprintf("automatic graph execution found no unconditional edge from %q", from),
+		}
+	}
+	if len(unconditional) > 1 {
+		return "", false, FailureReasonError{
+			Reason:  "InvalidStepRequest",
+			Message: fmt.Sprintf("automatic graph execution found multiple unconditional edges from %q", from),
+		}
+	}
+	if unconditional[0] == "END" {
+		return "", true, nil
+	}
+	return unconditional[0], false, nil
 }
 
 func initialStepState(runInput map[string]interface{}, explicit map[string]interface{}) map[string]interface{} {

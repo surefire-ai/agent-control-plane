@@ -653,6 +653,112 @@ func TestPlaceholderRunnerExecutesStepSequence(t *testing.T) {
 	}
 }
 
+func TestPlaceholderRunnerExecutesAutoStepSequenceFromGraphEdges(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"step complete\",\"title\":\"Repair cabinet\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.88,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	toolServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+		if body["title"] != "Repair cabinet" {
+			t.Fatalf("expected title from prior llm step, got %#v", body)
+		}
+		_, _ = w.Write([]byte(`{"ticketId":"T-105","status":"created"}`))
+	}))
+	defer toolServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker:     EinoOpenAIInvoker{Client: modelServer.Client()},
+		ToolInvoker: EinoToolInvoker{Client: toolServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"auto": true,
+					"input": map[string]interface{}{
+						"text": "配电箱门未关闭",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "classify_task", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "create_ticket", "kind": "tool", "toolRef": "rectify-ticket-api"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "classify_task"},
+						map[string]interface{}{"from": "classify_task", "to": "create_ticket"},
+						map[string]interface{}{"from": "create_ticket", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": toolServer.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, ok := result.Output["step"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected auto step output, got %#v", result.Output)
+	}
+	sequence, _ := step["sequence"].([]string)
+	if len(sequence) != 2 || sequence[0] != "classify_task" || sequence[1] != "create_ticket" {
+		t.Fatalf("unexpected auto sequence: %#v", step)
+	}
+}
+
 func TestRequestedStepRejectsInvalidSequence(t *testing.T) {
 	_, _, err := requestedStep(map[string]interface{}{
 		"step": map[string]interface{}{
@@ -663,6 +769,18 @@ func TestRequestedStepRejectsInvalidSequence(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 	if err.Error() != "step.sequence must be an array of node names" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRequestedStepRequiresNodeSequenceOrAuto(t *testing.T) {
+	_, _, err := requestedStep(map[string]interface{}{
+		"step": map[string]interface{}{},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if err.Error() != "step.node, step.sequence, or step.auto is required" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

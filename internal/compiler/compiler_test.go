@@ -101,8 +101,15 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if runner.Skills["risk-scoring"].Functions[0] != "app.skills.ehs:score_risk_by_matrix" {
 		t.Fatalf("expected skill function metadata in runner artifact, got %#v", runner.Skills)
 	}
+	if skillGraph, ok := runner.Skills["risk-scoring"].Graph["nodes"].([]interface{}); !ok || len(skillGraph) != 1 {
+		t.Fatalf("expected skill graph metadata in runner artifact, got %#v", runner.Skills["risk-scoring"])
+	}
 	if runner.Knowledge["regulations"].Ref != "ehs-regulations" || runner.Knowledge["regulations"].Description != "法规库" {
 		t.Fatalf("expected knowledge details in runner artifact, got %#v", runner.Knowledge)
+	}
+	nodes, _ := runner.Graph["nodes"].([]interface{})
+	if len(nodes) != 1 {
+		t.Fatalf("expected merged graph nodes in runner artifact, got %#v", runner.Graph)
 	}
 }
 
@@ -239,6 +246,10 @@ func TestCompileAgentMergesSkillDependenciesIntoRunner(t *testing.T) {
 	if _, ok := runner.Knowledge["regulations"]; !ok {
 		t.Fatalf("expected skill-provided knowledge to be merged into runner knowledge, got %#v", runner.Knowledge)
 	}
+	nodes, _ := runner.Graph["nodes"].([]interface{})
+	if len(nodes) != 1 {
+		t.Fatalf("expected skill-provided graph nodes to be merged into runner graph, got %#v", runner.Graph)
+	}
 }
 
 func TestCompileAgentFallsBackToSkillPromptWhenAgentPromptIsEmpty(t *testing.T) {
@@ -274,6 +285,40 @@ func TestCompileAgentFallsBackToSkillPromptWhenAgentPromptIsEmpty(t *testing.T) 
 	runner := runnerArtifact(t, result.Artifact["runner"])
 	if runner.Prompts["system"].Name != "ehs-hazard-identification-system" {
 		t.Fatalf("expected skill prompt to backfill system prompt, got %#v", runner.Prompts)
+	}
+}
+
+func TestCompileAgentRejectsDuplicateGraphNodesAcrossSkillsAndAgent(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph.Nodes = []apiv1alpha1.AgentGraphNode{{Name: "score_risk", Kind: "function", Implementation: "app.skills.ehs:score_risk_by_matrix"}}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills: set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{
+			"ehs-risk-scoring-skill": skillSpec(),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil {
+		t.Fatal("expected duplicate graph node error")
+	}
+	if !strings.Contains(err.Error(), `duplicate graph node "score_risk"`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -392,6 +437,15 @@ func skillSpec() apiv1alpha1.SkillSpec {
 		},
 		ToolRefs:  []string{"rectify-ticket-api"},
 		Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+		Graph: apiv1alpha1.SkillGraphSpec{
+			Nodes: []apiv1alpha1.AgentGraphNode{
+				{Name: "score_risk", Kind: "function", Implementation: "app.skills.ehs:score_risk_by_matrix"},
+			},
+			Edges: []apiv1alpha1.AgentGraphEdge{
+				{From: "identify_hazards", To: "score_risk"},
+				{From: "score_risk", To: "END"},
+			},
+		},
 	}
 }
 

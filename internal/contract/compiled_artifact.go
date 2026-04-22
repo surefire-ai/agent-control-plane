@@ -57,6 +57,7 @@ type SkillSpec struct {
 	KnowledgeRefs []CompiledSkillKnowledgeRef `json:"knowledgeRefs,omitempty"`
 	ToolRefs      []string                    `json:"toolRefs,omitempty"`
 	Functions     []string                    `json:"functions,omitempty"`
+	Graph         map[string]interface{}      `json:"graph,omitempty"`
 }
 
 type CompiledSkillKnowledgeRef struct {

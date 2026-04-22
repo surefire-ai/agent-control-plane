@@ -43,6 +43,43 @@ spec:
                 items:
                   type: string
                 type: array
+              graph:
+                properties:
+                  edges:
+                    items:
+                      properties:
+                        from:
+                          type: string
+                        to:
+                          type: string
+                        when:
+                          type: string
+                      required:
+                      - from
+                      - to
+                      type: object
+                    type: array
+                  nodes:
+                    items:
+                      properties:
+                        implementation:
+                          type: string
+                        kind:
+                          type: string
+                        knowledgeRef:
+                          type: string
+                        modelRef:
+                          type: string
+                        name:
+                          type: string
+                        toolRef:
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    type: array
+                type: object
               knowledgeRefs:
                 items:
                   properties:

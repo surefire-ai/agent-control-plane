@@ -36,6 +36,9 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 	if len(missing) > 0 {
 		return Result{}, fmt.Errorf("missing references: %v", missing)
 	}
+	if err := validateSkillGraphMerges(agent.Spec, refs.SkillSpecs); err != nil {
+		return Result{}, err
+	}
 
 	artifact := artifactFor(agent, refs)
 	return Result{
@@ -76,13 +79,14 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 	resolvedPromptRefs := resolvedPromptRefs(spec, refs.SkillSpecs)
 	resolvedToolRefs := resolvedToolRefs(spec.ToolRefs, spec.SkillRefs, refs.SkillSpecs)
 	resolvedKnowledgeRefs := resolvedKnowledgeRefs(spec.KnowledgeRefs, spec.SkillRefs, refs.SkillSpecs)
+	resolvedGraph := resolvedGraph(spec, refs.SkillSpecs)
 	return map[string]interface{}{
 		"kind":       "EinoADKRunner",
 		"entrypoint": runtime.Entrypoint,
 		"graph": map[string]interface{}{
 			"stateSchema": spec.Graph.StateSchema,
-			"nodes":       spec.Graph.Nodes,
-			"edges":       spec.Graph.Edges,
+			"nodes":       resolvedGraph.Nodes,
+			"edges":       resolvedGraph.Edges,
 		},
 		"prompts": map[string]interface{}{
 			"system": promptForArtifact(resolvedPromptRefs.System, refs.PromptTemplates),
@@ -249,10 +253,79 @@ func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec, specs map[string
 			entry["knowledgeRefs"] = spec.KnowledgeRefs
 			entry["toolRefs"] = spec.ToolRefs
 			entry["functions"] = spec.Functions
+			if len(spec.Graph.Nodes) > 0 || len(spec.Graph.Edges) > 0 {
+				entry["graph"] = map[string]interface{}{
+					"nodes": spec.Graph.Nodes,
+					"edges": spec.Graph.Edges,
+				}
+			}
 		}
 		skills[key] = entry
 	}
 	return skills
+}
+
+func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) apiv1alpha1.AgentGraphSpec {
+	graph := apiv1alpha1.AgentGraphSpec{
+		StateSchema: spec.Graph.StateSchema,
+		Nodes:       append([]apiv1alpha1.AgentGraphNode(nil), spec.Graph.Nodes...),
+		Edges:       append([]apiv1alpha1.AgentGraphEdge(nil), spec.Graph.Edges...),
+	}
+	if len(spec.SkillRefs) == 0 {
+		return graph
+	}
+
+	skillNodes := make([]apiv1alpha1.AgentGraphNode, 0)
+	skillEdges := make([]apiv1alpha1.AgentGraphEdge, 0)
+	for _, binding := range spec.SkillRefs {
+		skill, ok := skills[binding.Ref]
+		if !ok {
+			continue
+		}
+		skillNodes = append(skillNodes, skill.Graph.Nodes...)
+		skillEdges = append(skillEdges, skill.Graph.Edges...)
+	}
+	graph.Nodes = append(skillNodes, graph.Nodes...)
+	graph.Edges = append(skillEdges, graph.Edges...)
+	return graph
+}
+
+func validateSkillGraphMerges(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) error {
+	seen := map[string]string{}
+	recordNode := func(name string, source string) error {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return nil
+		}
+		if previous, ok := seen[name]; ok {
+			return fmt.Errorf("duplicate graph node %q declared by %s and %s", name, previous, source)
+		}
+		seen[name] = source
+		return nil
+	}
+
+	for _, node := range spec.Graph.Nodes {
+		if err := recordNode(node.Name, "Agent.spec.graph"); err != nil {
+			return err
+		}
+	}
+	for _, binding := range spec.SkillRefs {
+		skill, ok := skills[binding.Ref]
+		if !ok {
+			continue
+		}
+		sourceName := binding.Name
+		if strings.TrimSpace(sourceName) == "" {
+			sourceName = binding.Ref
+		}
+		source := fmt.Sprintf("Skill/%s", sourceName)
+		for _, node := range skill.Graph.Nodes {
+			if err := recordNode(node.Name, source); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func knowledgeForArtifact(bindings []apiv1alpha1.KnowledgeBindingSpec, specs map[string]apiv1alpha1.KnowledgeBaseSpec) map[string]interface{} {

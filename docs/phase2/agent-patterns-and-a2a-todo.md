@@ -13,7 +13,7 @@ interfaces, memory, and observability as normal CRD fields.
 
 ## Agent Pattern Presets
 
-Status: not started.
+Status: in progress.
 
 Add a first-class pattern field so users can declare the orchestration pattern
 without writing the full graph by hand. Other Agent inputs remain explicit and
@@ -79,10 +79,10 @@ spec:
 
 API TODO:
 
-- Add `Skill` CRD or an equivalent packaged capability surface.
-- Add `AgentSpec.skillRefs`.
-- Define how a skill contributes tools, knowledge, prompts, policies, and graph
-  fragments without making the final compiled graph ambiguous.
+- Added `Skill` CRD and `AgentSpec.skillRefs`.
+- Added compiler support for skill-provided tools, knowledge, prompts, and
+  graph fragments.
+- Keep tightening the precedence and ambiguity rules as patterns arrive.
 
 Compiler TODO:
 

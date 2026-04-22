@@ -46,6 +46,12 @@ type SkillSpec struct {
 	KnowledgeRefs []KnowledgeBindingSpec `json:"knowledgeRefs,omitempty"`
 	ToolRefs      []string               `json:"toolRefs,omitempty"`
 	Functions     []string               `json:"functions,omitempty"`
+	Graph         SkillGraphSpec         `json:"graph,omitempty"`
+}
+
+type SkillGraphSpec struct {
+	Nodes []AgentGraphNode `json:"nodes,omitempty"`
+	Edges []AgentGraphEdge `json:"edges,omitempty"`
 }
 
 type ToolSchemaSpec struct {

@@ -53,6 +53,17 @@ k8s-smoke-ehs-setup:
 	@$(KUBECTL) version >/dev/null 2>&1 || (echo "Kubernetes API is unavailable; start OrbStack or point KUBECTL to a live cluster."; exit 1)
 	$(KUBECTL) create namespace ehs --dry-run=client -o yaml | $(KUBECTL) apply -f -
 	$(KUBECTL) apply -k config/samples/ehs-orbstack-smoke
+	$(KUBECTL) -n ehs rollout status deployment/mock-openai --timeout=60s
+	@for i in $$(seq 1 60); do \
+		observed=$$($(KUBECTL) -n ehs get agent ehs-hazard-identification-agent -o jsonpath='{.status.observedGeneration}' 2>/dev/null); \
+		generation=$$($(KUBECTL) -n ehs get agent ehs-hazard-identification-agent -o jsonpath='{.metadata.generation}' 2>/dev/null); \
+		reason=$$($(KUBECTL) -n ehs get agent ehs-hazard-identification-agent -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}' 2>/dev/null); \
+		if [ -n "$$generation" ] && [ "$$observed" = "$$generation" ] && [ "$$reason" = "CompilationSucceeded" ]; then \
+			echo "Agent compilation is ready: generation=$$generation"; \
+			break; \
+		fi; \
+		sleep 2; \
+	done
 
 .PHONY: k8s-smoke-ehs-run
 k8s-smoke-ehs-run:

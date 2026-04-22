@@ -285,3 +285,117 @@ func TestRequestedToolCallRejectsMissingNameAndNode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestPlaceholderRunnerExecutesRequestedRetrieval(t *testing.T) {
+	runner := EinoADKPlaceholderRunner{}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"retrievalCall": map[string]interface{}{
+					"name":  "regulations",
+					"query": "配电箱 积水 触电 风险",
+					"topK":  2,
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Knowledge: map[string]contract.KnowledgeSpec{
+					"regulations": {
+						Name:        "regulations",
+						Ref:         "ehs-regulations",
+						Description: "法规库",
+						Sources: []map[string]interface{}{
+							{"name": "国家安全生产法规", "uri": "s3://ehs-kb/regulations/national/"},
+							{"name": "企业内部EHS制度", "uri": "s3://ehs-kb/regulations/internal/"},
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	retrievalCall, ok := result.Output["retrievalCall"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected retrievalCall output, got %#v", result.Output)
+	}
+	results, _ := retrievalCall["results"].([]map[string]interface{})
+	if len(results) != 2 {
+		// json-ish map values from runtime path still stay typed here
+		rawResults, _ := retrievalCall["results"].([]interface{})
+		if len(rawResults) != 2 {
+			t.Fatalf("expected 2 retrieval results, got %#v", retrievalCall)
+		}
+	}
+}
+
+func TestPlaceholderRunnerExecutesGraphRetrievalNode(t *testing.T) {
+	runner := EinoADKPlaceholderRunner{}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"retrievalCall": map[string]interface{}{
+					"node":  "retrieve_regulations",
+					"query": "有限空间 作业 风险",
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":         "retrieve_regulations",
+							"kind":         "retrieval",
+							"knowledgeRef": "regulations",
+						},
+					},
+				},
+				Knowledge: map[string]contract.KnowledgeSpec{
+					"regulations": {
+						Name:        "regulations",
+						Ref:         "ehs-regulations",
+						Description: "法规库",
+						Sources: []map[string]interface{}{
+							{"name": "国家安全生产法规", "uri": "s3://ehs-kb/regulations/national/"},
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	retrievalCall, ok := result.Output["retrievalCall"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected retrievalCall output, got %#v", result.Output)
+	}
+	if retrievalCall["name"] != "regulations" || retrievalCall["node"] != "retrieve_regulations" {
+		t.Fatalf("unexpected graph retrieval metadata: %#v", retrievalCall)
+	}
+}
+
+func TestRequestedRetrievalCallRejectsMissingQuery(t *testing.T) {
+	_, _, err := requestedRetrievalCall(map[string]interface{}{
+		"retrievalCall": map[string]interface{}{
+			"name": "regulations",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if err.Error() != "retrievalCall.query is required" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

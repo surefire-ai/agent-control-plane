@@ -89,6 +89,12 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		resultPayload["toolCall"] = toolInvocation.Output
 		artifacts = append(artifacts, toolInvocation.Artifacts...)
 	}
+	if retrievalInvocation, ok, err := r.invokeRequestedRetrieval(ctx, request, runtimeInfo); err != nil {
+		return contract.WorkerResult{}, err
+	} else if ok {
+		resultPayload["retrievalCall"] = retrievalInvocation.Output
+		artifacts = append(artifacts, retrievalInvocation.Artifacts...)
+	}
 	resultPayload["summary"] = message
 
 	return contract.WorkerResult{

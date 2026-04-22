@@ -20,9 +20,17 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 			"ehs-hazard-identification-system": promptTemplateSpec(),
 		},
 		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
-		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
-		MCPServers:     set("ehs-docs-mcp"),
-		Policies:       set("ehs-default-safety-policy"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
 	}
 
 	result, err := CompileAgent(agent, refs)
@@ -80,6 +88,12 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if runner.Output == nil {
 		t.Fatalf("expected output schema in runner artifact, got %#v", runner)
 	}
+	if runner.Tools["vision-inspection-tool"].Type != "multimodal" {
+		t.Fatalf("expected tool details in runner artifact, got %#v", runner.Tools)
+	}
+	if runner.Knowledge["regulations"].Ref != "ehs-regulations" || runner.Knowledge["regulations"].Description != "法规库" {
+		t.Fatalf("expected knowledge details in runner artifact, got %#v", runner.Knowledge)
+	}
 }
 
 func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
@@ -89,9 +103,17 @@ func TestCompileAgentRevisionChangesWhenArtifactChanges(t *testing.T) {
 			"ehs-hazard-identification-system": promptTemplateSpec(),
 		},
 		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
-		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
-		MCPServers:     set("ehs-docs-mcp"),
-		Policies:       set("ehs-default-safety-policy"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
 	}
 	first, err := CompileAgent(testAgent(), refs)
 	if err != nil {
@@ -115,9 +137,17 @@ func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
 			"ehs-hazard-identification-system": promptTemplateSpec(),
 		},
 		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
-		Tools:          set("vision-inspection-tool", "rectify-ticket-api"),
-		MCPServers:     set("ehs-docs-mcp"),
-		Policies:       set("ehs-default-safety-policy"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
 	})
 	if err != nil {
 		t.Fatalf("CompileAgent returned error: %v", err)
@@ -133,6 +163,12 @@ func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
 	}
 	if artifact.Runner.Kind != "EinoADKRunner" {
 		t.Fatalf("unexpected runner: %#v", artifact.Runner)
+	}
+	if artifact.Runner.Tools["vision-inspection-tool"].Type != "multimodal" {
+		t.Fatalf("unexpected tools: %#v", artifact.Runner.Tools)
+	}
+	if artifact.Runner.Knowledge["regulations"].Ref != "ehs-regulations" {
+		t.Fatalf("unexpected knowledge: %#v", artifact.Runner.Knowledge)
 	}
 	if artifact.RuntimeIdentity().RunnerClass != contract.RunnerClassADK {
 		t.Fatalf("unexpected runtime identity: %#v", artifact.RuntimeIdentity())
@@ -211,6 +247,42 @@ func promptTemplateSpec() apiv1alpha1.PromptTemplateSpec {
 			"format": apiextensionsv1.JSON{Raw: []byte(`"json_schema"`)},
 		},
 	}
+}
+
+func knowledgeSpec(description string, topK int64, threshold float64) apiv1alpha1.KnowledgeBaseSpec {
+	return apiv1alpha1.KnowledgeBaseSpec{
+		Description: description,
+		Sources: []apiv1alpha1.NamedURI{
+			{Name: "source-a", URI: "s3://bucket/a"},
+		},
+		Retrieval: apiv1alpha1.FreeformObject{
+			"defaultTopK":           apiextensionsv1.JSON{Raw: []byte(jsonNumber(topK))},
+			"defaultScoreThreshold": apiextensionsv1.JSON{Raw: []byte(jsonFloat(threshold))},
+		},
+	}
+}
+
+func toolSpec(toolType string, description string) apiv1alpha1.ToolProviderSpec {
+	return apiv1alpha1.ToolProviderSpec{
+		Type:        toolType,
+		Description: description,
+		Runtime: apiv1alpha1.FreeformObject{
+			"provider": apiextensionsv1.JSON{Raw: []byte(`"internal-runtime"`)},
+		},
+		HTTP: apiv1alpha1.FreeformObject{
+			"url": apiextensionsv1.JSON{Raw: []byte(`"https://example.internal/tool"`)},
+		},
+	}
+}
+
+func jsonNumber(value int64) string {
+	raw, _ := json.Marshal(value)
+	return string(raw)
+}
+
+func jsonFloat(value float64) string {
+	raw, _ := json.Marshal(value)
+	return string(raw)
 }
 
 func set(values ...string) map[string]struct{} {

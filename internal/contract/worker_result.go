@@ -34,11 +34,13 @@ type WorkerArtifact struct {
 }
 
 type WorkerRuntimeInfo struct {
-	Engine      string                        `json:"engine,omitempty"`
-	RunnerClass string                        `json:"runnerClass,omitempty"`
-	Runner      string                        `json:"runner,omitempty"`
-	Entrypoint  string                        `json:"entrypoint,omitempty"`
-	Models      map[string]WorkerModelRuntime `json:"models,omitempty"`
+	Engine      string                            `json:"engine,omitempty"`
+	RunnerClass string                            `json:"runnerClass,omitempty"`
+	Runner      string                            `json:"runner,omitempty"`
+	Entrypoint  string                            `json:"entrypoint,omitempty"`
+	Models      map[string]WorkerModelRuntime     `json:"models,omitempty"`
+	Tools       map[string]WorkerToolRuntime      `json:"tools,omitempty"`
+	Knowledge   map[string]WorkerKnowledgeRuntime `json:"knowledge,omitempty"`
 }
 
 type WorkerModelRuntime struct {
@@ -47,6 +49,21 @@ type WorkerModelRuntime struct {
 	BaseURL            string `json:"baseURL,omitempty"`
 	APIKeyEnv          string `json:"apiKeyEnv,omitempty"`
 	CredentialInjected bool   `json:"credentialInjected,omitempty"`
+}
+
+type WorkerToolRuntime struct {
+	Type         string   `json:"type,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+}
+
+type WorkerKnowledgeRuntime struct {
+	Ref            string  `json:"ref,omitempty"`
+	Description    string  `json:"description,omitempty"`
+	SourceCount    int     `json:"sourceCount,omitempty"`
+	RetrievalBound bool    `json:"retrievalBound,omitempty"`
+	DefaultTopK    int64   `json:"defaultTopK,omitempty"`
+	ScoreThreshold float64 `json:"scoreThreshold,omitempty"`
 }
 
 type ArtifactSummary struct {

@@ -60,6 +60,8 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		"task":              task,
 		"inputKeys":         sortedInputKeys(request.Config.ParsedRunInput),
 		"validatedModels":   modelCount,
+		"resolvedTools":     len(runtimeInfo.Tools),
+		"resolvedKnowledge": len(runtimeInfo.Knowledge),
 		"runtimeEntrypoint": runtimeInfo.Entrypoint,
 	}
 	if modelCount > 0 {
@@ -148,6 +150,8 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 		Runner:      artifact.Runner.Kind,
 		Entrypoint:  artifact.Runner.Entrypoint,
 		Models:      make(map[string]contract.WorkerModelRuntime, len(artifact.Runner.Models)),
+		Tools:       make(map[string]contract.WorkerToolRuntime, len(artifact.Runner.Tools)),
+		Knowledge:   make(map[string]contract.WorkerKnowledgeRuntime, len(artifact.Runner.Knowledge)),
 	}
 	if info.Runner == "" {
 		info.Runner = "EinoADKPlaceholderRunner"
@@ -190,6 +194,33 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 				"models": info.Models,
 			},
 		},
+	}
+	for name, tool := range artifact.Runner.Tools {
+		info.Tools[name] = contract.WorkerToolRuntime{
+			Type:         tool.Type,
+			Description:  tool.Description,
+			Capabilities: toolCapabilities(tool),
+		}
+	}
+	for name, knowledge := range artifact.Runner.Knowledge {
+		info.Knowledge[name] = contract.WorkerKnowledgeRuntime{
+			Ref:            knowledge.Ref,
+			Description:    knowledge.Description,
+			SourceCount:    len(knowledge.Sources),
+			RetrievalBound: knowledge.Binding != nil,
+			DefaultTopK:    nestedInt64(knowledge.Retrieval, "defaultTopK"),
+			ScoreThreshold: nestedFloat64(knowledge.Retrieval, "defaultScoreThreshold"),
+		}
+	}
+	if len(info.Tools) > 0 || len(info.Knowledge) > 0 {
+		artifacts = append(artifacts, contract.WorkerArtifact{
+			Name: "runtime-dependency-bindings",
+			Kind: "json",
+			Inline: map[string]interface{}{
+				"tools":     info.Tools,
+				"knowledge": info.Knowledge,
+			},
+		})
 	}
 	return info, artifacts, nil
 }
@@ -237,6 +268,55 @@ func preferredModelConfig(name string, artifact contract.CompiledArtifact) (cont
 
 func modelAPIKeyEnvName(name string) string {
 	return modelEnvPrefix(name) + "_API_KEY"
+}
+
+func toolCapabilities(tool contract.ToolSpec) []string {
+	capabilities := make([]string, 0, 2)
+	if len(tool.Runtime) > 0 {
+		capabilities = append(capabilities, "runtime")
+	}
+	if len(tool.HTTP) > 0 {
+		capabilities = append(capabilities, "http")
+	}
+	return capabilities
+}
+
+func nestedInt64(values map[string]interface{}, key string) int64 {
+	if len(values) == 0 {
+		return 0
+	}
+	switch value := values[key].(type) {
+	case int64:
+		return value
+	case int32:
+		return int64(value)
+	case int:
+		return int64(value)
+	case float64:
+		return int64(value)
+	default:
+		return 0
+	}
+}
+
+func nestedFloat64(values map[string]interface{}, key string) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	switch value := values[key].(type) {
+	case float64:
+		return value
+	case float32:
+		return float64(value)
+	case int:
+		return float64(value)
+	case int32:
+		return float64(value)
+	case int64:
+		return float64(value)
+	default:
+		return 0
+	}
 }
 
 func taskFromRunInput(input map[string]interface{}) string {

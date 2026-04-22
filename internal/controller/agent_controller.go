@@ -76,7 +76,9 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 		Prompts:         map[string]struct{}{},
 		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{},
 		KnowledgeBases:  map[string]struct{}{},
+		KnowledgeSpecs:  map[string]apiv1alpha1.KnowledgeBaseSpec{},
 		Tools:           map[string]struct{}{},
+		ToolSpecs:       map[string]apiv1alpha1.ToolProviderSpec{},
 		MCPServers:      map[string]struct{}{},
 		Policies:        map[string]struct{}{},
 	}
@@ -96,6 +98,7 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 	}
 	for _, item := range knowledgeBases.Items {
 		refs.KnowledgeBases[item.Name] = struct{}{}
+		refs.KnowledgeSpecs[item.Name] = item.Spec
 	}
 
 	var tools apiv1alpha1.ToolProviderList
@@ -104,6 +107,7 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 	}
 	for _, item := range tools.Items {
 		refs.Tools[item.Name] = struct{}{}
+		refs.ToolSpecs[item.Name] = item.Spec
 	}
 
 	var mcpServers apiv1alpha1.MCPServerList

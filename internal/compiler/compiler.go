@@ -16,7 +16,9 @@ type ReferenceIndex struct {
 	Prompts         map[string]struct{}
 	PromptTemplates map[string]apiv1alpha1.PromptTemplateSpec
 	KnowledgeBases  map[string]struct{}
+	KnowledgeSpecs  map[string]apiv1alpha1.KnowledgeBaseSpec
 	Tools           map[string]struct{}
+	ToolSpecs       map[string]apiv1alpha1.ToolProviderSpec
 	MCPServers      map[string]struct{}
 	Policies        map[string]struct{}
 }
@@ -78,7 +80,9 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 		"prompts": map[string]interface{}{
 			"system": promptForArtifact(spec.PromptRefs.System, refs.PromptTemplates),
 		},
-		"models": spec.Models,
+		"models":    spec.Models,
+		"tools":     toolsForArtifact(spec.ToolRefs, refs.ToolSpecs),
+		"knowledge": knowledgeForArtifact(spec.KnowledgeRefs, refs.KnowledgeSpecs),
 		"output": map[string]interface{}{
 			"schema": spec.Interfaces.Output.Schema,
 		},
@@ -110,6 +114,71 @@ func promptForArtifact(name string, prompts map[string]apiv1alpha1.PromptTemplat
 	prompt["variables"] = variables
 	prompt["outputConstraints"] = spec.OutputConstraints
 	return prompt
+}
+
+func toolsForArtifact(toolRefs []string, specs map[string]apiv1alpha1.ToolProviderSpec) map[string]interface{} {
+	if len(toolRefs) == 0 {
+		return nil
+	}
+	tools := make(map[string]interface{}, len(toolRefs))
+	for _, name := range toolRefs {
+		entry := map[string]interface{}{
+			"name": name,
+		}
+		if spec, ok := specs[name]; ok {
+			entry["type"] = spec.Type
+			entry["description"] = spec.Description
+			entry["schema"] = spec.Schema
+			if len(spec.Runtime) > 0 {
+				entry["runtime"] = spec.Runtime
+			}
+			if len(spec.HTTP) > 0 {
+				entry["http"] = spec.HTTP
+			}
+		}
+		tools[name] = entry
+	}
+	return tools
+}
+
+func knowledgeForArtifact(bindings []apiv1alpha1.KnowledgeBindingSpec, specs map[string]apiv1alpha1.KnowledgeBaseSpec) map[string]interface{} {
+	if len(bindings) == 0 {
+		return nil
+	}
+	knowledge := make(map[string]interface{}, len(bindings))
+	for _, binding := range bindings {
+		entry := map[string]interface{}{
+			"name": binding.Name,
+			"ref":  binding.Ref,
+		}
+		if len(binding.Retrieval) > 0 {
+			entry["binding"] = map[string]interface{}{
+				"retrieval": binding.Retrieval,
+			}
+		}
+		if spec, ok := specs[binding.Ref]; ok {
+			entry["description"] = spec.Description
+			entry["sources"] = spec.Sources
+			if len(spec.Access) > 0 {
+				entry["access"] = spec.Access
+			}
+			if len(spec.Index) > 0 {
+				entry["index"] = spec.Index
+			}
+			if len(spec.Retrieval) > 0 {
+				entry["retrieval"] = spec.Retrieval
+			}
+			if len(spec.Embedding) > 0 {
+				entry["embedding"] = spec.Embedding
+			}
+		}
+		key := binding.Name
+		if key == "" {
+			key = binding.Ref
+		}
+		knowledge[key] = entry
+	}
+	return knowledge
 }
 
 func runtimeForArtifact(runtime apiv1alpha1.AgentRuntimeSpec) apiv1alpha1.AgentRuntimeSpec {

@@ -37,13 +37,36 @@ type ArtifactRuntime struct {
 }
 
 type ArtifactRunner struct {
-	Kind       string                 `json:"kind,omitempty"`
-	Entrypoint string                 `json:"entrypoint,omitempty"`
-	Graph      map[string]interface{} `json:"graph,omitempty"`
-	Prompts    map[string]PromptSpec  `json:"prompts,omitempty"`
-	Models     map[string]ModelConfig `json:"models,omitempty"`
-	Output     map[string]interface{} `json:"output,omitempty"`
-	Extra      map[string]interface{} `json:"-"`
+	Kind       string                   `json:"kind,omitempty"`
+	Entrypoint string                   `json:"entrypoint,omitempty"`
+	Graph      map[string]interface{}   `json:"graph,omitempty"`
+	Prompts    map[string]PromptSpec    `json:"prompts,omitempty"`
+	Models     map[string]ModelConfig   `json:"models,omitempty"`
+	Tools      map[string]ToolSpec      `json:"tools,omitempty"`
+	Knowledge  map[string]KnowledgeSpec `json:"knowledge,omitempty"`
+	Output     map[string]interface{}   `json:"output,omitempty"`
+	Extra      map[string]interface{}   `json:"-"`
+}
+
+type ToolSpec struct {
+	Name        string                 `json:"name,omitempty"`
+	Type        string                 `json:"type,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Schema      map[string]interface{} `json:"schema,omitempty"`
+	Runtime     map[string]interface{} `json:"runtime,omitempty"`
+	HTTP        map[string]interface{} `json:"http,omitempty"`
+}
+
+type KnowledgeSpec struct {
+	Name        string                   `json:"name,omitempty"`
+	Ref         string                   `json:"ref,omitempty"`
+	Description string                   `json:"description,omitempty"`
+	Sources     []map[string]interface{} `json:"sources,omitempty"`
+	Binding     map[string]interface{}   `json:"binding,omitempty"`
+	Access      map[string]interface{}   `json:"access,omitempty"`
+	Index       map[string]interface{}   `json:"index,omitempty"`
+	Retrieval   map[string]interface{}   `json:"retrieval,omitempty"`
+	Embedding   map[string]interface{}   `json:"embedding,omitempty"`
 }
 
 type PromptSpec struct {
@@ -89,7 +112,7 @@ func ParseCompiledArtifact(raw string) (CompiledArtifact, error) {
 		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT must be a JSON object: %w", err)
 	}
 	artifact.Runtime.Extra = extraObject(artifact.Raw, "runtime", "engine", "runnerClass", "mode", "entrypoint")
-	artifact.Runner.Extra = extraObject(artifact.Raw, "runner", "kind", "entrypoint", "graph", "prompts", "models", "output")
+	artifact.Runner.Extra = extraObject(artifact.Raw, "runner", "kind", "entrypoint", "graph", "prompts", "models", "tools", "knowledge", "output")
 	return artifact, nil
 }
 

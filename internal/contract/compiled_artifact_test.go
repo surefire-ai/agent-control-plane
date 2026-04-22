@@ -42,6 +42,8 @@ func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
 			"entrypoint":"ehs.hazard_identification",
 			"prompts":{"system":{"name":"system","language":"zh-CN","template":"hello","variables":[{"name":"risk_matrix_version","required":true}],"outputConstraints":{"format":"json_schema"}}},
 			"models":{"planner":{"provider":"openai","model":"gpt-4.1","baseURL":"https://api.openai.com/v1","credentialRef":{"name":"openai-credentials","key":"apiKey"},"temperature":0.1,"maxTokens":4000,"timeoutSeconds":60}},
+			"tools":{"vision-inspection-tool":{"name":"vision-inspection-tool","type":"multimodal","description":"图片巡检工具","runtime":{"provider":"internal-runtime"}}},
+			"knowledge":{"regulations":{"name":"regulations","ref":"ehs-regulations","description":"法规库","sources":[{"name":"source-a","uri":"s3://bucket/a"}],"binding":{"retrieval":{"topK":5}},"retrieval":{"defaultTopK":5,"defaultScoreThreshold":0.72}}},
 			"output":{"schema":{"type":"object"}}
 		},
 		"policyRef":"ehs-policy"
@@ -76,6 +78,12 @@ func TestParseCompiledArtifactSupportsRunnerShape(t *testing.T) {
 	}
 	if artifact.Runner.Models["planner"].CredentialRef == nil || artifact.Runner.Models["planner"].CredentialRef.Name != "openai-credentials" {
 		t.Fatalf("unexpected model credentialRef: %#v", artifact.Runner.Models)
+	}
+	if artifact.Runner.Tools["vision-inspection-tool"].Type != "multimodal" {
+		t.Fatalf("unexpected tools: %#v", artifact.Runner.Tools)
+	}
+	if artifact.Runner.Knowledge["regulations"].Ref != "ehs-regulations" || len(artifact.Runner.Knowledge["regulations"].Sources) != 1 {
+		t.Fatalf("unexpected knowledge: %#v", artifact.Runner.Knowledge)
 	}
 }
 

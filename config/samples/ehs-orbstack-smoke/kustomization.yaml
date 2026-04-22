@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../ehs
+  - mock-openai.yaml
+  - openai-credentials.yaml
+
+patches:
+  - target:
+      kind: Agent
+      name: ehs-hazard-identification-agent
+    patch: |-
+      - op: replace
+        path: /spec/models/planner/baseURL
+        value: http://mock-openai:8080
+      - op: replace
+        path: /spec/models/extractor/baseURL
+        value: http://mock-openai:8080
+      - op: replace
+        path: /spec/models/fallback/baseURL
+        value: http://mock-openai:8080

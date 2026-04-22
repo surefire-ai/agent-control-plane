@@ -240,11 +240,15 @@ helm upgrade --install agent-control-plane charts/agent-control-plane \
 make undeploy
 ```
 
-用于本地 OrbStack 验证时，可以构建本地 worker 镜像：
+用于本地 OrbStack 验证时，可以构建本地 controller 和 worker 镜像：
 
 ```bash
+make docker-build-controller-local
 make docker-build-worker-local
 ```
+
+如果你的本地环境需要自定义的 kubectl 包装命令或 context helper，也可以
+通过 `KUBECTL` 传入，例如 `make KUBECTL="kubectl"`。
 
 ## EHS 模型执行验证
 
@@ -286,6 +290,24 @@ kubectl -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.o
 - `status.output.result` 保留 worker 原始 payload，而 `summary`、
   `overallRiskLevel` 等顶层字段会提升到 `AgentRun.status.output`，
   便于直接消费。
+
+如果只是想在本地快速验证控制面到 worker 的完整闭环，而不依赖真实
+OpenAI 凭据，可以直接使用 OrbStack smoke overlay：
+
+```bash
+make k8s-smoke-ehs
+```
+
+这个目标会：
+
+- 确保 `ehs` namespace 存在；
+- apply `config/samples/ehs-orbstack-smoke`；
+- 注入一个 dummy `openai-credentials` Secret；
+- 部署 `mock-openai` 服务，并把 sample Agent 的 `baseURL` 改写到它；
+- 重建固定样例 `AgentRun`；
+- 打印最终的 `AgentRun.status.output`。
+
+对应 overlay 位于 `config/samples/ehs-orbstack-smoke`。
 
 ## Runtime Backends
 

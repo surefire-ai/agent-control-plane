@@ -272,11 +272,15 @@ Remove the deployed control plane:
 make undeploy
 ```
 
-For local OrbStack validation, build the local worker image with:
+For local OrbStack validation, build the local controller and worker images with:
 
 ```bash
+make docker-build-controller-local
 make docker-build-worker-local
 ```
+
+If your local setup needs a custom kubectl wrapper or context helper, pass it in
+through `KUBECTL`, for example `make KUBECTL="kubectl"` or another compatible command.
 
 ## EHS Model-Backed Validation
 
@@ -318,6 +322,24 @@ Current behavior notes:
 - `status.output.result` keeps the raw worker payload, while top-level fields
   such as `summary` and `overallRiskLevel` are promoted to
   `AgentRun.status.output` for easier consumption.
+
+For a fast local smoke test without a real OpenAI credential, use the OrbStack
+smoke overlay:
+
+```bash
+make k8s-smoke-ehs
+```
+
+This target:
+
+- ensures the `ehs` namespace exists;
+- applies `config/samples/ehs-orbstack-smoke`;
+- injects a dummy `openai-credentials` Secret;
+- deploys a `mock-openai` service and rewrites the sample Agent `baseURL` to it;
+- recreates the fixed sample `AgentRun`;
+- prints the final `AgentRun.status.output`.
+
+The overlay lives at `config/samples/ehs-orbstack-smoke`.
 
 ## Runtime Backends
 

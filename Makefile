@@ -3,6 +3,7 @@ CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
 IMAGE_REPOSITORY ?= ghcr.io/surefire-ai
 IMAGE_TAG ?= latest
 LOCAL_DOCKER_ARCH ?= arm64
+KUBECTL ?= kubectl
 
 .PHONY: test
 test:
@@ -18,11 +19,11 @@ manifests:
 
 .PHONY: install
 install: manifests
-	kubectl apply -k config/crd
+	$(KUBECTL) apply -k config/crd
 
 .PHONY: uninstall
 uninstall:
-	kubectl delete -k config/crd
+	$(KUBECTL) delete -k config/crd
 
 .PHONY: fmt
 fmt:
@@ -47,13 +48,39 @@ docker-build-worker-local:
 docker-build-controller-local:
 	docker build --build-arg TARGETARCH=$(LOCAL_DOCKER_ARCH) -f Dockerfile.controller-manager -t agent-control-plane-controller-manager:dev .
 
+.PHONY: k8s-smoke-ehs-setup
+k8s-smoke-ehs-setup:
+	@$(KUBECTL) version >/dev/null 2>&1 || (echo "Kubernetes API is unavailable; start OrbStack or point KUBECTL to a live cluster."; exit 1)
+	$(KUBECTL) create namespace ehs --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	$(KUBECTL) apply -k config/samples/ehs-orbstack-smoke
+
+.PHONY: k8s-smoke-ehs-run
+k8s-smoke-ehs-run:
+	$(KUBECTL) -n ehs delete agentrun ehs-hazard-run-20260416-0001 --ignore-not-found
+	$(KUBECTL) apply -f config/samples/ehs/ehs-hazard-run-20260416-0001.yaml
+
+.PHONY: k8s-smoke-ehs-status
+k8s-smoke-ehs-status:
+	@for i in $$(seq 1 60); do \
+		phase=$$($(KUBECTL) -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.phase}' 2>/dev/null); \
+		if [ "$$phase" = "Succeeded" ] || [ "$$phase" = "Failed" ]; then \
+			echo "AgentRun phase: $$phase"; \
+			break; \
+		fi; \
+		sleep 2; \
+	done
+	$(KUBECTL) -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.output}'; echo
+
+.PHONY: k8s-smoke-ehs
+k8s-smoke-ehs: k8s-smoke-ehs-setup k8s-smoke-ehs-run k8s-smoke-ehs-status
+
 .PHONY: run
 run:
 	$(GO) run ./cmd/controller-manager
 
 .PHONY: deploy
 deploy: manifests
-	kubectl apply -k config/default
+	$(KUBECTL) apply -k config/default
 
 .PHONY: helm-lint
 helm-lint:
@@ -65,4 +92,4 @@ helm-template:
 
 .PHONY: undeploy
 undeploy:
-	kubectl delete -k config/default
+	$(KUBECTL) delete -k config/default

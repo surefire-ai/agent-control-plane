@@ -304,6 +304,10 @@ func (r EinoADKPlaceholderRunner) executeStepFunction(ctx context.Context, reque
 		}
 	}
 	stepInput := initialStepState(request.Config.ParsedRunInput, step.Input)
+	bindingName, declaredSkill, err := resolveDeclaredSkillFunction(request.Artifact, implementation)
+	if err != nil {
+		return nil, nil, err
+	}
 	skillName, functionName, fn, err := resolveBuiltinSkillFunction(implementation)
 	if err != nil {
 		return nil, nil, err
@@ -313,12 +317,14 @@ func (r EinoADKPlaceholderRunner) executeStepFunction(ctx context.Context, reque
 			"node":           step.Node,
 			"kind":           "function",
 			"implementation": implementation,
+			"skillBinding":   bindingName,
+			"skillRef":       declaredSkill.Ref,
 			"skill":          skillName,
 			"function":       functionName,
 			"input":          stepInput,
 			"result":         output,
 		}, []contract.WorkerArtifact{
-			{Name: "step-function-result", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "implementation": implementation, "skill": skillName, "function": functionName, "result": output}},
+			{Name: "step-function-result", Kind: "json", Inline: map[string]interface{}{"node": step.Node, "implementation": implementation, "skillBinding": bindingName, "skillRef": declaredSkill.Ref, "skill": skillName, "function": functionName, "result": output}},
 		}, nil
 }
 

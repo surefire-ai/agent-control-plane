@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
@@ -72,6 +73,9 @@ func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.Freef
 
 func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[string]interface{} {
 	runtime := runtimeForArtifact(spec.Runtime)
+	resolvedPromptRefs := resolvedPromptRefs(spec, refs.SkillSpecs)
+	resolvedToolRefs := resolvedToolRefs(spec.ToolRefs, spec.SkillRefs, refs.SkillSpecs)
+	resolvedKnowledgeRefs := resolvedKnowledgeRefs(spec.KnowledgeRefs, spec.SkillRefs, refs.SkillSpecs)
 	return map[string]interface{}{
 		"kind":       "EinoADKRunner",
 		"entrypoint": runtime.Entrypoint,
@@ -81,16 +85,96 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 			"edges":       spec.Graph.Edges,
 		},
 		"prompts": map[string]interface{}{
-			"system": promptForArtifact(spec.PromptRefs.System, refs.PromptTemplates),
+			"system": promptForArtifact(resolvedPromptRefs.System, refs.PromptTemplates),
 		},
 		"models":    spec.Models,
-		"tools":     toolsForArtifact(spec.ToolRefs, refs.ToolSpecs),
+		"tools":     toolsForArtifact(resolvedToolRefs, refs.ToolSpecs),
 		"skills":    skillsForArtifact(spec.SkillRefs, refs.SkillSpecs),
-		"knowledge": knowledgeForArtifact(spec.KnowledgeRefs, refs.KnowledgeSpecs),
+		"knowledge": knowledgeForArtifact(resolvedKnowledgeRefs, refs.KnowledgeSpecs),
 		"output": map[string]interface{}{
 			"schema": spec.Interfaces.Output.Schema,
 		},
 	}
+}
+
+func resolvedPromptRefs(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) apiv1alpha1.AgentPromptRefs {
+	if strings.TrimSpace(spec.PromptRefs.System) != "" {
+		return spec.PromptRefs
+	}
+	for _, binding := range spec.SkillRefs {
+		skill, ok := skills[binding.Ref]
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(skill.PromptRefs.System) == "" {
+			continue
+		}
+		return skill.PromptRefs
+	}
+	return spec.PromptRefs
+}
+
+func resolvedToolRefs(explicit []string, skillBindings []apiv1alpha1.SkillBindingSpec, skills map[string]apiv1alpha1.SkillSpec) []string {
+	seen := map[string]struct{}{}
+	resolved := make([]string, 0, len(explicit))
+	appendToolRef := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		resolved = append(resolved, name)
+	}
+
+	for _, name := range explicit {
+		appendToolRef(name)
+	}
+	for _, binding := range skillBindings {
+		skill, ok := skills[binding.Ref]
+		if !ok {
+			continue
+		}
+		for _, name := range skill.ToolRefs {
+			appendToolRef(name)
+		}
+	}
+	return resolved
+}
+
+func resolvedKnowledgeRefs(explicit []apiv1alpha1.KnowledgeBindingSpec, skillBindings []apiv1alpha1.SkillBindingSpec, skills map[string]apiv1alpha1.SkillSpec) []apiv1alpha1.KnowledgeBindingSpec {
+	seen := map[string]struct{}{}
+	resolved := make([]apiv1alpha1.KnowledgeBindingSpec, 0, len(explicit))
+	appendKnowledgeRef := func(binding apiv1alpha1.KnowledgeBindingSpec) {
+		key := strings.TrimSpace(binding.Name)
+		if key == "" {
+			key = strings.TrimSpace(binding.Ref)
+		}
+		if key == "" {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		resolved = append(resolved, binding)
+	}
+
+	for _, binding := range explicit {
+		appendKnowledgeRef(binding)
+	}
+	for _, skillBinding := range skillBindings {
+		skill, ok := skills[skillBinding.Ref]
+		if !ok {
+			continue
+		}
+		for _, binding := range skill.KnowledgeRefs {
+			appendKnowledgeRef(binding)
+		}
+	}
+	return resolved
 }
 
 func promptForArtifact(name string, prompts map[string]apiv1alpha1.PromptTemplateSpec) map[string]interface{} {

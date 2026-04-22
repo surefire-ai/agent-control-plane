@@ -3,6 +3,8 @@ package worker
 import (
 	"fmt"
 	"strings"
+
+	"github.com/surefire-ai/agent-control-plane/internal/contract"
 )
 
 type BuiltinSkillFunction func(state map[string]interface{}) map[string]interface{}
@@ -56,4 +58,18 @@ func resolveBuiltinSkillFunction(implementation string) (string, string, Builtin
 		}
 	}
 	return skill.Name, functionName, fn, nil
+}
+
+func resolveDeclaredSkillFunction(artifact contract.CompiledArtifact, implementation string) (string, contract.SkillSpec, error) {
+	for bindingName, skill := range artifact.Runner.Skills {
+		for _, declared := range skill.Functions {
+			if strings.TrimSpace(declared) == strings.TrimSpace(implementation) {
+				return bindingName, skill, nil
+			}
+		}
+	}
+	return "", contract.SkillSpec{}, FailureReasonError{
+		Reason:  "UnsupportedGraphNode",
+		Message: fmt.Sprintf("function implementation %q is not declared by any resolved skill", implementation),
+	}
 }

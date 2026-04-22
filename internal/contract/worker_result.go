@@ -40,6 +40,7 @@ type WorkerRuntimeInfo struct {
 	Entrypoint  string                            `json:"entrypoint,omitempty"`
 	Models      map[string]WorkerModelRuntime     `json:"models,omitempty"`
 	Tools       map[string]WorkerToolRuntime      `json:"tools,omitempty"`
+	Skills      map[string]WorkerSkillRuntime     `json:"skills,omitempty"`
 	Knowledge   map[string]WorkerKnowledgeRuntime `json:"knowledge,omitempty"`
 }
 
@@ -57,6 +58,17 @@ type WorkerToolRuntime struct {
 	Capabilities       []string `json:"capabilities,omitempty"`
 	AuthTokenEnv       string   `json:"authTokenEnv,omitempty"`
 	CredentialInjected bool     `json:"credentialInjected,omitempty"`
+}
+
+type WorkerSkillRuntime struct {
+	Ref            string            `json:"ref,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	SystemPrompt   string            `json:"systemPrompt,omitempty"`
+	FunctionCount  int               `json:"functionCount,omitempty"`
+	Functions      []string          `json:"functions,omitempty"`
+	ToolRefs       []string          `json:"toolRefs,omitempty"`
+	KnowledgeRefs  []string          `json:"knowledgeRefs,omitempty"`
+	DeclaredByName map[string]string `json:"declaredByName,omitempty"`
 }
 
 type WorkerKnowledgeRuntime struct {

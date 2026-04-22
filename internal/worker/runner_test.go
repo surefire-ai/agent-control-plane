@@ -68,6 +68,17 @@ func TestRuntimeInfoForArtifactIncludesToolsAndKnowledge(t *testing.T) {
 					Runtime:     map[string]interface{}{"provider": "internal-runtime"},
 				},
 			},
+			Skills: map[string]contract.SkillSpec{
+				"risk-scoring": {
+					Name:          "risk-scoring",
+					Ref:           "ehs-risk-scoring-skill",
+					Description:   "EHS风险评分能力",
+					PromptRefs:    map[string]string{"system": "ehs-hazard-identification-system"},
+					ToolRefs:      []string{"rectify-ticket-api"},
+					KnowledgeRefs: []contract.CompiledSkillKnowledgeRef{{Name: "regulations", Ref: "ehs-regulations"}},
+					Functions:     []string{"app.skills.ehs:score_risk_by_matrix"},
+				},
+			},
 			Knowledge: map[string]contract.KnowledgeSpec{
 				"regulations": {
 					Name:        "regulations",
@@ -85,6 +96,9 @@ func TestRuntimeInfoForArtifactIncludesToolsAndKnowledge(t *testing.T) {
 	}
 	if info.Tools["vision-inspection-tool"].Type != "multimodal" {
 		t.Fatalf("expected tool runtime info, got %#v", info.Tools)
+	}
+	if info.Skills["risk-scoring"].Ref != "ehs-risk-scoring-skill" || info.Skills["risk-scoring"].FunctionCount != 1 {
+		t.Fatalf("expected skill runtime info, got %#v", info.Skills)
 	}
 	if info.Knowledge["regulations"].Ref != "ehs-regulations" || info.Knowledge["regulations"].SourceCount != 1 {
 		t.Fatalf("expected knowledge runtime info, got %#v", info.Knowledge)
@@ -119,6 +133,15 @@ func TestPlaceholderRunnerReportsResolvedDependencies(t *testing.T) {
 				Tools: map[string]contract.ToolSpec{
 					"rectify-ticket-api": {Name: "rectify-ticket-api", Type: "http", HTTP: map[string]interface{}{"url": "https://example.internal"}},
 				},
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:       "risk-scoring",
+						Ref:        "ehs-risk-scoring-skill",
+						Functions:  []string{"app.skills.ehs:score_risk_by_matrix"},
+						ToolRefs:   []string{"rectify-ticket-api"},
+						PromptRefs: map[string]string{"system": "ehs-hazard-identification-system"},
+					},
+				},
 				Knowledge: map[string]contract.KnowledgeSpec{
 					"cases": {Name: "cases", Ref: "ehs-hazard-cases", Sources: []map[string]interface{}{{"name": "a"}}},
 				},
@@ -131,6 +154,9 @@ func TestPlaceholderRunnerReportsResolvedDependencies(t *testing.T) {
 	}
 	if got := result.Output["resolvedTools"]; got != 1 {
 		t.Fatalf("expected resolvedTools=1, got %#v", got)
+	}
+	if got := result.Output["resolvedSkills"]; got != 1 {
+		t.Fatalf("expected resolvedSkills=1, got %#v", got)
 	}
 	if got := result.Output["resolvedKnowledge"]; got != 1 {
 		t.Fatalf("expected resolvedKnowledge=1, got %#v", got)
@@ -226,6 +252,13 @@ func TestPlaceholderRunnerExecutesGraphToolNode(t *testing.T) {
 			Runner: contract.ArtifactRunner{
 				Kind:       "EinoADKRunner",
 				Entrypoint: "ehs.hazard_identification",
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:      "risk-scoring",
+						Ref:       "ehs-risk-scoring-skill",
+						Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+					},
+				},
 				Graph: map[string]interface{}{
 					"nodes": []interface{}{
 						map[string]interface{}{
@@ -352,6 +385,13 @@ func TestPlaceholderRunnerExecutesGraphRetrievalNode(t *testing.T) {
 			Runner: contract.ArtifactRunner{
 				Kind:       "EinoADKRunner",
 				Entrypoint: "ehs.hazard_identification",
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:      "risk-scoring",
+						Ref:       "ehs-risk-scoring-skill",
+						Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+					},
+				},
 				Graph: map[string]interface{}{
 					"nodes": []interface{}{
 						map[string]interface{}{
@@ -428,6 +468,13 @@ func TestPlaceholderRunnerExecutesStepToolNode(t *testing.T) {
 			Runner: contract.ArtifactRunner{
 				Kind:       "EinoADKRunner",
 				Entrypoint: "ehs.hazard_identification",
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:      "risk-scoring",
+						Ref:       "ehs-risk-scoring-skill",
+						Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+					},
+				},
 				Graph: map[string]interface{}{
 					"nodes": []interface{}{
 						map[string]interface{}{
@@ -490,6 +537,13 @@ func TestPlaceholderRunnerExecutesStepRetrievalNode(t *testing.T) {
 			Runner: contract.ArtifactRunner{
 				Kind:       "EinoADKRunner",
 				Entrypoint: "ehs.hazard_identification",
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:      "risk-scoring",
+						Ref:       "ehs-risk-scoring-skill",
+						Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+					},
+				},
 				Graph: map[string]interface{}{
 					"nodes": []interface{}{
 						map[string]interface{}{
@@ -1004,6 +1058,13 @@ func TestPlaceholderRunnerExecutesStepFunctionNode(t *testing.T) {
 			Runner: contract.ArtifactRunner{
 				Kind:       "EinoADKRunner",
 				Entrypoint: "ehs.hazard_identification",
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:      "risk-scoring",
+						Ref:       "ehs-risk-scoring-skill",
+						Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+					},
+				},
 				Graph: map[string]interface{}{
 					"nodes": []interface{}{
 						map[string]interface{}{
@@ -1027,6 +1088,9 @@ func TestPlaceholderRunnerExecutesStepFunctionNode(t *testing.T) {
 	if step["node"] != "score_risk" || step["implementation"] != "app.skills.ehs:score_risk_by_matrix" {
 		t.Fatalf("unexpected function step metadata: %#v", step)
 	}
+	if step["skillBinding"] != "risk-scoring" || step["skillRef"] != "ehs-risk-scoring-skill" {
+		t.Fatalf("expected declared skill metadata, got %#v", step)
+	}
 	if step["skill"] != "ehs" || step["function"] != "score_risk_by_matrix" {
 		t.Fatalf("expected builtin skill metadata, got %#v", step)
 	}
@@ -1042,6 +1106,22 @@ func TestResolveBuiltinSkillFunctionRejectsUnknownSkill(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	if err.Error() != `skill "unknown" is not supported yet` {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestResolveDeclaredSkillFunctionRejectsUndeclaredImplementation(t *testing.T) {
+	_, _, err := resolveDeclaredSkillFunction(contract.CompiledArtifact{
+		Runner: contract.ArtifactRunner{
+			Skills: map[string]contract.SkillSpec{
+				"ticketing": {Name: "ticketing", Ref: "ehs-ticketing-skill", Functions: []string{"app.skills.ehs:create_ticket"}},
+			},
+		},
+	}, "app.skills.ehs:score_risk_by_matrix")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if err.Error() != `function implementation "app.skills.ehs:score_risk_by_matrix" is not declared by any resolved skill` {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -1068,6 +1148,13 @@ func TestPlaceholderRunnerAutoStepSequenceExecutesFunctionNode(t *testing.T) {
 			Runner: contract.ArtifactRunner{
 				Kind:       "EinoADKRunner",
 				Entrypoint: "ehs.hazard_identification",
+				Skills: map[string]contract.SkillSpec{
+					"risk-scoring": {
+						Name:      "risk-scoring",
+						Ref:       "ehs-risk-scoring-skill",
+						Functions: []string{"app.skills.ehs:score_risk_by_matrix"},
+					},
+				},
 				Graph: map[string]interface{}{
 					"nodes": []interface{}{
 						map[string]interface{}{"name": "identify_hazards", "kind": "llm", "modelRef": "planner"},

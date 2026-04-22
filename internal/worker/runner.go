@@ -84,6 +84,7 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		"inputKeys":         sortedInputKeys(request.Config.ParsedRunInput),
 		"validatedModels":   modelCount,
 		"resolvedTools":     len(runtimeInfo.Tools),
+		"resolvedSkills":    len(runtimeInfo.Skills),
 		"resolvedKnowledge": len(runtimeInfo.Knowledge),
 		"runtimeEntrypoint": runtimeInfo.Entrypoint,
 	}
@@ -264,6 +265,7 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 		Entrypoint:  artifact.Runner.Entrypoint,
 		Models:      make(map[string]contract.WorkerModelRuntime, len(artifact.Runner.Models)),
 		Tools:       make(map[string]contract.WorkerToolRuntime, len(artifact.Runner.Tools)),
+		Skills:      make(map[string]contract.WorkerSkillRuntime, len(artifact.Runner.Skills)),
 		Knowledge:   make(map[string]contract.WorkerKnowledgeRuntime, len(artifact.Runner.Knowledge)),
 	}
 	if info.Runner == "" {
@@ -319,6 +321,17 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 			CredentialInjected: credentialInjected,
 		}
 	}
+	for name, skill := range artifact.Runner.Skills {
+		info.Skills[name] = contract.WorkerSkillRuntime{
+			Ref:           skill.Ref,
+			Description:   skill.Description,
+			SystemPrompt:  skill.PromptRefs["system"],
+			FunctionCount: len(skill.Functions),
+			Functions:     append([]string(nil), skill.Functions...),
+			ToolRefs:      append([]string(nil), skill.ToolRefs...),
+			KnowledgeRefs: skillKnowledgeRefs(skill),
+		}
+	}
 	for name, knowledge := range artifact.Runner.Knowledge {
 		info.Knowledge[name] = contract.WorkerKnowledgeRuntime{
 			Ref:            knowledge.Ref,
@@ -329,12 +342,13 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 			ScoreThreshold: nestedFloat64(knowledge.Retrieval, "defaultScoreThreshold"),
 		}
 	}
-	if len(info.Tools) > 0 || len(info.Knowledge) > 0 {
+	if len(info.Tools) > 0 || len(info.Knowledge) > 0 || len(info.Skills) > 0 {
 		artifacts = append(artifacts, contract.WorkerArtifact{
 			Name: "runtime-dependency-bindings",
 			Kind: "json",
 			Inline: map[string]interface{}{
 				"tools":     info.Tools,
+				"skills":    info.Skills,
 				"knowledge": info.Knowledge,
 			},
 		})
@@ -404,6 +418,25 @@ func toolCapabilities(tool contract.ToolSpec) []string {
 		capabilities = append(capabilities, "http")
 	}
 	return capabilities
+}
+
+func skillKnowledgeRefs(skill contract.SkillSpec) []string {
+	if len(skill.KnowledgeRefs) == 0 {
+		return nil
+	}
+	refs := make([]string, 0, len(skill.KnowledgeRefs))
+	for _, knowledge := range skill.KnowledgeRefs {
+		name := strings.TrimSpace(knowledge.Name)
+		if name == "" {
+			name = strings.TrimSpace(knowledge.Ref)
+		}
+		if name == "" {
+			continue
+		}
+		refs = append(refs, name)
+	}
+	sort.Strings(refs)
+	return refs
 }
 
 func nestedInt64(values map[string]interface{}, key string) int64 {

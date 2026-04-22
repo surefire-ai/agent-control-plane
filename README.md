@@ -11,7 +11,7 @@ The source repository is `github.com/surefire-ai/agent-control-plane`, and the
 Kubernetes API group uses `windosx.com/v1alpha1`.
 
 The current implementation is driven by the EHS hazard-identification examples
-in `examples/ehs` and `config/samples/ehs`.
+in `config/samples/ehs`.
 
 ## Project Positioning
 
@@ -99,7 +99,7 @@ Status date: 2026-04-20.
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| YAML Agent Spec | In progress | Go API types and CRDs exist under `api/v1alpha1` and `config/crd/bases`; EHS YAML examples exist under `examples/ehs` and `config/samples/ehs`. |
+| YAML Agent Spec | In progress | Go API types and CRDs exist under `api/v1alpha1` and `config/crd/bases`; EHS YAML examples exist under `config/samples/ehs`. |
 | Compile to Eino | Partial | `internal/compiler` validates cross-resource references, emits a runtime-oriented compiled artifact, and produces a deterministic revision. It does not yet emit an executable Eino runner artifact. |
 | Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
 | Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
@@ -482,7 +482,6 @@ config/crd/                    generated CRD manifests
 config/default/                installable Kustomize entrypoint
 config/manager/                controller-manager and gateway service manifests
 config/samples/ehs/            sample custom resources
-examples/ehs/                  source sample resources
 internal/compiler/             Agent compiler and reference validation
 internal/controller/           Agent and AgentRun reconcilers
 internal/gateway/              invoke gateway

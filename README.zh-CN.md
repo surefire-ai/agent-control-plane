@@ -9,7 +9,7 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 源码仓库是 `github.com/surefire-ai/agent-control-plane`，Kubernetes API Group 使用
 `windosx.com/v1alpha1`。
 
-当前实现以 `examples/ehs` 和 `config/samples/ehs` 中的 EHS 危害识别样例为起点。
+当前实现以 `config/samples/ehs` 中的 EHS 危害识别样例为起点。
 
 ## 项目定位
 
@@ -69,7 +69,7 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 
 | 模块 | 状态 | 证据 |
 | --- | --- | --- |
-| YAML Agent Spec | 进行中 | `api/v1alpha1` 和 `config/crd/bases` 下已有 Go API 类型和 CRD；`examples/ehs` 与 `config/samples/ehs` 下已有 EHS YAML 样例。 |
+| YAML Agent Spec | 进行中 | `api/v1alpha1` 和 `config/crd/bases` 下已有 Go API 类型和 CRD；`config/samples/ehs` 下已有 EHS YAML 样例。 |
 | 编译成 Eino | 部分完成 | `internal/compiler` 已能校验跨资源引用、产出面向 runtime 的 compiled artifact，并生成确定性 revision；尚未产出可执行的 Eino runner artifact。 |
 | 发布 endpoint | Bootstrap | Agent controller 已发布 `Agent.status.endpoint.invoke`；invoke gateway 可接收 POST 请求并创建 `AgentRun` 资源。 |
 | trace | 部分完成 | 已有 `AgentRun.status.traceRef`，mock/worker backend 会写入该字段；完整分布式 tracing 和 trace 存储尚未实现。 |
@@ -430,7 +430,6 @@ config/crd/                    generated CRD manifests
 config/default/                installable Kustomize entrypoint
 config/manager/                controller-manager and gateway service manifests
 config/samples/ehs/            sample custom resources
-examples/ehs/                  source sample resources
 internal/compiler/             Agent compiler and reference validation
 internal/controller/           Agent and AgentRun reconcilers
 internal/gateway/              invoke gateway

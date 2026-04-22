@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -521,6 +522,148 @@ func TestPlaceholderRunnerExecutesStepRetrievalNode(t *testing.T) {
 	}
 	if step["node"] != "retrieve_regulations" || step["name"] != "regulations" {
 		t.Fatalf("unexpected step retrieval metadata: %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerExecutesStepSequence(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"step complete\",\"title\":\"Repair cabinet\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.88,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	toolServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+		if body["title"] != "Repair cabinet" {
+			t.Fatalf("expected title from prior llm step, got %#v", body)
+		}
+		_, _ = w.Write([]byte(`{"ticketId":"T-104","status":"created"}`))
+	}))
+	defer toolServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker:     EinoOpenAIInvoker{Client: modelServer.Client()},
+		ToolInvoker: EinoToolInvoker{Client: toolServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"sequence": []interface{}{"classify_task", "create_ticket"},
+					"input": map[string]interface{}{
+						"text": "配电箱门未关闭",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{
+							"name":     "classify_task",
+							"kind":     "llm",
+							"modelRef": "planner",
+						},
+						map[string]interface{}{
+							"name":    "create_ticket",
+							"kind":    "tool",
+							"toolRef": "rectify-ticket-api",
+						},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": toolServer.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	step, ok := result.Output["step"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected sequence step output, got %#v", result.Output)
+	}
+	if step["currentNode"] != "create_ticket" {
+		t.Fatalf("unexpected currentNode: %#v", step)
+	}
+	switch steps := step["steps"].(type) {
+	case []map[string]interface{}:
+		if len(steps) != 2 {
+			t.Fatalf("expected 2 steps, got %#v", step)
+		}
+	case []interface{}:
+		if len(steps) != 2 {
+			t.Fatalf("expected 2 steps, got %#v", step)
+		}
+	default:
+		t.Fatalf("unexpected steps type: %T", step["steps"])
+	}
+	finalState, _ := step["finalState"].(map[string]interface{})
+	toolOutput, _ := finalState["toolOutput"].(map[string]interface{})
+	if toolOutput["ticketId"] != "T-104" {
+		t.Fatalf("unexpected finalState tool output: %#v", finalState)
+	}
+	if finalState["title"] != "Repair cabinet" {
+		t.Fatalf("expected llm result merged into finalState, got %#v", finalState)
+	}
+}
+
+func TestRequestedStepRejectsInvalidSequence(t *testing.T) {
+	_, _, err := requestedStep(map[string]interface{}{
+		"step": map[string]interface{}{
+			"sequence": "classify_task",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if err.Error() != "step.sequence must be an array of node names" {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

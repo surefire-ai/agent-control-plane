@@ -22,8 +22,9 @@ type RunRequest struct {
 }
 
 type EinoADKPlaceholderRunner struct {
-	Invoker     ModelInvoker
-	ToolInvoker ToolInvoker
+	Invoker          ModelInvoker
+	ToolInvoker      ToolInvoker
+	RetrievalInvoker RetrievalInvoker
 }
 
 func (r EinoADKPlaceholderRunner) modelInvoker() ModelInvoker {
@@ -38,6 +39,13 @@ func (r EinoADKPlaceholderRunner) toolInvoker() ToolInvoker {
 		return r.ToolInvoker
 	}
 	return EinoToolInvoker{}
+}
+
+func (r EinoADKPlaceholderRunner) retrievalInvoker() RetrievalInvoker {
+	if r.RetrievalInvoker != nil {
+		return r.RetrievalInvoker
+	}
+	return EinoRetrievalInvoker{}
 }
 
 type FailureReasonError struct {

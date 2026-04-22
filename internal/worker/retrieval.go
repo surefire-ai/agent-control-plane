@@ -6,6 +6,9 @@ import (
 	"sort"
 	"strings"
 
+	einoretriever "github.com/cloudwego/eino/components/retriever"
+	einoschema "github.com/cloudwego/eino/schema"
+
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
 )
 
@@ -20,6 +23,19 @@ type RequestedRetrievalCall struct {
 	Query string
 	TopK  int
 }
+
+type RetrievalInvoker interface {
+	Invoke(ctx context.Context, runtime contract.WorkerKnowledgeRuntime, spec contract.KnowledgeSpec, call RequestedRetrievalCall) (ExecutedRetrievalInvocation, error)
+}
+
+type EinoKnowledgeRetriever struct {
+	Runtime contract.WorkerKnowledgeRuntime
+	Spec    contract.KnowledgeSpec
+}
+
+var _ einoretriever.Retriever = (*EinoKnowledgeRetriever)(nil)
+
+type EinoRetrievalInvoker struct{}
 
 func (r EinoADKPlaceholderRunner) invokeRequestedRetrieval(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (ExecutedRetrievalInvocation, bool, error) {
 	select {
@@ -71,26 +87,47 @@ func (r EinoADKPlaceholderRunner) executeRetrievalCall(ctx context.Context, requ
 	if topK <= 0 {
 		topK = 3
 	}
-	results := retrievalResults(spec, call.Query, topK)
+	result, err := r.retrievalInvoker().Invoke(ctx, runtime, spec, RequestedRetrievalCall{
+		Name:  knowledgeName,
+		Node:  nodeName,
+		Query: call.Query,
+		TopK:  topK,
+	})
+	if err != nil {
+		return ExecutedRetrievalInvocation{}, false, err
+	}
+	return result, true, nil
+}
+
+func (i EinoRetrievalInvoker) Invoke(ctx context.Context, runtime contract.WorkerKnowledgeRuntime, spec contract.KnowledgeSpec, call RequestedRetrievalCall) (ExecutedRetrievalInvocation, error) {
+	retriever := EinoKnowledgeRetriever{
+		Runtime: runtime,
+		Spec:    spec,
+	}
+	docs, err := retriever.Retrieve(ctx, call.Query, einoretriever.WithTopK(call.TopK))
+	if err != nil {
+		return ExecutedRetrievalInvocation{}, err
+	}
+	results := retrievalResultsFromDocuments(docs)
 	output := map[string]interface{}{
-		"name":    knowledgeName,
+		"name":    call.Name,
 		"query":   call.Query,
 		"results": results,
-		"topK":    topK,
+		"topK":    call.TopK,
 	}
 	requestInline := map[string]interface{}{
-		"name":  knowledgeName,
+		"name":  call.Name,
 		"query": call.Query,
-		"topK":  topK,
+		"topK":  call.TopK,
 	}
 	responseInline := map[string]interface{}{
-		"name":    knowledgeName,
+		"name":    call.Name,
 		"results": results,
 	}
-	if nodeName != "" {
-		output["node"] = nodeName
-		requestInline["node"] = nodeName
-		responseInline["node"] = nodeName
+	if call.Node != "" {
+		output["node"] = call.Node
+		requestInline["node"] = call.Node
+		responseInline["node"] = call.Node
 	}
 	return ExecutedRetrievalInvocation{
 		Output: output,
@@ -98,7 +135,61 @@ func (r EinoADKPlaceholderRunner) executeRetrievalCall(ctx context.Context, requ
 			{Name: "retrieval-request", Kind: "json", Inline: requestInline},
 			{Name: "retrieval-response", Kind: "json", Inline: responseInline},
 		},
-	}, true, nil
+	}, nil
+}
+
+func (r EinoKnowledgeRetriever) Retrieve(ctx context.Context, query string, opts ...einoretriever.Option) ([]*einoschema.Document, error) {
+	_ = ctx
+	defaultTopK := int(r.Runtime.DefaultTopK)
+	options := einoretriever.GetCommonOptions(&einoretriever.Options{TopK: &defaultTopK}, opts...)
+	topK := defaultTopK
+	if options.TopK != nil && *options.TopK > 0 {
+		topK = *options.TopK
+	}
+	if topK <= 0 {
+		topK = 3
+	}
+	results := retrievalResults(r.Spec, query, topK)
+	docs := make([]*einoschema.Document, 0, len(results))
+	for _, result := range results {
+		doc := &einoschema.Document{
+			ID:      stringMapValue(result, "id"),
+			Content: stringMapValue(result, "summary"),
+			MetaData: map[string]any{
+				"sourceName": stringMapValue(result, "sourceName"),
+				"sourceURI":  stringMapValue(result, "sourceURI"),
+			},
+		}
+		if score, ok := result["score"].(float64); ok {
+			doc = doc.WithScore(score)
+		}
+		docs = append(docs, doc)
+	}
+	return docs, nil
+}
+
+func retrievalResultsFromDocuments(docs []*einoschema.Document) []map[string]interface{} {
+	results := make([]map[string]interface{}, 0, len(docs))
+	for _, doc := range docs {
+		if doc == nil {
+			continue
+		}
+		result := map[string]interface{}{
+			"id":      doc.ID,
+			"summary": doc.Content,
+			"score":   doc.Score(),
+		}
+		if doc.MetaData != nil {
+			if sourceName, _ := doc.MetaData["sourceName"].(string); sourceName != "" {
+				result["sourceName"] = sourceName
+			}
+			if sourceURI, _ := doc.MetaData["sourceURI"].(string); sourceURI != "" {
+				result["sourceURI"] = sourceURI
+			}
+		}
+		results = append(results, result)
+	}
+	return results
 }
 
 func requestedRetrievalCall(input map[string]interface{}) (RequestedRetrievalCall, bool, error) {
@@ -218,4 +309,12 @@ func retrievalScore(index int) float64 {
 		return 0.1
 	}
 	return score
+}
+
+func stringMapValue(values map[string]interface{}, key string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	value, _ := values[key].(string)
+	return value
 }

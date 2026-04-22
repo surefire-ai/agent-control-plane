@@ -32,6 +32,9 @@ type Result struct {
 }
 
 func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) {
+	if err := validatePattern(agent.Spec); err != nil {
+		return Result{}, err
+	}
 	missing := findMissingReferences(agent, refs)
 	if len(missing) > 0 {
 		return Result{}, fmt.Errorf("missing references: %v", missing)
@@ -48,6 +51,7 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 }
 
 func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.FreeformObject {
+	pattern := patternForArtifact(agent.Spec)
 	return apiv1alpha1.FreeformObject{
 		"apiVersion":    jsonValue(apiv1alpha1.Group + "/" + apiv1alpha1.Version),
 		"kind":          jsonValue(contract.CompiledArtifactKind),
@@ -58,9 +62,11 @@ func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.Freef
 			"generation": agent.Generation,
 		}),
 		"runtime":       jsonValue(runtimeForArtifact(agent.Spec.Runtime)),
+		"pattern":       jsonValue(pattern),
 		"runner":        jsonValue(runnerForArtifact(agent.Spec, refs)),
 		"models":        jsonValue(agent.Spec.Models),
 		"identity":      jsonValue(agent.Spec.Identity),
+		"patternSpec":   jsonValue(agent.Spec.Pattern),
 		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
 		"knowledgeRefs": jsonValue(agent.Spec.KnowledgeRefs),
 		"toolRefs":      jsonValue(agent.Spec.ToolRefs),
@@ -77,12 +83,13 @@ func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.Freef
 func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[string]interface{} {
 	runtime := runtimeForArtifact(spec.Runtime)
 	resolvedPromptRefs := resolvedPromptRefs(spec, refs.SkillSpecs)
-	resolvedToolRefs := resolvedToolRefs(spec.ToolRefs, spec.SkillRefs, refs.SkillSpecs)
-	resolvedKnowledgeRefs := resolvedKnowledgeRefs(spec.KnowledgeRefs, spec.SkillRefs, refs.SkillSpecs)
+	resolvedToolRefs := resolvedToolRefs(spec.ToolRefs, spec.Pattern, spec.SkillRefs, refs.SkillSpecs)
+	resolvedKnowledgeRefs := resolvedKnowledgeRefs(spec.KnowledgeRefs, spec.Pattern, spec.SkillRefs, refs.SkillSpecs)
 	resolvedGraph := resolvedGraph(spec, refs.SkillSpecs)
 	return map[string]interface{}{
 		"kind":       "EinoADKRunner",
 		"entrypoint": runtime.Entrypoint,
+		"pattern":    patternForArtifact(spec),
 		"graph": map[string]interface{}{
 			"stateSchema": spec.Graph.StateSchema,
 			"nodes":       resolvedGraph.Nodes,
@@ -99,6 +106,25 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 			"schema": spec.Interfaces.Output.Schema,
 		},
 	}
+}
+
+func patternForArtifact(spec apiv1alpha1.AgentSpec) map[string]interface{} {
+	if spec.Pattern == nil {
+		return nil
+	}
+	pattern := map[string]interface{}{
+		"type":          spec.Pattern.Type,
+		"version":       spec.Pattern.Version,
+		"modelRef":      spec.Pattern.ModelRef,
+		"toolRefs":      spec.Pattern.ToolRefs,
+		"knowledgeRefs": spec.Pattern.KnowledgeRefs,
+		"maxIterations": spec.Pattern.MaxIterations,
+		"stopWhen":      spec.Pattern.StopWhen,
+	}
+	if expansion := patternExpansionMetadata(spec); expansion != nil {
+		pattern["expansion"] = expansion
+	}
+	return pattern
 }
 
 func resolvedPromptRefs(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) apiv1alpha1.AgentPromptRefs {
@@ -118,7 +144,7 @@ func resolvedPromptRefs(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha
 	return spec.PromptRefs
 }
 
-func resolvedToolRefs(explicit []string, skillBindings []apiv1alpha1.SkillBindingSpec, skills map[string]apiv1alpha1.SkillSpec) []string {
+func resolvedToolRefs(explicit []string, pattern *apiv1alpha1.AgentPatternSpec, skillBindings []apiv1alpha1.SkillBindingSpec, skills map[string]apiv1alpha1.SkillSpec) []string {
 	seen := map[string]struct{}{}
 	resolved := make([]string, 0, len(explicit))
 	appendToolRef := func(name string) {
@@ -136,6 +162,11 @@ func resolvedToolRefs(explicit []string, skillBindings []apiv1alpha1.SkillBindin
 	for _, name := range explicit {
 		appendToolRef(name)
 	}
+	if pattern != nil {
+		for _, name := range pattern.ToolRefs {
+			appendToolRef(name)
+		}
+	}
 	for _, binding := range skillBindings {
 		skill, ok := skills[binding.Ref]
 		if !ok {
@@ -148,7 +179,7 @@ func resolvedToolRefs(explicit []string, skillBindings []apiv1alpha1.SkillBindin
 	return resolved
 }
 
-func resolvedKnowledgeRefs(explicit []apiv1alpha1.KnowledgeBindingSpec, skillBindings []apiv1alpha1.SkillBindingSpec, skills map[string]apiv1alpha1.SkillSpec) []apiv1alpha1.KnowledgeBindingSpec {
+func resolvedKnowledgeRefs(explicit []apiv1alpha1.KnowledgeBindingSpec, pattern *apiv1alpha1.AgentPatternSpec, skillBindings []apiv1alpha1.SkillBindingSpec, skills map[string]apiv1alpha1.SkillSpec) []apiv1alpha1.KnowledgeBindingSpec {
 	seen := map[string]struct{}{}
 	resolved := make([]apiv1alpha1.KnowledgeBindingSpec, 0, len(explicit))
 	appendKnowledgeRef := func(binding apiv1alpha1.KnowledgeBindingSpec) {
@@ -168,6 +199,11 @@ func resolvedKnowledgeRefs(explicit []apiv1alpha1.KnowledgeBindingSpec, skillBin
 
 	for _, binding := range explicit {
 		appendKnowledgeRef(binding)
+	}
+	if pattern != nil {
+		for _, ref := range pattern.KnowledgeRefs {
+			appendKnowledgeRef(apiv1alpha1.KnowledgeBindingSpec{Name: ref, Ref: ref})
+		}
 	}
 	for _, skillBinding := range skillBindings {
 		skill, ok := skills[skillBinding.Ref]
@@ -271,6 +307,9 @@ func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.Ski
 		Nodes:       append([]apiv1alpha1.AgentGraphNode(nil), spec.Graph.Nodes...),
 		Edges:       append([]apiv1alpha1.AgentGraphEdge(nil), spec.Graph.Edges...),
 	}
+	if len(graph.Nodes) == 0 && len(graph.Edges) == 0 && spec.Pattern != nil {
+		graph = expandPatternGraph(spec.Pattern, graph)
+	}
 	if len(spec.SkillRefs) == 0 {
 		return graph
 	}
@@ -288,6 +327,110 @@ func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.Ski
 	graph.Nodes = append(skillNodes, graph.Nodes...)
 	graph.Edges = append(skillEdges, graph.Edges...)
 	return graph
+}
+
+func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
+	if pattern == nil {
+		return graph
+	}
+	switch strings.TrimSpace(pattern.Type) {
+	case "react":
+		return reactPatternGraph(pattern, graph)
+	default:
+		return graph
+	}
+}
+
+func reactPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
+	modelRef := strings.TrimSpace(pattern.ModelRef)
+	if modelRef == "" {
+		modelRef = "planner"
+	}
+
+	nodes := []apiv1alpha1.AgentGraphNode{
+		{Name: "reason", Kind: "llm", ModelRef: modelRef},
+	}
+	edges := []apiv1alpha1.AgentGraphEdge{
+		{From: "START", To: "reason"},
+	}
+
+	for _, toolRef := range pattern.ToolRefs {
+		toolRef = strings.TrimSpace(toolRef)
+		if toolRef == "" {
+			continue
+		}
+		nodeName := patternToolNodeName(toolRef)
+		nodes = append(nodes, apiv1alpha1.AgentGraphNode{
+			Name:    nodeName,
+			Kind:    "tool",
+			ToolRef: toolRef,
+		})
+		edges = append(edges, apiv1alpha1.AgentGraphEdge{From: "reason", To: nodeName})
+	}
+
+	nodes = append(nodes, apiv1alpha1.AgentGraphNode{Name: "finalize", Kind: "llm", ModelRef: modelRef})
+	if len(pattern.ToolRefs) == 0 {
+		edges = append(edges, apiv1alpha1.AgentGraphEdge{From: "reason", To: "finalize"})
+	} else {
+		for _, toolRef := range pattern.ToolRefs {
+			toolRef = strings.TrimSpace(toolRef)
+			if toolRef == "" {
+				continue
+			}
+			edges = append(edges, apiv1alpha1.AgentGraphEdge{From: patternToolNodeName(toolRef), To: "finalize"})
+		}
+		edges = append(edges, apiv1alpha1.AgentGraphEdge{From: "reason", To: "finalize"})
+	}
+	edges = append(edges, apiv1alpha1.AgentGraphEdge{From: "finalize", To: "END"})
+
+	graph.Nodes = nodes
+	graph.Edges = edges
+	return graph
+}
+
+func patternToolNodeName(toolRef string) string {
+	return "tool_" + strings.ReplaceAll(strings.TrimSpace(toolRef), "-", "_")
+}
+
+func patternExpansionMetadata(spec apiv1alpha1.AgentSpec) map[string]interface{} {
+	if spec.Pattern == nil {
+		return nil
+	}
+	if len(spec.Graph.Nodes) > 0 || len(spec.Graph.Edges) > 0 {
+		return map[string]interface{}{
+			"mode": "explicit_graph",
+		}
+	}
+	return map[string]interface{}{
+		"mode":      "preset_graph",
+		"preset":    spec.Pattern.Type,
+		"graphOnly": true,
+	}
+}
+
+func validatePattern(spec apiv1alpha1.AgentSpec) error {
+	if spec.Pattern == nil {
+		return nil
+	}
+	patternType := strings.TrimSpace(spec.Pattern.Type)
+	if patternType == "" {
+		return fmt.Errorf("pattern.type is required when spec.pattern is set")
+	}
+	if len(spec.Graph.Nodes) > 0 || len(spec.Graph.Edges) > 0 {
+		return fmt.Errorf("spec.pattern cannot be used together with explicit spec.graph")
+	}
+	modelRef := strings.TrimSpace(spec.Pattern.ModelRef)
+	if modelRef != "" {
+		if _, ok := spec.Models[modelRef]; !ok {
+			return fmt.Errorf("pattern.modelRef %q is not declared under spec.models", modelRef)
+		}
+	}
+	switch patternType {
+	case "react":
+		return nil
+	default:
+		return fmt.Errorf("pattern.type %q is not supported yet", patternType)
+	}
 }
 
 func validateSkillGraphMerges(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) error {
@@ -395,6 +538,18 @@ func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []strin
 	for _, toolRef := range agent.Spec.ToolRefs {
 		if !contains(refs.Tools, toolRef) {
 			missing = append(missing, "ToolProvider/"+toolRef)
+		}
+	}
+	if agent.Spec.Pattern != nil {
+		for _, toolRef := range agent.Spec.Pattern.ToolRefs {
+			if !contains(refs.Tools, toolRef) {
+				missing = append(missing, "ToolProvider/"+toolRef)
+			}
+		}
+		for _, knowledgeRef := range agent.Spec.Pattern.KnowledgeRefs {
+			if !contains(refs.KnowledgeBases, knowledgeRef) {
+				missing = append(missing, "KnowledgeBase/"+knowledgeRef)
+			}
 		}
 	}
 	for _, skillRef := range agent.Spec.SkillRefs {

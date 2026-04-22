@@ -185,6 +185,28 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                     type: object
                 type: object
+              pattern:
+                properties:
+                  knowledgeRefs:
+                    items:
+                      type: string
+                    type: array
+                  maxIterations:
+                    format: int32
+                    type: integer
+                  modelRef:
+                    type: string
+                  stopWhen:
+                    type: string
+                  toolRefs:
+                    items:
+                      type: string
+                    type: array
+                  type:
+                    type: string
+                  version:
+                    type: string
+                type: object
               policyRef:
                 type: string
               promptRefs:

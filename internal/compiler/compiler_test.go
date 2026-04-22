@@ -14,6 +14,16 @@ import (
 
 func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	agent := testAgent()
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:          "react",
+		Version:       "v1",
+		ModelRef:      "planner",
+		ToolRefs:      []string{"rectify-ticket-api"},
+		KnowledgeRefs: []string{"ehs-regulations"},
+		MaxIterations: 6,
+		StopWhen:      "final_answer",
+	}
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
 	refs := ReferenceIndex{
 		Prompts: set("ehs-hazard-identification-system"),
 		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
@@ -65,6 +75,9 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 	if runner.Kind != "EinoADKRunner" {
 		t.Fatalf("expected Eino runner artifact, got %#v", runner)
 	}
+	if runner.Pattern["type"] != "react" {
+		t.Fatalf("expected runner pattern metadata, got %#v", runner.Pattern)
+	}
 	if runner.Entrypoint != "ehs.hazard_identification" {
 		t.Fatalf("expected runner entrypoint, got %#v", runner)
 	}
@@ -108,8 +121,11 @@ func TestCompileAgentReturnsRevisionWhenReferencesExist(t *testing.T) {
 		t.Fatalf("expected knowledge details in runner artifact, got %#v", runner.Knowledge)
 	}
 	nodes, _ := runner.Graph["nodes"].([]interface{})
-	if len(nodes) != 1 {
+	if len(nodes) != 4 {
 		t.Fatalf("expected merged graph nodes in runner artifact, got %#v", runner.Graph)
+	}
+	if result.Artifact["pattern"].Raw == nil {
+		t.Fatalf("expected top-level pattern metadata in artifact, got %#v", result.Artifact["pattern"])
 	}
 }
 
@@ -252,6 +268,59 @@ func TestCompileAgentMergesSkillDependenciesIntoRunner(t *testing.T) {
 	}
 }
 
+func TestCompileAgentExpandsReactPatternWhenGraphIsEmpty(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:          "react",
+		Version:       "v1",
+		ModelRef:      "planner",
+		ToolRefs:      []string{"rectify-ticket-api"},
+		KnowledgeRefs: []string{"ehs-regulations"},
+		MaxIterations: 4,
+		StopWhen:      "final_answer",
+	}
+
+	result, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills: set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{
+			"ehs-risk-scoring-skill": skillSpec(),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err != nil {
+		t.Fatalf("CompileAgent returned error: %v", err)
+	}
+
+	runner := runnerArtifact(t, result.Artifact["runner"])
+	nodes, _ := runner.Graph["nodes"].([]interface{})
+	if len(nodes) != 4 {
+		t.Fatalf("expected react preset graph plus skill node, got %#v", runner.Graph)
+	}
+	edges, _ := runner.Graph["edges"].([]interface{})
+	if len(edges) == 0 {
+		t.Fatalf("expected react preset edges, got %#v", runner.Graph)
+	}
+	if _, ok := runner.Knowledge["ehs-regulations"]; !ok {
+		t.Fatalf("expected pattern knowledge ref to be merged into runner knowledge, got %#v", runner.Knowledge)
+	}
+}
+
 func TestCompileAgentFallsBackToSkillPromptWhenAgentPromptIsEmpty(t *testing.T) {
 	agent := testAgent()
 	agent.Spec.PromptRefs = apiv1alpha1.AgentPromptRefs{}
@@ -285,6 +354,98 @@ func TestCompileAgentFallsBackToSkillPromptWhenAgentPromptIsEmpty(t *testing.T) 
 	runner := runnerArtifact(t, result.Artifact["runner"])
 	if runner.Prompts["system"].Name != "ehs-hazard-identification-system" {
 		t.Fatalf("expected skill prompt to backfill system prompt, got %#v", runner.Prompts)
+	}
+}
+
+func TestCompileAgentRejectsPatternWithExplicitGraph(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{
+		Nodes: []apiv1alpha1.AgentGraphNode{
+			{Name: "identify_hazards", Kind: "llm", ModelRef: "planner"},
+		},
+		Edges: []apiv1alpha1.AgentGraphEdge{
+			{From: "START", To: "identify_hazards"},
+			{From: "identify_hazards", To: "END"},
+		},
+	}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "react", ModelRef: "planner"}
+
+	_, err := CompileAgent(agent, ReferenceIndex{})
+	if err == nil {
+		t.Fatal("expected pattern/graph conflict error")
+	}
+	if !strings.Contains(err.Error(), "spec.pattern cannot be used together with explicit spec.graph") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileAgentRejectsUnsupportedPatternType(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "router", ModelRef: "planner"}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills: set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{
+			"ehs-risk-scoring-skill": skillSpec(),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil {
+		t.Fatal("expected unsupported pattern error")
+	}
+	if !strings.Contains(err.Error(), `pattern.type "router" is not supported yet`) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileAgentRejectsPatternWithMissingModelRef(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "react", ModelRef: "executor"}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills: set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{
+			"ehs-risk-scoring-skill": skillSpec(),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil {
+		t.Fatal("expected missing model error")
+	}
+	if !strings.Contains(err.Error(), `pattern.modelRef "executor" is not declared under spec.models`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

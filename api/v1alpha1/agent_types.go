@@ -14,6 +14,7 @@ type AgentSpec struct {
 	Runtime       AgentRuntimeSpec       `json:"runtime,omitempty"`
 	Models        map[string]ModelSpec   `json:"models,omitempty"`
 	Identity      AgentIdentitySpec      `json:"identity,omitempty"`
+	Pattern       *AgentPatternSpec      `json:"pattern,omitempty"`
 	PromptRefs    AgentPromptRefs        `json:"promptRefs,omitempty"`
 	KnowledgeRefs []KnowledgeBindingSpec `json:"knowledgeRefs,omitempty"`
 	ToolRefs      []string               `json:"toolRefs,omitempty"`
@@ -54,6 +55,16 @@ type AgentIdentitySpec struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Role        string `json:"role,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+type AgentPatternSpec struct {
+	Type          string   `json:"type,omitempty"`
+	Version       string   `json:"version,omitempty"`
+	ModelRef      string   `json:"modelRef,omitempty"`
+	ToolRefs      []string `json:"toolRefs,omitempty"`
+	KnowledgeRefs []string `json:"knowledgeRefs,omitempty"`
+	MaxIterations int32    `json:"maxIterations,omitempty"`
+	StopWhen      string   `json:"stopWhen,omitempty"`
 }
 
 type AgentPromptRefs struct {

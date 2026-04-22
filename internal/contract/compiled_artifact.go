@@ -16,6 +16,7 @@ type CompiledArtifact struct {
 	SchemaVersion string                 `json:"schemaVersion,omitempty"`
 	Agent         ArtifactAgent          `json:"agent,omitempty"`
 	Runtime       ArtifactRuntime        `json:"runtime,omitempty"`
+	Pattern       ArtifactPattern        `json:"pattern,omitempty"`
 	Runner        ArtifactRunner         `json:"runner,omitempty"`
 	Models        map[string]ModelConfig `json:"models,omitempty"`
 	PolicyRef     string                 `json:"policyRef,omitempty"`
@@ -39,6 +40,7 @@ type ArtifactRuntime struct {
 type ArtifactRunner struct {
 	Kind       string                   `json:"kind,omitempty"`
 	Entrypoint string                   `json:"entrypoint,omitempty"`
+	Pattern    map[string]interface{}   `json:"pattern,omitempty"`
 	Graph      map[string]interface{}   `json:"graph,omitempty"`
 	Prompts    map[string]PromptSpec    `json:"prompts,omitempty"`
 	Models     map[string]ModelConfig   `json:"models,omitempty"`
@@ -47,6 +49,17 @@ type ArtifactRunner struct {
 	Knowledge  map[string]KnowledgeSpec `json:"knowledge,omitempty"`
 	Output     map[string]interface{}   `json:"output,omitempty"`
 	Extra      map[string]interface{}   `json:"-"`
+}
+
+type ArtifactPattern struct {
+	Type          string                 `json:"type,omitempty"`
+	Version       string                 `json:"version,omitempty"`
+	ModelRef      string                 `json:"modelRef,omitempty"`
+	ToolRefs      []string               `json:"toolRefs,omitempty"`
+	KnowledgeRefs []string               `json:"knowledgeRefs,omitempty"`
+	MaxIterations int32                  `json:"maxIterations,omitempty"`
+	StopWhen      string                 `json:"stopWhen,omitempty"`
+	Expansion     map[string]interface{} `json:"expansion,omitempty"`
 }
 
 type SkillSpec struct {
@@ -129,7 +142,7 @@ func ParseCompiledArtifact(raw string) (CompiledArtifact, error) {
 		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT must be a JSON object: %w", err)
 	}
 	artifact.Runtime.Extra = extraObject(artifact.Raw, "runtime", "engine", "runnerClass", "mode", "entrypoint")
-	artifact.Runner.Extra = extraObject(artifact.Raw, "runner", "kind", "entrypoint", "graph", "prompts", "models", "tools", "skills", "knowledge", "output")
+	artifact.Runner.Extra = extraObject(artifact.Raw, "runner", "kind", "entrypoint", "pattern", "graph", "prompts", "models", "tools", "skills", "knowledge", "output")
 	return artifact, nil
 }
 

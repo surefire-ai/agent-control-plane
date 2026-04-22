@@ -100,7 +100,8 @@ Runtime TODO:
 
 Compiler TODO:
 
-- Expand `spec.pattern` into `runner.graph` when `spec.graph` is empty.
+- Added `spec.pattern` and first-pass `react` expansion into `runner.graph`
+  when `spec.graph` is empty.
 - Preserve user-selected models, tools, knowledge, MCP servers, policies, and
   interfaces as explicit inputs to the pattern expansion.
 - Preserve model credential references during pattern expansion without

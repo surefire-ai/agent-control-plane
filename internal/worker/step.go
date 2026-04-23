@@ -77,9 +77,10 @@ func (r EinoADKPlaceholderRunner) executeAutoStepSequence(ctx context.Context, r
 	steps := make([]map[string]interface{}, 0, len(edges))
 	artifacts := make([]contract.WorkerArtifact, 0, len(edges))
 	current := "START"
-	visited := map[string]struct{}{}
+	pattern := request.Artifact.Pattern
+	maxIterations := int(pattern.MaxIterations)
 
-	for stepCount := 0; stepCount < len(edges)+1; stepCount++ {
+	for stepCount := 0; stepCount < len(edges)*max(2, maxIterations)+1; stepCount++ {
 		next, done, err := nextAutoEdge(edges, current, request.Config.ParsedRunInput, state)
 		if err != nil {
 			return nil, nil, err
@@ -95,13 +96,12 @@ func (r EinoADKPlaceholderRunner) executeAutoStepSequence(ctx context.Context, r
 			}
 			return result, artifacts, nil
 		}
-		if _, seen := visited[next]; seen {
+		if maxIterations > 0 && len(sequence) >= maxIterations {
 			return nil, nil, FailureReasonError{
 				Reason:  "InvalidStepRequest",
-				Message: fmt.Sprintf("automatic graph execution detected a cycle at %q", next),
+				Message: fmt.Sprintf("automatic graph execution exceeded pattern.maxIterations=%d", maxIterations),
 			}
 		}
-		visited[next] = struct{}{}
 		sequence = append(sequence, next)
 		nodeStep := RequestedStep{Node: next, Input: state}
 		output, nodeArtifacts, _, err := r.executeGraphStepNode(ctx, request, runtimeInfo, nodeStep)
@@ -111,6 +111,16 @@ func (r EinoADKPlaceholderRunner) executeAutoStepSequence(ctx context.Context, r
 		steps = append(steps, output)
 		artifacts = append(artifacts, nodeArtifacts...)
 		state = mergeStepState(state, output)
+		if shouldStopAutoExecution(pattern.StopWhen, next, output, request.Config.ParsedRunInput, state) {
+			result := map[string]interface{}{
+				"sequence":    sequence,
+				"steps":       steps,
+				"finalState":  state,
+				"currentNode": next,
+				"stopReason":  pattern.StopWhen,
+			}
+			return result, artifacts, nil
+		}
 		current = next
 	}
 
@@ -118,6 +128,38 @@ func (r EinoADKPlaceholderRunner) executeAutoStepSequence(ctx context.Context, r
 		Reason:  "InvalidStepRequest",
 		Message: "automatic graph execution exceeded the edge walk limit",
 	}
+}
+
+func shouldStopAutoExecution(stopWhen string, nodeName string, output map[string]interface{}, runInput map[string]interface{}, state map[string]interface{}) bool {
+	stopWhen = strings.TrimSpace(stopWhen)
+	if stopWhen == "" {
+		return false
+	}
+	if stopWhen == "final_answer" {
+		if strings.TrimSpace(nodeName) == "finalize" {
+			return true
+		}
+		if _, ok := state["finalResponse"].(map[string]interface{}); ok {
+			return true
+		}
+		if kind, _ := output["kind"].(string); kind == "llm" {
+			if result, _ := output["result"].(map[string]interface{}); len(result) > 0 {
+				if summary, _ := result["summary"].(string); strings.TrimSpace(summary) != "" && strings.TrimSpace(nodeName) == "finalize" {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	match, err := edgeConditionMatches(stopWhen, runInput, state)
+	return err == nil && match
+}
+
+func max(left int, right int) int {
+	if left > right {
+		return left
+	}
+	return right
 }
 
 func (r EinoADKPlaceholderRunner) executeGraphStepNode(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo, step RequestedStep) (map[string]interface{}, []contract.WorkerArtifact, bool, error) {

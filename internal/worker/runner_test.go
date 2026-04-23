@@ -1061,6 +1061,164 @@ func TestPlaceholderRunnerAutoStepSequenceInjectsToolContextIntoFinalizeLLM(t *t
 	}
 }
 
+func TestPlaceholderRunnerAutoStepSequenceStopsOnFinalAnswerPattern(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	requestCount := 0
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"done\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.92,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	toolServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("tool node should not execute after final_answer stop")
+		return
+	}))
+	defer toolServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker:     EinoOpenAIInvoker{Client: modelServer.Client()},
+		ToolInvoker: EinoToolInvoker{Client: toolServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{"auto": true},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Pattern: contract.ArtifactPattern{
+				Type:     "react",
+				StopWhen: "final_answer",
+			},
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "reason", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "finalize", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "create_ticket", "kind": "tool", "toolRef": "rectify-ticket-api"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "reason"},
+						map[string]interface{}{"from": "reason", "to": "finalize"},
+						map[string]interface{}{"from": "finalize", "to": "create_ticket"},
+						map[string]interface{}{"from": "create_ticket", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{"url": toolServer.URL},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if requestCount != 2 {
+		t.Fatalf("expected reason and finalize llm calls only, got %d", requestCount)
+	}
+	step, _ := result.Output["step"].(map[string]interface{})
+	if step["currentNode"] != "finalize" || step["stopReason"] != "final_answer" {
+		t.Fatalf("expected final_answer stop metadata, got %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerAutoStepSequenceRejectsPatternMaxIterationsExceeded(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"loop\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.81,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker: EinoOpenAIInvoker{Client: modelServer.Client()},
+	}
+	_, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{"auto": true},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Pattern: contract.ArtifactPattern{
+				Type:          "react",
+				MaxIterations: 2,
+			},
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "reason_a", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "reason_b", "kind": "llm", "modelRef": "planner"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "reason_a"},
+						map[string]interface{}{"from": "reason_a", "to": "reason_b"},
+						map[string]interface{}{"from": "reason_b", "to": "reason_a"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err == nil {
+		t.Fatal("expected maxIterations error")
+	}
+	if err.Error() != "automatic graph execution exceeded pattern.maxIterations=2" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestPlaceholderRunnerAutoStepSequenceMatchesInputCondition(t *testing.T) {
 	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
 

@@ -153,6 +153,9 @@ explicitly asks for a directional change:
 - `Dataset` is the reusable evaluation sample surface; prefer referencing it
   from `AgentEvaluation.datasetRef` over embedding large sample sets directly
   into runtime config.
+- `Dataset.spec.samples[].expected` is the first-class rule-eval surface for
+  simple metrics such as exact field matches and count checks; extend that
+  before adding a parallel evaluation DSL.
 - `AgentEvaluation` can already create a managed `AgentRun` from
   `spec.runtime.sampleInput` or `spec.runtime.samples` and fold aggregated
   run/gate status back into its own status; extend that path instead of

@@ -27,8 +27,9 @@ type AgentEvaluationReconciler struct {
 }
 
 type evaluationSample struct {
-	Name  string
-	Input apiv1alpha1.FreeformObject
+	Name     string
+	Input    apiv1alpha1.FreeformObject
+	Expected apiv1alpha1.FreeformObject
 }
 
 func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -100,7 +101,7 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	} else if hasFailed {
 		setAgentEvaluationFailed(&evaluation, req.Namespace, agent.Status.CompiledRevision, baselineRevision, runs)
 	} else {
-		setAgentEvaluationSucceeded(&evaluation, req.Namespace, agent, baselineRevision, runs)
+		setAgentEvaluationSucceeded(&evaluation, req.Namespace, agent, baselineRevision, runs, samples)
 	}
 
 	return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
@@ -281,7 +282,7 @@ func setAgentEvaluationRunning(evaluation *apiv1alpha1.AgentEvaluation, namespac
 	})
 }
 
-func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namespace string, agent *apiv1alpha1.Agent, baselineRevision string, runs []apiv1alpha1.AgentRun) {
+func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namespace string, agent *apiv1alpha1.Agent, baselineRevision string, runs []apiv1alpha1.AgentRun, samples []evaluationSample) {
 	evaluation.Status.Summary.DatasetRevision = evaluation.Spec.DatasetRef.Revision
 	evaluation.Status.Summary.BaselineRevision = baselineRevision
 	evaluation.Status.Summary.SamplesTotal = int32(len(runs))
@@ -293,7 +294,7 @@ func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namesp
 		"agentRevision": agent.Status.CompiledRevision,
 		"phase":         latest.Status.Phase,
 	}
-	evaluation.Status.Results = buildEvaluationMetricResults(*agent, runs, evaluation.Spec.Thresholds)
+	evaluation.Status.Results = buildEvaluationMetricResults(*agent, runs, samples, evaluation.Spec.Thresholds)
 	evaluation.Status.Summary.Score = aggregateMetricScore(evaluation.Status.Results)
 	evaluation.Status.Summary.GatePassed = gatePassed(evaluation.Spec.Gate, evaluation.Status.Results)
 	evaluation.Status.ReportRef = apiv1alpha1.FreeformObject{
@@ -368,8 +369,9 @@ func desiredEvaluationRunName(evaluation apiv1alpha1.AgentEvaluation, sampleName
 func (r *AgentEvaluationReconciler) evaluationSamples(ctx context.Context, namespace string, spec apiv1alpha1.AgentEvaluationSpec) ([]evaluationSample, bool, error) {
 	if value, ok := spec.Runtime["samples"]; ok {
 		var raw []struct {
-			Name  string                 `json:"name"`
-			Input map[string]interface{} `json:"input"`
+			Name     string                 `json:"name"`
+			Input    map[string]interface{} `json:"input"`
+			Expected map[string]interface{} `json:"expected,omitempty"`
 		}
 		if err := json.Unmarshal(value.Raw, &raw); err != nil {
 			return nil, false, fmt.Errorf("spec.runtime.samples must be a JSON array of {name,input}: %w", err)
@@ -387,7 +389,11 @@ func (r *AgentEvaluationReconciler) evaluationSamples(ctx context.Context, names
 			for key, value := range item.Input {
 				result[key] = jsonAnyValue(value)
 			}
-			samples = append(samples, evaluationSample{Name: name, Input: result})
+			expected := apiv1alpha1.FreeformObject{}
+			for key, value := range item.Expected {
+				expected[key] = jsonAnyValue(value)
+			}
+			samples = append(samples, evaluationSample{Name: name, Input: result, Expected: expected})
 		}
 		return samples, len(samples) > 0, nil
 	}
@@ -417,17 +423,17 @@ func (r *AgentEvaluationReconciler) evaluationSamples(ctx context.Context, names
 			if strings.TrimSpace(name) == "" {
 				name = fmt.Sprintf("sample-%d", index)
 			}
-			samples = append(samples, evaluationSample{Name: name, Input: sample.Input.DeepCopy()})
+			samples = append(samples, evaluationSample{Name: name, Input: sample.Input.DeepCopy(), Expected: sample.Expected.DeepCopy()})
 		}
 		return samples, len(samples) > 0, nil
 	}
 	return nil, false, nil
 }
 
-func buildEvaluationMetricResults(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, thresholds []apiv1alpha1.EvaluationThresholdSpec) []apiv1alpha1.EvaluationMetricStatus {
+func buildEvaluationMetricResults(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, samples []evaluationSample, thresholds []apiv1alpha1.EvaluationThresholdSpec) []apiv1alpha1.EvaluationMetricStatus {
 	results := make([]apiv1alpha1.EvaluationMetricStatus, 0, len(thresholds))
 	for _, threshold := range thresholds {
-		score, ok := aggregateMetric(agent, runs, threshold.Metric)
+		score, ok := aggregateMetric(agent, runs, samples, threshold.Metric)
 		result := apiv1alpha1.EvaluationMetricStatus{
 			Name:      threshold.Metric,
 			Metric:    threshold.Metric,
@@ -473,14 +479,15 @@ func buildEvaluationMetricResultsForFailures(runs []apiv1alpha1.AgentRun, thresh
 	return results
 }
 
-func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, metric string) (float64, bool) {
+func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, samples []evaluationSample, metric string) (float64, bool) {
 	if len(runs) == 0 {
 		return 0, false
 	}
 	total := 0.0
 	seen := 0
 	for _, run := range runs {
-		score, ok := metricScore(agent, run, metric)
+		sample, _ := sampleForRun(samples, run.Name)
+		score, ok := metricScore(agent, run, sample, metric)
 		if ok {
 			total += score
 			seen++
@@ -492,7 +499,7 @@ func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, metri
 	return total / float64(len(runs)), true
 }
 
-func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, metric string) (float64, bool) {
+func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evaluationSample, metric string) (float64, bool) {
 	switch metric {
 	case "run_success":
 		if run.Status.Phase == string(apiv1alpha1.AgentRunPhaseSucceeded) {
@@ -512,6 +519,9 @@ func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, metric strin
 		}
 		return float64(matched) / float64(len(required)), true
 	}
+	if score, ok := expectedMetricScore(run, sample, metric); ok {
+		return score, true
+	}
 	if value, ok := run.Status.Output[metric]; ok {
 		var number float64
 		if err := json.Unmarshal(value.Raw, &number); err == nil {
@@ -526,6 +536,49 @@ func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, metric strin
 		}
 	}
 	return 0, false
+}
+
+func expectedMetricScore(run apiv1alpha1.AgentRun, sample evaluationSample, metric string) (float64, bool) {
+	if len(sample.Expected) == 0 {
+		return 0, false
+	}
+	if strings.HasSuffix(metric, "_count") {
+		field := strings.TrimSuffix(metric, "_count")
+		expectedValue, ok := sample.Expected[metric]
+		if !ok {
+			return 0, false
+		}
+		expectedCount, ok := jsonInt(expectedValue)
+		if !ok {
+			return 0, false
+		}
+		actualValue, ok := run.Status.Output[field]
+		if !ok {
+			return 0, false
+		}
+		actualCount, ok := jsonArrayLen(actualValue)
+		if !ok {
+			return 0, false
+		}
+		if actualCount == expectedCount {
+			return 1, true
+		}
+		return 0, true
+	}
+	expectedValue, ok := sample.Expected[metric]
+	if !ok {
+		return 0, false
+	}
+	actualValue, ok := run.Status.Output[metric]
+	if !ok {
+		return 0, false
+	}
+	expectedAny := jsonAny(expectedValue)
+	actualAny := jsonAny(actualValue)
+	if equality.Semantic.DeepEqual(expectedAny, actualAny) {
+		return 1, true
+	}
+	return 0, true
 }
 
 func requiredOutputFields(agent apiv1alpha1.Agent) []string {
@@ -567,6 +620,53 @@ func latestRun(runs []apiv1alpha1.AgentRun) apiv1alpha1.AgentRun {
 		return apiv1alpha1.AgentRun{}
 	}
 	return runs[len(runs)-1]
+}
+
+func sampleForRun(samples []evaluationSample, runName string) (evaluationSample, bool) {
+	for _, sample := range samples {
+		if strings.HasSuffix(runName, "-"+sanitizeSampleName(sample.Name)) {
+			return sample, true
+		}
+	}
+	return evaluationSample{}, false
+}
+
+func sanitizeSampleName(name string) string {
+	slug := strings.ToLower(name)
+	slug = invalidRunNameChars.ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		return "sample"
+	}
+	return slug
+}
+
+func jsonAny(value apiextensionsv1.JSON) interface{} {
+	var result interface{}
+	if err := json.Unmarshal(value.Raw, &result); err != nil {
+		return nil
+	}
+	return result
+}
+
+func jsonInt(value apiextensionsv1.JSON) (int, bool) {
+	var number int
+	if err := json.Unmarshal(value.Raw, &number); err == nil {
+		return number, true
+	}
+	var floatNumber float64
+	if err := json.Unmarshal(value.Raw, &floatNumber); err == nil {
+		return int(floatNumber), true
+	}
+	return 0, false
+}
+
+func jsonArrayLen(value apiextensionsv1.JSON) (int, bool) {
+	var items []interface{}
+	if err := json.Unmarshal(value.Raw, &items); err != nil {
+		return 0, false
+	}
+	return len(items), true
 }
 
 func gatePassed(gate apiv1alpha1.EvaluationGateSpec, results []apiv1alpha1.EvaluationMetricStatus) bool {

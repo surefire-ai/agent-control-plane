@@ -225,6 +225,10 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 								"text": "发现配电箱有裸露电线",
 							},
 						},
+						"expected": map[string]interface{}{
+							"overallRiskLevel": "medium",
+							"hazards_count":    0,
+						},
 					},
 					{
 						"name": "case-b",
@@ -234,6 +238,10 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 								"text": "灭火器被遮挡",
 							},
 						},
+						"expected": map[string]interface{}{
+							"overallRiskLevel": "low",
+							"hazards_count":    0,
+						},
 					},
 				}),
 			},
@@ -241,6 +249,8 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 				{Metric: "run_success", Operator: "gte", Target: 1.0, Blocking: true},
 				{Metric: "confidence", Operator: "gte", Target: 0.8, Blocking: true},
 				{Metric: "schema_validity", Operator: "gte", Target: 1.0, Blocking: true},
+				{Metric: "overallRiskLevel", Operator: "gte", Target: 1.0, Blocking: true},
+				{Metric: "hazards_count", Operator: "gte", Target: 1.0, Blocking: true},
 			},
 			Gate: apiv1alpha1.EvaluationGateSpec{
 				Mode:        "all_blocking",
@@ -321,11 +331,39 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 	if !updated.Status.Summary.GatePassed {
 		t.Fatalf("expected gate passed, got %#v", updated.Status.Summary)
 	}
-	if len(updated.Status.Results) != 3 {
-		t.Fatalf("expected 3 metric results, got %#v", updated.Status.Results)
+	if len(updated.Status.Results) != 5 {
+		t.Fatalf("expected 5 metric results, got %#v", updated.Status.Results)
 	}
 	if updated.Status.LatestRunRef["name"] != "eval-1-run-g1-case-b" {
 		t.Fatalf("expected latest run ref name, got %#v", updated.Status.LatestRunRef)
+	}
+}
+
+func TestExpectedMetricScoreSupportsExactMatchAndCount(t *testing.T) {
+	sample := evaluationSample{
+		Name: "case-a",
+		Expected: apiv1alpha1.FreeformObject{
+			"overallRiskLevel": agentruntime.JSONValue("high"),
+			"hazards_count":    agentruntime.JSONValue(2),
+		},
+	}
+	run := apiv1alpha1.AgentRun{
+		Status: apiv1alpha1.AgentRunStatus{
+			Output: apiv1alpha1.FreeformObject{
+				"overallRiskLevel": agentruntime.JSONValue("high"),
+				"hazards": agentruntime.JSONValue([]interface{}{
+					map[string]interface{}{"title": "wire"},
+					map[string]interface{}{"title": "smoke"},
+				}),
+			},
+		},
+	}
+
+	if score, ok := expectedMetricScore(run, sample, "overallRiskLevel"); !ok || score != 1 {
+		t.Fatalf("expected exact match metric score 1, got %v %v", score, ok)
+	}
+	if score, ok := expectedMetricScore(run, sample, "hazards_count"); !ok || score != 1 {
+		t.Fatalf("expected count metric score 1, got %v %v", score, ok)
 	}
 }
 

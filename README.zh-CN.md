@@ -63,6 +63,22 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 - `worker` 是执行侧 runtime 入口，负责消费 compiled artifact 和 run input，并执行模型调用以及未来的 tool/retrieval 工作。
 - CRD 仍然是平台用户与 operator 之间的声明式 API 边界。
 
+### Build / Buy / Integrate 原则
+
+本仓库不应该尝试把整个 Agent 技术栈从头重写一遍。这个项目最有价值的地方，
+是在保持 Kubernetes-native 控制面模型自主性的同时，务实地复用成熟底层能力。
+
+- **应该自研的**：CRD API 设计、compiler 行为、确定性 artifact、run lifecycle、
+  policy 挂载、Kubernetes runtime dispatch，以及带有项目取向的 `Skill` 和
+  `Pattern` 模型。
+- **应该借鉴的**：tenancy、多租户产品边界、package / marketplace 设计、
+  SubAgent 边界，以及 A2A 兼容的资源建模方式。
+- **应该集成而不是重写的**：模型 provider SDK、图执行引擎、向量检索底座、
+  对象存储、队列、tracing、metrics，以及其他并非本项目核心差异的基础设施层。
+
+一句话说，Agent Control Plane 应该掌握的是 **API、compiler 和 runtime
+contract**，而不是把 contract 之下的所有执行和平台基础设施都重做一遍。
+
 ## 当前进度
 
 状态日期：2026-04-20。

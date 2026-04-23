@@ -93,6 +93,26 @@ code.
 - CRDs remain the declarative API surface between platform users and the
   operator.
 
+### Build, Buy, Integrate
+
+This repository should not try to re-implement every layer of the agent stack.
+The project is most valuable when it keeps ownership of the Kubernetes-native
+control-plane model while integrating mature lower-level building blocks.
+
+- **Build here**: CRD API design, compiler behavior, deterministic artifacts,
+  run lifecycle, policy attachment, Kubernetes runtime dispatch, and the
+  opinionated `Skill` and `Pattern` model.
+- **Borrow and study**: tenancy, package and marketplace ideas, agent product
+  surface, SubAgent boundaries, and A2A-compatible resource modeling.
+- **Integrate instead of rewrite**: model provider SDKs, graph execution
+  engines, vector retrieval backends, object storage, queues, tracing, metrics,
+  and other infrastructure layers that are not the control plane's unique
+  differentiator.
+
+In short, Agent Control Plane should own the **API, compiler, and runtime
+contract**, while remaining pragmatic about execution engines and platform
+infrastructure below that contract.
+
 ## Current Progress
 
 Status date: 2026-04-20.

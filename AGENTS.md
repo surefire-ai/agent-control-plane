@@ -36,6 +36,46 @@ When making changes, optimize for these goals in order:
 5. Make changes that support the current roadmap:
    `Skill -> Pattern -> Runtime semantics -> SubAgent/A2A`.
 
+## Build, Buy, Integrate Policy
+
+Use this rule of thumb when deciding whether to implement something here.
+
+### Build in this repository
+
+These are the core differentiators and should stay first-class:
+
+- CRD API shape
+- compiler rules and validation
+- deterministic compiled artifacts
+- `AgentRun` lifecycle and status contract
+- Kubernetes runtime dispatch and secret-handling boundaries
+- opinionated `Skill` and `Pattern` behavior
+
+### Borrow ideas from other projects
+
+These areas are worth studying and adapting, but not necessarily copying:
+
+- tenancy and namespace strategy
+- package and marketplace models
+- SubAgent composition
+- A2A-compatible resource boundaries
+- product-facing console and platform workflows
+
+### Integrate instead of rewrite
+
+Do not rebuild these unless the user explicitly asks for it and there is a
+clear project-specific reason:
+
+- model provider integrations below the control-plane contract
+- graph execution engines
+- vector databases and retrieval infrastructure
+- object storage and queue infrastructure
+- tracing, metrics, and logging foundations
+- generic UI infrastructure
+
+The project should own the **API, compiler, and runtime contract**, not every
+implementation detail beneath them.
+
 ## Architectural Guardrails
 
 ### 1. Do not collapse controller and worker responsibilities

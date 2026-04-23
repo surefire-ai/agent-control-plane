@@ -42,6 +42,7 @@ rules:
   - agentevaluations
   - agentpolicies
   - agents
+  - datasets
   - knowledgebases
   - mcpservers
   - prompttemplates

@@ -27,6 +27,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&KnowledgeBaseList{},
 		&ToolProvider{},
 		&ToolProviderList{},
+		&Dataset{},
+		&DatasetList{},
 		&Skill{},
 		&SkillList{},
 		&MCPServer{},

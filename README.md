@@ -40,7 +40,7 @@ day-to-day usability matter as much as raw runtime capability.
 - `Agent` declares runtime, models, prompts, knowledge, tools, MCP servers,
   policies, graph shape, interfaces, memory, and observability settings.
 - `AgentRun` records an immutable execution request and its execution status.
-- `PromptTemplate`, `KnowledgeBase`, `ToolProvider`, `MCPServer`,
+- `PromptTemplate`, `KnowledgeBase`, `ToolProvider`, `Dataset`, `MCPServer`,
   `AgentPolicy`, and `AgentEvaluation` provide the supporting control-plane
   resources.
 - A controller-manager compiles `Agent` resources, publishes deterministic
@@ -148,7 +148,7 @@ Status date: 2026-04-20.
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
 | Runtime execution | Partial | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs, resolves prompt templates, validates model bindings, can call an OpenAI-compatible Chat Completions endpoint, and writes structured output back to `AgentRun`. |
 | Policy | Spec only | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. Enforcement before runtime dispatch is pending. |
-| Evaluation | Partial | `AgentEvaluation` now has typed dataset, baseline, evaluator, threshold gate, and reporting fields; the controller resolves references, can create one or more managed `AgentRun` resources from `spec.runtime.sampleInput` or `spec.runtime.samples`, and folds aggregated run state back into status. Rich result reporting is still pending. |
+| Evaluation | Partial | `AgentEvaluation` now has typed dataset, baseline, evaluator, threshold gate, and reporting fields; a `Dataset` CRD can supply reusable evaluation samples, and the controller can create one or more managed `AgentRun` resources from a referenced dataset or runtime-provided samples. Rich result reporting is still pending. |
 
 ## Milestones
 
@@ -210,7 +210,7 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Agent patterns | Partial | `spec.pattern` exists, the compiler preserves pattern metadata, and `react` can expand into a runner graph that consumes the agent's selected tools and knowledge when `spec.graph` is empty. More runtime semantics are still pending. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
-| Evaluation | `AgentEvaluation` now includes typed dataset, baseline, evaluator, threshold gate, and reporting fields; the controller resolves readiness, can create managed `AgentRun` resources from `spec.runtime.sampleInput` or `spec.runtime.samples`, and writes baseline revision, aggregated run state, and basic gate results into status. | Expand from runtime-provided sample sets to dataset-backed evaluation execution, richer result reporting, revision comparison, and release-gate behavior. |
+| Evaluation | `AgentEvaluation` now includes typed dataset, baseline, evaluator, threshold gate, and reporting fields; a `Dataset` CRD can provide reusable samples, and the controller resolves readiness, creates managed `AgentRun` resources, and writes baseline revision, aggregated run state, and basic gate results into status. | Expand from dataset-backed run creation to richer result reporting, revision comparison, and release-gate behavior. |
 
 Phase 2 exit criteria:
 

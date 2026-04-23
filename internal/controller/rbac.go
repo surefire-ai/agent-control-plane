@@ -3,6 +3,7 @@
 // +kubebuilder:rbac:groups=windosx.com,resources=prompttemplates,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=knowledgebases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=toolproviders,verbs=get;list;watch
+// +kubebuilder:rbac:groups=windosx.com,resources=datasets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=mcpservers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentpolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentruns,verbs=create;get;list;watch

@@ -142,14 +142,17 @@ These are current facts of the repo and should be preserved unless the user
 explicitly asks for a directional change:
 
 - `Agent`, `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`,
-  `MCPServer`, `AgentPolicy`, `AgentEvaluation`, and `Skill` are CRD-backed
-  resources.
+  `Dataset`, `MCPServer`, `AgentPolicy`, `AgentEvaluation`, and `Skill` are
+  CRD-backed resources.
 - The product target is an enterprise multi-tenant platform, not a single-team
   sandbox.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with
   typed dataset, baseline, evaluator, threshold gate, and reporting fields.
+- `Dataset` is the reusable evaluation sample surface; prefer referencing it
+  from `AgentEvaluation.datasetRef` over embedding large sample sets directly
+  into runtime config.
 - `AgentEvaluation` can already create a managed `AgentRun` from
   `spec.runtime.sampleInput` or `spec.runtime.samples` and fold aggregated
   run/gate status back into its own status; extend that path instead of

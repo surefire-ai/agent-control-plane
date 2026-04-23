@@ -364,10 +364,32 @@ func TestAgentEvaluationReconcilerCreatesMultipleManagedRuns(t *testing.T) {
 		},
 	}
 	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+	dataset := &apiv1alpha1.Dataset{
+		ObjectMeta: metav1.ObjectMeta{Name: "ehs-hazard-benchmark-v2", Namespace: "ehs"},
+		Spec: apiv1alpha1.DatasetSpec{
+			Revision: "2026-05",
+			Samples: []apiv1alpha1.DatasetSampleSpec{
+				{
+					Name: "power-box",
+					Input: apiv1alpha1.FreeformObject{
+						"task":    agentruntime.JSONValue("identify_hazard"),
+						"payload": agentruntime.JSONValue(map[string]interface{}{"text": "配电箱外壳破损"}),
+					},
+				},
+				{
+					Name: "fire-lane",
+					Input: apiv1alpha1.FreeformObject{
+						"task":    agentruntime.JSONValue("identify_hazard"),
+						"payload": agentruntime.JSONValue(map[string]interface{}{"text": "消防通道堆放杂物"}),
+					},
+				},
+			},
+		},
+	}
 	kubeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
-		WithObjects(evaluation, agent).
+		WithObjects(evaluation, agent, dataset).
 		Build()
 	reconciler := &AgentEvaluationReconciler{Client: kubeClient, Scheme: scheme}
 
@@ -388,6 +410,73 @@ func TestAgentEvaluationReconcilerCreatesMultipleManagedRuns(t *testing.T) {
 		var managedRun apiv1alpha1.AgentRun
 		if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: runName}, &managedRun); err != nil {
 			t.Fatalf("expected managed AgentRun %q to be created: %v", runName, err)
+		}
+	}
+}
+
+func TestAgentEvaluationReconcilerCreatesManagedRunsFromDataset(t *testing.T) {
+	scheme := testScheme(t)
+	evaluation := &apiv1alpha1.AgentEvaluation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "eval-3",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentEvaluationSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			DatasetRef: apiv1alpha1.EvaluationDatasetReference{
+				Kind:     "Dataset",
+				Name:     "ehs-hazard-benchmark-v3",
+				Revision: "2026-06",
+			},
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+	dataset := &apiv1alpha1.Dataset{
+		ObjectMeta: metav1.ObjectMeta{Name: "ehs-hazard-benchmark-v3", Namespace: "ehs"},
+		Spec: apiv1alpha1.DatasetSpec{
+			Revision: "2026-06",
+			Samples: []apiv1alpha1.DatasetSampleSpec{
+				{
+					Name: "electrical-room",
+					Input: apiv1alpha1.FreeformObject{
+						"task":    agentruntime.JSONValue("identify_hazard"),
+						"payload": agentruntime.JSONValue(map[string]interface{}{"text": "电气间有积水"}),
+					},
+				},
+				{
+					Name: "blocked-exit",
+					Input: apiv1alpha1.FreeformObject{
+						"task":    agentruntime.JSONValue("identify_hazard"),
+						"payload": agentruntime.JSONValue(map[string]interface{}{"text": "安全出口被货箱堵塞"}),
+					},
+				},
+			},
+		},
+	}
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
+		WithObjects(evaluation, agent, dataset).
+		Build()
+	reconciler := &AgentEvaluationReconciler{Client: kubeClient, Scheme: scheme}
+
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "eval-3"}}
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.AgentEvaluation
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &updated); err != nil {
+		t.Fatalf("get AgentEvaluation returned error: %v", err)
+	}
+	if updated.Status.Summary.DatasetRevision != "2026-06" || updated.Status.Summary.SamplesTotal != 2 {
+		t.Fatalf("expected dataset revision and sample total from Dataset, got %#v", updated.Status.Summary)
+	}
+	for _, runName := range []string{"eval-3-run-g1-electrical-room", "eval-3-run-g1-blocked-exit"} {
+		var managedRun apiv1alpha1.AgentRun
+		if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: runName}, &managedRun); err != nil {
+			t.Fatalf("expected managed AgentRun %q to be created from Dataset: %v", runName, err)
 		}
 	}
 }

@@ -59,7 +59,7 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 
-	samples, hasSamples, err := evaluationSamples(evaluation.Spec)
+	samples, hasSamples, err := r.evaluationSamples(ctx, req.Namespace, evaluation.Spec)
 	if err != nil {
 		setAgentEvaluationNotReady(&evaluation, req.Namespace, "InvalidEvaluationRuntime", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
@@ -145,6 +145,24 @@ func (r *AgentEvaluationReconciler) resolveBaselineRevision(ctx context.Context,
 		return "", fmt.Errorf("baseline Agent %q has no compiled revision yet", agent.Name)
 	}
 	return agent.Status.CompiledRevision, nil
+}
+
+func (r *AgentEvaluationReconciler) resolveDataset(ctx context.Context, namespace string, ref apiv1alpha1.EvaluationDatasetReference) (*apiv1alpha1.Dataset, error) {
+	datasetNamespace := namespace
+	if strings.TrimSpace(ref.Namespace) != "" {
+		datasetNamespace = ref.Namespace
+	}
+	var dataset apiv1alpha1.Dataset
+	if err := r.Get(ctx, types.NamespacedName{Namespace: datasetNamespace, Name: ref.Name}, &dataset); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("referenced Dataset %q not found", ref.Name)
+		}
+		return nil, err
+	}
+	if ref.Revision != "" && dataset.Spec.Revision != "" && ref.Revision != dataset.Spec.Revision {
+		return nil, fmt.Errorf("referenced Dataset %q revision mismatch: expected %q, got %q", ref.Name, ref.Revision, dataset.Spec.Revision)
+	}
+	return &dataset, nil
 }
 
 func (r *AgentEvaluationReconciler) patchAgentEvaluationStatusIfChanged(ctx context.Context, evaluation *apiv1alpha1.AgentEvaluation, original *apiv1alpha1.AgentEvaluation, previous *apiv1alpha1.AgentEvaluationStatus) error {
@@ -347,7 +365,7 @@ func desiredEvaluationRunName(evaluation apiv1alpha1.AgentEvaluation, sampleName
 	return fmt.Sprintf("%s-run-g%d-%s", evaluation.Name, evaluation.Generation, slug)
 }
 
-func evaluationSamples(spec apiv1alpha1.AgentEvaluationSpec) ([]evaluationSample, bool, error) {
+func (r *AgentEvaluationReconciler) evaluationSamples(ctx context.Context, namespace string, spec apiv1alpha1.AgentEvaluationSpec) ([]evaluationSample, bool, error) {
 	if value, ok := spec.Runtime["samples"]; ok {
 		var raw []struct {
 			Name  string                 `json:"name"`
@@ -374,18 +392,36 @@ func evaluationSamples(spec apiv1alpha1.AgentEvaluationSpec) ([]evaluationSample
 		return samples, len(samples) > 0, nil
 	}
 	value, ok := spec.Runtime["sampleInput"]
-	if !ok {
-		return nil, false, nil
+	if ok {
+		var input map[string]interface{}
+		if err := json.Unmarshal(value.Raw, &input); err != nil {
+			return nil, false, fmt.Errorf("spec.runtime.sampleInput must be a JSON object: %w", err)
+		}
+		result := apiv1alpha1.FreeformObject{}
+		for key, item := range input {
+			result[key] = jsonAnyValue(item)
+		}
+		return []evaluationSample{{Name: "sample-0", Input: result}}, true, nil
 	}
-	var input map[string]interface{}
-	if err := json.Unmarshal(value.Raw, &input); err != nil {
-		return nil, false, fmt.Errorf("spec.runtime.sampleInput must be a JSON object: %w", err)
+	if strings.EqualFold(spec.DatasetRef.Kind, "Dataset") || spec.DatasetRef.Kind == "" {
+		dataset, err := r.resolveDataset(ctx, namespace, spec.DatasetRef)
+		if err != nil {
+			return nil, false, err
+		}
+		samples := make([]evaluationSample, 0, len(dataset.Spec.Samples))
+		for index, sample := range dataset.Spec.Samples {
+			if len(sample.Input) == 0 {
+				return nil, false, fmt.Errorf("dataset %q sample %d has empty input", dataset.Name, index)
+			}
+			name := sample.Name
+			if strings.TrimSpace(name) == "" {
+				name = fmt.Sprintf("sample-%d", index)
+			}
+			samples = append(samples, evaluationSample{Name: name, Input: sample.Input.DeepCopy()})
+		}
+		return samples, len(samples) > 0, nil
 	}
-	result := apiv1alpha1.FreeformObject{}
-	for key, item := range input {
-		result[key] = jsonAnyValue(item)
-	}
-	return []evaluationSample{{Name: "sample-0", Input: result}}, true, nil
+	return nil, false, nil
 }
 
 func buildEvaluationMetricResults(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, thresholds []apiv1alpha1.EvaluationThresholdSpec) []apiv1alpha1.EvaluationMetricStatus {

@@ -1,0 +1,25 @@
+apiVersion: windosx.com/v1alpha1
+kind: Dataset
+metadata:
+  name: ehs-hazard-benchmark-v1
+  namespace: ehs
+spec:
+  revision: "2026-04"
+  description: 企业 EHS 隐患识别评测基准集 v1
+  samples:
+    - name: power-box-exposed-wire
+      labels:
+        category: electrical
+        riskLevel: high
+      input:
+        task: identify_hazard
+        payload:
+          text: 发现配电箱接线端裸露，现场未设置警示标识，存在触电风险。
+    - name: blocked-fire-access
+      labels:
+        category: fire
+        riskLevel: medium
+      input:
+        task: identify_hazard
+        payload:
+          text: 消防通道堆放杂物，灭火器被遮挡，人员疏散和取用消防器材受阻。

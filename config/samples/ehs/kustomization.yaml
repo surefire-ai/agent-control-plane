@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ehs-default-safety-policy.yaml
+  - ehs-hazard-benchmark-v1.yaml
   - ehs-docs-mcp.yaml
   - ehs-hazard-cases.yaml
   - ehs-hazard-identification-agent.yaml

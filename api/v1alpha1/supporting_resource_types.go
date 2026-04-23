@@ -40,6 +40,19 @@ type ToolProviderSpec struct {
 	HTTP        FreeformObject `json:"http,omitempty"`
 }
 
+type DatasetSpec struct {
+	Description string              `json:"description,omitempty"`
+	Revision    string              `json:"revision,omitempty"`
+	Samples     []DatasetSampleSpec `json:"samples,omitempty"`
+}
+
+type DatasetSampleSpec struct {
+	Name     string            `json:"name"`
+	Input    FreeformObject    `json:"input,omitempty"`
+	Expected FreeformObject    `json:"expected,omitempty"`
+	Labels   map[string]string `json:"labels,omitempty"`
+}
+
 type SkillSpec struct {
 	Description   string                 `json:"description,omitempty"`
 	PromptRefs    AgentPromptRefs        `json:"promptRefs,omitempty"`
@@ -234,6 +247,22 @@ type ToolProviderList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ToolProvider `json:"items"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+type Dataset struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              DatasetSpec    `json:"spec,omitempty"`
+	Status            ResourceStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+type DatasetList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Dataset `json:"items"`
 }
 
 // +kubebuilder:object:root=true

@@ -913,14 +913,151 @@ func TestPlaceholderRunnerAutoStepSequenceInjectsRetrievalContextIntoLLM(t *test
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	if requestCount != 2 {
-		t.Fatalf("expected primary and step llm calls, got %d", requestCount)
+	if requestCount != 1 {
+		t.Fatalf("expected only the step llm call, got %d", requestCount)
 	}
 	step, _ := result.Output["step"].(map[string]interface{})
 	finalState, _ := step["finalState"].(map[string]interface{})
 	retrieval, _ := finalState["retrieval"].(map[string]interface{})
 	if _, ok := retrieval["regulations"]; !ok {
 		t.Fatalf("expected retrieval state keyed by binding name, got %#v", finalState)
+	}
+}
+
+func TestPlaceholderRunnerAutoStepSequenceInjectsToolContextIntoFinalizeLLM(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+	t.Setenv("TOOL_RECTIFY_TICKET_API_AUTH_TOKEN", "test-token")
+
+	requestCount := 0
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode model request: %v", err)
+		}
+		messages, _ := body["messages"].([]interface{})
+		if len(messages) < 2 {
+			t.Fatalf("expected chat messages, got %#v", body)
+		}
+		userMessage, _ := messages[1].(map[string]interface{})
+		content, _ := userMessage["content"].(string)
+		switch requestCount {
+		case 1:
+			if strings.Contains(content, "T-106") {
+				t.Fatalf("did not expect tool result before tool node ran, got %q", content)
+			}
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"classified\",\"title\":\"Repair cabinet\",\"hazards\":[],\"overallRiskLevel\":\"high\",\"nextActions\":[],\"confidence\":0.9,\"needsHumanReview\":false}"}}]}`))
+		case 2:
+			if !strings.Contains(content, "T-106") {
+				t.Fatalf("expected finalize llm input to contain tool result, got %q", content)
+			}
+			if !strings.Contains(content, "Repair cabinet") {
+				t.Fatalf("expected finalize llm input to retain prior llm result, got %q", content)
+			}
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"finalized\",\"hazards\":[],\"overallRiskLevel\":\"high\",\"nextActions\":[\"notify supervisor\"],\"confidence\":0.94,\"needsHumanReview\":true}"}}]}`))
+		default:
+			t.Fatalf("unexpected extra llm call #%d", requestCount)
+		}
+	}))
+	defer modelServer.Close()
+
+	toolServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode tool request: %v", err)
+		}
+		if body["title"] != "Repair cabinet" {
+			t.Fatalf("expected tool input to contain prior llm result, got %#v", body)
+		}
+		_, _ = w.Write([]byte(`{"ticketId":"T-106","status":"created"}`))
+	}))
+	defer toolServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker:     EinoOpenAIInvoker{Client: modelServer.Client()},
+		ToolInvoker: EinoToolInvoker{Client: toolServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"auto": true,
+					"input": map[string]interface{}{
+						"text": "配电箱门未关闭",
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "classify_task", "kind": "llm", "modelRef": "planner"},
+						map[string]interface{}{"name": "create_ticket", "kind": "tool", "toolRef": "rectify-ticket-api"},
+						map[string]interface{}{"name": "finalize", "kind": "llm", "modelRef": "planner"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "classify_task"},
+						map[string]interface{}{"from": "classify_task", "to": "create_ticket"},
+						map[string]interface{}{"from": "create_ticket", "to": "finalize"},
+						map[string]interface{}{"from": "finalize", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Tools: map[string]contract.ToolSpec{
+					"rectify-ticket-api": {
+						Name: "rectify-ticket-api",
+						Type: "http",
+						HTTP: map[string]interface{}{
+							"url": toolServer.URL,
+							"auth": map[string]interface{}{
+								"type": "bearerToken",
+							},
+						},
+						Schema: map[string]interface{}{
+							"output": map[string]interface{}{
+								"type":     "object",
+								"required": []interface{}{"ticketId", "status"},
+							},
+						},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if requestCount != 2 {
+		t.Fatalf("expected classify and finalize llm calls, got %d", requestCount)
+	}
+	step, _ := result.Output["step"].(map[string]interface{})
+	finalState, _ := step["finalState"].(map[string]interface{})
+	tools, _ := finalState["tools"].(map[string]interface{})
+	if _, ok := tools["rectify-ticket-api"]; !ok {
+		t.Fatalf("expected tools state keyed by tool name, got %#v", finalState)
 	}
 }
 

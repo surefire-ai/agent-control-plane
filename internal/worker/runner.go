@@ -94,7 +94,7 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 	if task != "" {
 		message = fmt.Sprintf("%s for task %q", message, task)
 	}
-	if invocation, ok, err := r.invokePrimaryModel(ctx, request, runtimeInfo); err != nil {
+	if invocation, ok, err := r.maybeInvokePrimaryModel(ctx, request, runtimeInfo); err != nil {
 		return contract.WorkerResult{}, err
 	} else if ok {
 		message = fmt.Sprintf("agent control plane worker executed model %q for task %q", invocation.ModelName, task)
@@ -136,6 +136,25 @@ func (r EinoADKPlaceholderRunner) Run(ctx context.Context, request RunRequest) (
 		Runtime:          &runtimeInfo,
 		StartedAt:        time.Now().UTC(),
 	}, nil
+}
+
+func (r EinoADKPlaceholderRunner) maybeInvokePrimaryModel(ctx context.Context, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (ModelInvocation, bool, error) {
+	if hasExplicitExecutionRequest(request.Config.ParsedRunInput) {
+		return ModelInvocation{}, false, nil
+	}
+	return r.invokePrimaryModel(ctx, request, runtimeInfo)
+}
+
+func hasExplicitExecutionRequest(input map[string]interface{}) bool {
+	if len(input) == 0 {
+		return false
+	}
+	for _, key := range []string{"step", "toolCall", "retrievalCall"} {
+		if _, ok := input[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func runnerFor(identity contract.RuntimeIdentity) (Runner, error) {

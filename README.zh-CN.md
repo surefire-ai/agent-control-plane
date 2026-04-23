@@ -109,7 +109,7 @@ contract**，而不是把 contract 之下的所有执行和平台基础设施都
 | version | 部分完成 | 已有 `Agent.status.compiledRevision` 与 `AgentRun.status.agentRevision`；语义化版本、发布通道和 revision history 仍待实现。 |
 | runtime execution | Bootstrap | `mock` runtime 可确定性完成运行；`worker` runtime 可创建 Kubernetes Job、接收 compiled artifact，并返回占位输出。 |
 | Policy | 仅有 Spec | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`；runtime dispatch 前的策略执行仍待实现。 |
-| Evaluation | 部分完成 | `AgentEvaluation` 现在已有 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析引用并创建一条或多条受管 `AgentRun`，再把聚合后的运行状态和基础规则型指标回写到 status；丰富结果上报仍待实现。 |
+| Evaluation | 部分完成 | `AgentEvaluation` 现在已有 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析引用并创建一条或多条受管 `AgentRun`，再把聚合后的运行状态、基础规则型指标，以及 `risk_level_match`、`hazard_coverage` 这类早期 structured metric 回写到 status；丰富结果上报仍待实现。 |
 
 ## 里程碑
 
@@ -167,7 +167,7 @@ Agent pattern、SubAgent 和 A2A TODO 见
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Agent patterns | 部分完成。 | 已支持 `spec.pattern`，compiler 会保留 pattern 元数据，并在 `spec.graph` 为空时把 `react` 展开成会消费 Agent 已选 tools 与 knowledge 的 runner graph；更多 runtime 语义仍待实现。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
-| Evaluation | `AgentEvaluation` 已具备 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析 readiness、创建受管 `AgentRun`，并把 baseline revision、聚合后的 run state、基础规则型指标和 gate 结果写入 status。 | 在此基础上继续扩展 richer result reporting、revision 对比和发布门禁行为。 |
+| Evaluation | `AgentEvaluation` 已具备 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析 readiness、创建受管 `AgentRun`，并把 baseline revision、聚合后的 run state、基础规则型指标、早期 structured metric 和 gate 结果写入 status。 | 在此基础上继续扩展 richer result reporting、revision 对比和发布门禁行为。 |
 
 Phase 2 退出标准：
 

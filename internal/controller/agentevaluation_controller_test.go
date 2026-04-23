@@ -227,7 +227,8 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 						},
 						"expected": map[string]interface{}{
 							"overallRiskLevel": "medium",
-							"hazards_count":    0,
+							"hazards_count":    1,
+							"hazards":          []map[string]interface{}{{"category": "electrical"}},
 						},
 					},
 					{
@@ -240,7 +241,8 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 						},
 						"expected": map[string]interface{}{
 							"overallRiskLevel": "low",
-							"hazards_count":    0,
+							"hazards_count":    1,
+							"hazards":          []map[string]interface{}{{"category": "fire"}},
 						},
 					},
 				}),
@@ -251,6 +253,8 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 				{Metric: "schema_validity", Operator: "gte", Target: 1.0, Blocking: true},
 				{Metric: "overallRiskLevel", Operator: "gte", Target: 1.0, Blocking: true},
 				{Metric: "hazards_count", Operator: "gte", Target: 1.0, Blocking: true},
+				{Metric: "risk_level_match", Operator: "gte", Target: 1.0, Blocking: true},
+				{Metric: "hazard_coverage", Operator: "gte", Target: 1.0, Blocking: true},
 			},
 			Gate: apiv1alpha1.EvaluationGateSpec{
 				Mode:        "all_blocking",
@@ -273,7 +277,7 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 			AgentRevision: "sha256:agent",
 			Output: apiv1alpha1.FreeformObject{
 				"summary":          agentruntime.JSONValue("inspection complete"),
-				"hazards":          agentruntime.JSONValue([]interface{}{}),
+				"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{"category": "electrical", "title": "裸露电线"}}),
 				"overallRiskLevel": agentruntime.JSONValue("medium"),
 				"nextActions":      agentruntime.JSONValue([]string{"notify supervisor"}),
 				"confidence":       agentruntime.JSONValue(0.93),
@@ -294,7 +298,7 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 			AgentRevision: "sha256:agent",
 			Output: apiv1alpha1.FreeformObject{
 				"summary":          agentruntime.JSONValue("inspection complete"),
-				"hazards":          agentruntime.JSONValue([]interface{}{}),
+				"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{"category": "fire", "title": "消防通道受阻"}}),
 				"overallRiskLevel": agentruntime.JSONValue("low"),
 				"nextActions":      agentruntime.JSONValue([]string{"clear pathway"}),
 				"confidence":       agentruntime.JSONValue(0.87),
@@ -331,8 +335,8 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 	if !updated.Status.Summary.GatePassed {
 		t.Fatalf("expected gate passed, got %#v", updated.Status.Summary)
 	}
-	if len(updated.Status.Results) != 5 {
-		t.Fatalf("expected 5 metric results, got %#v", updated.Status.Results)
+	if len(updated.Status.Results) != 7 {
+		t.Fatalf("expected 7 metric results, got %#v", updated.Status.Results)
 	}
 	if updated.Status.LatestRunRef["name"] != "eval-1-run-g1-case-b" {
 		t.Fatalf("expected latest run ref name, got %#v", updated.Status.LatestRunRef)
@@ -364,6 +368,36 @@ func TestExpectedMetricScoreSupportsExactMatchAndCount(t *testing.T) {
 	}
 	if score, ok := expectedMetricScore(run, sample, "hazards_count"); !ok || score != 1 {
 		t.Fatalf("expected count metric score 1, got %v %v", score, ok)
+	}
+}
+
+func TestStructuredMetricScoresRiskLevelAndHazardCoverage(t *testing.T) {
+	sample := evaluationSample{
+		Name: "case-a",
+		Expected: apiv1alpha1.FreeformObject{
+			"overallRiskLevel": agentruntime.JSONValue("high"),
+			"hazards": agentruntime.JSONValue([]map[string]interface{}{
+				{"category": "electrical"},
+				{"category": "fire"},
+			}),
+		},
+	}
+	run := apiv1alpha1.AgentRun{
+		Status: apiv1alpha1.AgentRunStatus{
+			Output: apiv1alpha1.FreeformObject{
+				"overallRiskLevel": agentruntime.JSONValue("medium"),
+				"hazards": agentruntime.JSONValue([]map[string]interface{}{
+					{"category": "electrical", "title": "裸露电线"},
+				}),
+			},
+		},
+	}
+
+	if score, ok := riskLevelMatchScore(run, sample); !ok || score != 0.5 {
+		t.Fatalf("expected tolerant risk level score 0.5, got %v %v", score, ok)
+	}
+	if score, ok := hazardCoverageScore(run, sample); !ok || score != 0.5 {
+		t.Fatalf("expected hazard coverage score 0.5, got %v %v", score, ok)
 	}
 }
 

@@ -156,6 +156,8 @@ explicitly asks for a directional change:
 - `Dataset.spec.samples[].expected` is the first-class rule-eval surface for
   simple metrics such as exact field matches and count checks; extend that
   before adding a parallel evaluation DSL.
+- Structured evaluators should layer on top of the same `Dataset.expected`
+  surface. Current examples are `risk_level_match` and `hazard_coverage`.
 - `AgentEvaluation` can already create a managed `AgentRun` from
   `spec.runtime.sampleInput` or `spec.runtime.samples` and fold aggregated
   run/gate status back into its own status; extend that path instead of

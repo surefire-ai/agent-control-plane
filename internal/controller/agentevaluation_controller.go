@@ -518,6 +518,10 @@ func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evalu
 			}
 		}
 		return float64(matched) / float64(len(required)), true
+	case "risk_level_match":
+		return riskLevelMatchScore(run, sample)
+	case "hazard_coverage":
+		return hazardCoverageScore(run, sample)
 	}
 	if score, ok := expectedMetricScore(run, sample, metric); ok {
 		return score, true
@@ -536,6 +540,103 @@ func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evalu
 		}
 	}
 	return 0, false
+}
+
+var riskOrdinal = map[string]int{
+	"low":      0,
+	"medium":   1,
+	"high":     2,
+	"critical": 3,
+}
+
+func riskLevelMatchScore(run apiv1alpha1.AgentRun, sample evaluationSample) (float64, bool) {
+	expectedValue, ok := sample.Expected["overallRiskLevel"]
+	if !ok {
+		return 0, false
+	}
+	actualValue, ok := run.Status.Output["overallRiskLevel"]
+	if !ok {
+		return 0, false
+	}
+	expected := strings.ToLower(strings.TrimSpace(jsonString(expectedValue)))
+	actual := strings.ToLower(strings.TrimSpace(jsonString(actualValue)))
+	expectedOrdinal, okExpected := riskOrdinal[expected]
+	actualOrdinal, okActual := riskOrdinal[actual]
+	if !okExpected || !okActual {
+		return 0, false
+	}
+	delta := expectedOrdinal - actualOrdinal
+	if delta < 0 {
+		delta = -delta
+	}
+	switch delta {
+	case 0:
+		return 1, true
+	case 1:
+		return 0.5, true
+	default:
+		return 0, true
+	}
+}
+
+func hazardCoverageScore(run apiv1alpha1.AgentRun, sample evaluationSample) (float64, bool) {
+	expectedValue, ok := sample.Expected["hazards"]
+	if !ok {
+		return 0, false
+	}
+	actualValue, ok := run.Status.Output["hazards"]
+	if !ok {
+		return 0, false
+	}
+	expectedHazards, ok := hazardDescriptors(expectedValue)
+	if !ok || len(expectedHazards) == 0 {
+		return 0, false
+	}
+	actualHazards, ok := hazardDescriptors(actualValue)
+	if !ok {
+		return 0, false
+	}
+	matched := 0
+	for _, expected := range expectedHazards {
+		if hasHazardMatch(actualHazards, expected) {
+			matched++
+		}
+	}
+	return float64(matched) / float64(len(expectedHazards)), true
+}
+
+type hazardDescriptor struct {
+	Title    string
+	Category string
+}
+
+func hazardDescriptors(value apiextensionsv1.JSON) ([]hazardDescriptor, bool) {
+	var raw []map[string]interface{}
+	if err := json.Unmarshal(value.Raw, &raw); err != nil {
+		return nil, false
+	}
+	descriptors := make([]hazardDescriptor, 0, len(raw))
+	for _, item := range raw {
+		title, _ := item["title"].(string)
+		category, _ := item["category"].(string)
+		descriptors = append(descriptors, hazardDescriptor{
+			Title:    strings.ToLower(strings.TrimSpace(title)),
+			Category: strings.ToLower(strings.TrimSpace(category)),
+		})
+	}
+	return descriptors, true
+}
+
+func hasHazardMatch(actual []hazardDescriptor, expected hazardDescriptor) bool {
+	for _, item := range actual {
+		if expected.Category != "" && item.Category == expected.Category {
+			return true
+		}
+		if expected.Title != "" && item.Title == expected.Title {
+			return true
+		}
+	}
+	return false
 }
 
 func expectedMetricScore(run apiv1alpha1.AgentRun, sample evaluationSample, metric string) (float64, bool) {
@@ -667,6 +768,14 @@ func jsonArrayLen(value apiextensionsv1.JSON) (int, bool) {
 		return 0, false
 	}
 	return len(items), true
+}
+
+func jsonString(value apiextensionsv1.JSON) string {
+	var result string
+	if err := json.Unmarshal(value.Raw, &result); err != nil {
+		return ""
+	}
+	return result
 }
 
 func gatePassed(gate apiv1alpha1.EvaluationGateSpec, results []apiv1alpha1.EvaluationMetricStatus) bool {

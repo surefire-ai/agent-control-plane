@@ -19,6 +19,9 @@ spec:
         overallRiskLevel: high
         needsHumanReview: true
         hazards_count: 1
+        hazards:
+          - title: 裸露电线
+            category: electrical
     - name: blocked-fire-access
       labels:
         category: fire
@@ -31,3 +34,6 @@ spec:
         overallRiskLevel: medium
         needsHumanReview: false
         hazards_count: 1
+        hazards:
+          - title: 消防通道受阻
+            category: fire

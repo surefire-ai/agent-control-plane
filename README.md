@@ -148,7 +148,7 @@ Status date: 2026-04-20.
 | Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
 | Runtime execution | Partial | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs, resolves prompt templates, validates model bindings, can call an OpenAI-compatible Chat Completions endpoint, and writes structured output back to `AgentRun`. |
 | Policy | Spec only | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. Enforcement before runtime dispatch is pending. |
-| Evaluation | Partial | `AgentEvaluation` now has typed dataset, baseline, evaluator, threshold gate, and reporting fields, and a controller resolves references into status. Evaluation execution and result reporting are still pending. |
+| Evaluation | Partial | `AgentEvaluation` now has typed dataset, baseline, evaluator, threshold gate, and reporting fields; the controller resolves references, creates a managed `AgentRun` when `spec.runtime.sampleInput` is provided, and folds run state back into status. Multi-sample execution and rich result reporting are still pending. |
 
 ## Milestones
 
@@ -210,7 +210,7 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Agent patterns | Partial | `spec.pattern` exists, the compiler preserves pattern metadata, and `react` can expand into a runner graph that consumes the agent's selected tools and knowledge when `spec.graph` is empty. More runtime semantics are still pending. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
-| Evaluation | `AgentEvaluation` now includes typed dataset, baseline, evaluator, threshold gate, and reporting fields, and the controller resolves readiness, baseline revision, and report references into status. | Implement evaluation execution, result reporting, revision comparison, and release-gate behavior on top of the contract. |
+| Evaluation | `AgentEvaluation` now includes typed dataset, baseline, evaluator, threshold gate, and reporting fields; the controller resolves readiness, can create a managed `AgentRun` from `spec.runtime.sampleInput`, and writes baseline revision, run state, and basic gate results into status. | Expand from single-run execution to dataset-driven evaluation, richer result reporting, revision comparison, and release-gate behavior. |
 
 Phase 2 exit criteria:
 

@@ -150,6 +150,9 @@ explicitly asks for a directional change:
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with
   typed dataset, baseline, evaluator, threshold gate, and reporting fields.
+- `AgentEvaluation` can already create a managed `AgentRun` from
+  `spec.runtime.sampleInput` and fold basic run/gate status back into its own
+  status; extend that path instead of inventing a parallel evaluation engine.
 - Model provider support should evolve into a capability matrix that treats
   Chinese domestic providers as first-class targets.
 - `Skill` can currently contribute prompts, tools, knowledge, functions, and

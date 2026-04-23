@@ -238,6 +238,15 @@ func readyAgent(name string, namespace string, revision string) *apiv1alpha1.Age
 			Name:      name,
 			Namespace: namespace,
 		},
+		Spec: apiv1alpha1.AgentSpec{
+			Interfaces: apiv1alpha1.AgentInterfaceSpec{
+				Output: apiv1alpha1.SchemaEnvelope{
+					Schema: apiv1alpha1.JSONSchema{
+						Raw: []byte(`{"type":"object","required":["summary","hazards","overallRiskLevel","nextActions","confidence","needsHumanReview"]}`),
+					},
+				},
+			},
+		},
 		Status: apiv1alpha1.AgentStatus{
 			CompiledRevision: revision,
 			CompiledArtifact: apiv1alpha1.FreeformObject{

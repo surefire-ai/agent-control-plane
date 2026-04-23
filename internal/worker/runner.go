@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
+	"github.com/surefire-ai/agent-control-plane/internal/providers"
 )
 
 type Runner interface {
@@ -193,6 +194,12 @@ func (r EinoADKPlaceholderRunner) invokePrimaryModel(ctx context.Context, reques
 	if strings.TrimSpace(systemPrompt.Template) == "" {
 		return ModelInvocation{}, false, nil
 	}
+	if modelRuntime.ProviderFamily != "" && modelRuntime.ProviderFamily != providers.FamilyOpenAICompatible {
+		return ModelInvocation{}, false, FailureReasonError{
+			Reason:  "UnsupportedModelProvider",
+			Message: fmt.Sprintf("provider %q is recognized but its runtime family %q is not wired yet", modelRuntime.Provider, modelRuntime.ProviderFamily),
+		}
+	}
 
 	result, err := r.modelInvoker().Invoke(ctx, modelRuntime, modelConfig, systemPrompt, request.Config.ParsedRunInput, request.Artifact.Runner.Output)
 	if err != nil {
@@ -300,13 +307,20 @@ func runtimeInfoForArtifact(artifact contract.CompiledArtifact, identity contrac
 		if model.Provider == "" && model.Model == "" && model.CredentialRef == nil && model.BaseURL == "" {
 			model = artifact.Models[name]
 		}
+		providerMeta := artifact.Runner.Providers[model.Provider]
 
 		apiKeyEnv := modelAPIKeyEnvName(name)
 		modelRuntime := contract.WorkerModelRuntime{
-			Provider:  model.Provider,
-			Model:     model.Model,
-			BaseURL:   model.BaseURL,
-			APIKeyEnv: apiKeyEnv,
+			Provider:            model.Provider,
+			ProviderFamily:      providerMeta.Family,
+			ProviderDisplayName: providerMeta.DisplayName,
+			SupportsJSONSchema:  providerMeta.SupportsJSONSchema,
+			Model:               model.Model,
+			BaseURL:             model.BaseURL,
+			APIKeyEnv:           apiKeyEnv,
+		}
+		if modelRuntime.BaseURL == "" {
+			modelRuntime.BaseURL = providerMeta.DefaultBaseURL
 		}
 		if model.CredentialRef != nil {
 			if os.Getenv(apiKeyEnv) == "" {

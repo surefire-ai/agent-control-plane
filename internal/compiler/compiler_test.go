@@ -203,6 +203,9 @@ func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
 	if artifact.Runner.Kind != "EinoADKRunner" {
 		t.Fatalf("unexpected runner: %#v", artifact.Runner)
 	}
+	if artifact.Runner.Providers["openai"].Family != "openai-compatible" {
+		t.Fatalf("unexpected provider catalog: %#v", artifact.Runner.Providers)
+	}
 	if artifact.Runner.Tools["vision-inspection-tool"].Type != "multimodal" {
 		t.Fatalf("unexpected tools: %#v", artifact.Runner.Tools)
 	}
@@ -217,6 +220,36 @@ func TestCompileAgentArtifactCanBeDecodedByContract(t *testing.T) {
 	}
 	if artifact.RuntimeIdentity().RunnerClass != contract.RunnerClassADK {
 		t.Fatalf("unexpected runtime identity: %#v", artifact.RuntimeIdentity())
+	}
+}
+
+func TestCompileAgentRejectsUnknownProvider(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Models["planner"] = apiv1alpha1.ModelSpec{
+		Provider: "unknown-llm",
+		Model:    "foo-1",
+	}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "unsupported provider") {
+		t.Fatalf("expected unsupported provider error, got %v", err)
 	}
 }
 

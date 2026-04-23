@@ -164,6 +164,10 @@ explicitly asks for a directional change:
   inventing a parallel evaluation engine.
 - Model provider support should evolve into a capability matrix that treats
   Chinese domestic providers as first-class targets.
+- `ModelSpec.provider` is no longer just a free-form string in practice: the
+  compiler validates it against the provider catalog, emits provider family
+  metadata into artifacts, and the worker currently routes the
+  `openai-compatible` family through the existing chat-model path.
 - `Skill` can currently contribute prompts, tools, knowledge, functions, and
   graph fragments.
 - `react` can expand into a runner graph when `spec.graph` is empty.

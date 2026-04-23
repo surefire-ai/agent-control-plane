@@ -38,10 +38,12 @@ func TestEinoOpenAIInvokerInvoke(t *testing.T) {
 	result, err := EinoOpenAIInvoker{Client: server.Client()}.Invoke(
 		context.Background(),
 		contract.WorkerModelRuntime{
-			Provider:  "openai",
-			Model:     "gpt-4.1",
-			BaseURL:   server.URL,
-			APIKeyEnv: "MODEL_PLANNER_API_KEY",
+			Provider:           "openai",
+			ProviderFamily:     "openai-compatible",
+			SupportsJSONSchema: true,
+			Model:              "gpt-4.1",
+			BaseURL:            server.URL,
+			APIKeyEnv:          "MODEL_PLANNER_API_KEY",
 		},
 		contract.ModelConfig{
 			Model:       "gpt-4.1",
@@ -67,5 +69,36 @@ func TestEinoOpenAIInvokerInvoke(t *testing.T) {
 	}
 	if result.RequestBody["model"] != "gpt-4.1" {
 		t.Fatalf("unexpected request body: %#v", result.RequestBody)
+	}
+}
+
+func TestEinoOpenAIInvokerUsesProviderDefaultBaseURLWhenUnset(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-1","model":"gpt-4.1","choices":[{"index":0,"message":{"role":"assistant","content":"{\"summary\":\"inspection complete\"}"}}]}`))
+	}))
+	defer server.Close()
+
+	result, err := EinoOpenAIInvoker{Client: server.Client()}.Invoke(
+		context.Background(),
+		contract.WorkerModelRuntime{
+			Provider:           "deepseek",
+			ProviderFamily:     "openai-compatible",
+			SupportsJSONSchema: true,
+			Model:              "deepseek-chat",
+			BaseURL:            server.URL,
+			APIKeyEnv:          "MODEL_PLANNER_API_KEY",
+		},
+		contract.ModelConfig{Model: "deepseek-chat"},
+		contract.PromptSpec{Template: "You are an assistant."},
+		map[string]interface{}{"task": "identify_hazard"},
+		map[string]interface{}{"schema": map[string]interface{}{"type": "object"}},
+	)
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	if result.Parsed["summary"] != "inspection complete" {
+		t.Fatalf("unexpected parsed result: %#v", result.Parsed)
 	}
 }

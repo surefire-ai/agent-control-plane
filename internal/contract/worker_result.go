@@ -45,11 +45,14 @@ type WorkerRuntimeInfo struct {
 }
 
 type WorkerModelRuntime struct {
-	Provider           string `json:"provider,omitempty"`
-	Model              string `json:"model,omitempty"`
-	BaseURL            string `json:"baseURL,omitempty"`
-	APIKeyEnv          string `json:"apiKeyEnv,omitempty"`
-	CredentialInjected bool   `json:"credentialInjected,omitempty"`
+	Provider            string `json:"provider,omitempty"`
+	ProviderFamily      string `json:"providerFamily,omitempty"`
+	ProviderDisplayName string `json:"providerDisplayName,omitempty"`
+	SupportsJSONSchema  bool   `json:"supportsJsonSchema,omitempty"`
+	Model               string `json:"model,omitempty"`
+	BaseURL             string `json:"baseURL,omitempty"`
+	APIKeyEnv           string `json:"apiKeyEnv,omitempty"`
+	CredentialInjected  bool   `json:"credentialInjected,omitempty"`
 }
 
 type WorkerToolRuntime struct {

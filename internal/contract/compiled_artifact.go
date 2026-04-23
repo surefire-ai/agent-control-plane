@@ -44,11 +44,22 @@ type ArtifactRunner struct {
 	Graph      map[string]interface{}   `json:"graph,omitempty"`
 	Prompts    map[string]PromptSpec    `json:"prompts,omitempty"`
 	Models     map[string]ModelConfig   `json:"models,omitempty"`
+	Providers  map[string]ProviderSpec  `json:"providers,omitempty"`
 	Tools      map[string]ToolSpec      `json:"tools,omitempty"`
 	Skills     map[string]SkillSpec     `json:"skills,omitempty"`
 	Knowledge  map[string]KnowledgeSpec `json:"knowledge,omitempty"`
 	Output     map[string]interface{}   `json:"output,omitempty"`
 	Extra      map[string]interface{}   `json:"-"`
+}
+
+type ProviderSpec struct {
+	Name                string `json:"name,omitempty"`
+	DisplayName         string `json:"displayName,omitempty"`
+	Family              string `json:"family,omitempty"`
+	Domestic            bool   `json:"domestic,omitempty"`
+	DefaultBaseURL      string `json:"defaultBaseURL,omitempty"`
+	SupportsJSONSchema  bool   `json:"supportsJsonSchema,omitempty"`
+	SupportsToolCalling bool   `json:"supportsToolCalling,omitempty"`
 }
 
 type ArtifactPattern struct {
@@ -142,7 +153,7 @@ func ParseCompiledArtifact(raw string) (CompiledArtifact, error) {
 		return CompiledArtifact{}, fmt.Errorf("AGENT_COMPILED_ARTIFACT must be a JSON object: %w", err)
 	}
 	artifact.Runtime.Extra = extraObject(artifact.Raw, "runtime", "engine", "runnerClass", "mode", "entrypoint")
-	artifact.Runner.Extra = extraObject(artifact.Raw, "runner", "kind", "entrypoint", "pattern", "graph", "prompts", "models", "tools", "skills", "knowledge", "output")
+	artifact.Runner.Extra = extraObject(artifact.Raw, "runner", "kind", "entrypoint", "pattern", "graph", "prompts", "models", "providers", "tools", "skills", "knowledge", "output")
 	return artifact, nil
 }
 

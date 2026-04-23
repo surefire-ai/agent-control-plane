@@ -10,6 +10,7 @@ import (
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
+	"github.com/surefire-ai/agent-control-plane/internal/providers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -35,6 +36,9 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 	if err := validatePattern(agent.Spec); err != nil {
 		return Result{}, err
 	}
+	if err := validateModelProviders(agent.Spec.Models); err != nil {
+		return Result{}, err
+	}
 	missing := findMissingReferences(agent, refs)
 	if len(missing) > 0 {
 		return Result{}, fmt.Errorf("missing references: %v", missing)
@@ -51,6 +55,7 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 }
 
 func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.FreeformObject {
+	normalizedModels := providers.NormalizeModels(agent.Spec.Models)
 	pattern := patternForArtifact(agent.Spec)
 	return apiv1alpha1.FreeformObject{
 		"apiVersion":    jsonValue(apiv1alpha1.Group + "/" + apiv1alpha1.Version),
@@ -63,8 +68,8 @@ func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.Freef
 		}),
 		"runtime":       jsonValue(runtimeForArtifact(agent.Spec.Runtime)),
 		"pattern":       jsonValue(pattern),
-		"runner":        jsonValue(runnerForArtifact(agent.Spec, refs)),
-		"models":        jsonValue(agent.Spec.Models),
+		"runner":        jsonValue(runnerForArtifact(agent.Spec, refs, normalizedModels)),
+		"models":        jsonValue(normalizedModels),
 		"identity":      jsonValue(agent.Spec.Identity),
 		"patternSpec":   jsonValue(agent.Spec.Pattern),
 		"promptRefs":    jsonValue(agent.Spec.PromptRefs),
@@ -80,7 +85,7 @@ func artifactFor(agent apiv1alpha1.Agent, refs ReferenceIndex) apiv1alpha1.Freef
 	}
 }
 
-func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[string]interface{} {
+func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex, normalizedModels map[string]apiv1alpha1.ModelSpec) map[string]interface{} {
 	runtime := runtimeForArtifact(spec.Runtime)
 	resolvedPromptRefs := resolvedPromptRefs(spec, refs.SkillSpecs)
 	resolvedToolRefs := resolvedToolRefs(spec.ToolRefs, spec.Pattern, spec.SkillRefs, refs.SkillSpecs)
@@ -98,7 +103,8 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 		"prompts": map[string]interface{}{
 			"system": promptForArtifact(resolvedPromptRefs.System, refs.PromptTemplates),
 		},
-		"models":    spec.Models,
+		"models":    normalizedModels,
+		"providers": providers.CatalogForModels(normalizedModels),
 		"tools":     toolsForArtifact(resolvedToolRefs, refs.ToolSpecs),
 		"skills":    skillsForArtifact(spec.SkillRefs, refs.SkillSpecs),
 		"knowledge": knowledgeForArtifact(resolvedKnowledgeRefs, refs.KnowledgeSpecs),
@@ -106,6 +112,19 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex) map[stri
 			"schema": spec.Interfaces.Output.Schema,
 		},
 	}
+}
+
+func validateModelProviders(models map[string]apiv1alpha1.ModelSpec) error {
+	for name, model := range models {
+		providerName := providers.Normalize(model.Provider)
+		if providerName == "" {
+			return fmt.Errorf("model %q provider is required", name)
+		}
+		if _, ok := providers.Lookup(providerName); !ok {
+			return fmt.Errorf("model %q uses unsupported provider %q", name, model.Provider)
+		}
+	}
+	return nil
 }
 
 func patternForArtifact(spec apiv1alpha1.AgentSpec) map[string]interface{} {

@@ -162,7 +162,7 @@ Agent pattern、SubAgent 和 A2A TODO 见
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Model credentials | 进行中。 | Sample Agent 已可通过同 namespace 的 Kubernetes Secret 引用模型凭据，worker Job 会注入密钥但不会把明文写入 status 或 artifacts。 |
 | Tenancy 与 workspace 模型 | 尚未开始。 | 引入 tenant 和 workspace 抽象，并让它们贯穿 API 设计、runtime 隔离、RBAC、quota 和未来 UI。 |
-| Model provider strategy | 仅有早期基础。 | 定义 provider capability matrix，统一 provider 元数据，并增强对国际厂商与中国本土模型提供商的支持。 |
+| Model provider strategy | 已有早期基础。 | compiler 现在会按 provider catalog 校验 `ModelSpec.provider`，并把 provider family 元数据写入 compiled artifact。OpenAI-compatible 一族目前已可统一覆盖 OpenAI、Azure OpenAI、DeepSeek、Qwen、Moonshot、Doubao、GLM、Baichuan、MiniMax、SiliconFlow。 | 继续扩展 capability matrix，并在需要时增加 provider-specific runtime adapter，同时为未来 UI 和 policy 暴露这份 catalog。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Agent patterns | 部分完成。 | 已支持 `spec.pattern`，compiler 会保留 pattern 元数据，并在 `spec.graph` 为空时把 `react` 展开成会消费 Agent 已选 tools 与 knowledge 的 runner graph；更多 runtime 语义仍待实现。 |

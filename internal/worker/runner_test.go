@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/surefire-ai/agent-control-plane/internal/contract"
@@ -810,6 +811,116 @@ func TestPlaceholderRunnerExecutesAutoStepSequenceFromGraphEdges(t *testing.T) {
 	sequence, _ := step["sequence"].([]string)
 	if len(sequence) != 2 || sequence[0] != "classify_task" || sequence[1] != "create_ticket" {
 		t.Fatalf("unexpected auto sequence: %#v", step)
+	}
+}
+
+func TestPlaceholderRunnerAutoStepSequenceInjectsRetrievalContextIntoLLM(t *testing.T) {
+	t.Setenv("MODEL_PLANNER_API_KEY", "test-secret")
+
+	requestCount := 0
+	modelServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		var body map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("failed to decode model request: %v", err)
+		}
+		messages, _ := body["messages"].([]interface{})
+		if len(messages) < 2 {
+			t.Fatalf("expected chat messages, got %#v", body)
+		}
+		userMessage, _ := messages[1].(map[string]interface{})
+		content, _ := userMessage["content"].(string)
+		if requestCount == 2 {
+			if !strings.Contains(content, "有限空间 作业 风险") {
+				t.Fatalf("expected retrieval query to come from payload text, got %q", content)
+			}
+			if !strings.Contains(content, "retrieved context 1") {
+				t.Fatalf("expected retrieval context to be injected into llm input, got %q", content)
+			}
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"summary\":\"reasoned with retrieval\",\"hazards\":[],\"overallRiskLevel\":\"low\",\"nextActions\":[],\"confidence\":0.91,\"needsHumanReview\":false}"}}]}`))
+	}))
+	defer modelServer.Close()
+
+	runner := EinoADKPlaceholderRunner{
+		Invoker: EinoOpenAIInvoker{Client: modelServer.Client()},
+	}
+	result, err := runner.Run(context.Background(), RunRequest{
+		Config: Config{
+			ParsedRunInput: map[string]interface{}{
+				"step": map[string]interface{}{
+					"auto": true,
+					"input": map[string]interface{}{
+						"payload": map[string]interface{}{
+							"text": "有限空间 作业 风险",
+						},
+					},
+				},
+			},
+		},
+		Artifact: contract.CompiledArtifact{
+			Runtime: contract.ArtifactRuntime{Entrypoint: "ehs.hazard_identification"},
+			Runner: contract.ArtifactRunner{
+				Kind:       "EinoADKRunner",
+				Entrypoint: "ehs.hazard_identification",
+				Graph: map[string]interface{}{
+					"nodes": []interface{}{
+						map[string]interface{}{"name": "retrieve_regulations", "kind": "retrieval", "knowledgeRef": "regulations"},
+						map[string]interface{}{"name": "reason", "kind": "llm", "modelRef": "planner"},
+					},
+					"edges": []interface{}{
+						map[string]interface{}{"from": "START", "to": "retrieve_regulations"},
+						map[string]interface{}{"from": "retrieve_regulations", "to": "reason"},
+						map[string]interface{}{"from": "reason", "to": "END"},
+					},
+				},
+				Prompts: map[string]contract.PromptSpec{
+					"system": {Name: "system", Template: "You are an EHS assistant."},
+				},
+				Models: map[string]contract.ModelConfig{
+					"planner": {
+						Provider:      "openai",
+						Model:         "gpt-4.1",
+						BaseURL:       modelServer.URL,
+						CredentialRef: &contract.SecretKeyReference{Name: "openai-credentials", Key: "apiKey"},
+					},
+				},
+				Knowledge: map[string]contract.KnowledgeSpec{
+					"regulations": {
+						Name:        "regulations",
+						Ref:         "ehs-regulations",
+						Description: "法规库",
+						Sources: []map[string]interface{}{
+							{"name": "国家安全生产法规", "uri": "s3://ehs-kb/regulations/national/"},
+						},
+						Retrieval: map[string]interface{}{
+							"defaultTopK": float64(2),
+						},
+					},
+				},
+				Output: map[string]interface{}{
+					"schema": map[string]interface{}{
+						"type": "object",
+						"required": []interface{}{
+							"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview",
+						},
+					},
+				},
+			},
+		},
+		RuntimeIdentity: contract.DefaultRuntimeIdentity(),
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if requestCount != 2 {
+		t.Fatalf("expected primary and step llm calls, got %d", requestCount)
+	}
+	step, _ := result.Output["step"].(map[string]interface{})
+	finalState, _ := step["finalState"].(map[string]interface{})
+	retrieval, _ := finalState["retrieval"].(map[string]interface{})
+	if _, ok := retrieval["regulations"]; !ok {
+		t.Fatalf("expected retrieval state keyed by binding name, got %#v", finalState)
 	}
 }
 

@@ -177,7 +177,7 @@ func (r EinoADKPlaceholderRunner) executeStepLLM(ctx context.Context, request Ru
 			Message: fmt.Sprintf("graph node %q has no usable system prompt", step.Node),
 		}
 	}
-	modelInput := initialStepState(request.Config.ParsedRunInput, step.Input)
+	modelInput := llmStepInput(initialStepState(request.Config.ParsedRunInput, step.Input))
 	result, err := r.modelInvoker().Invoke(ctx, modelRuntime, modelConfig, systemPrompt, modelInput, request.Artifact.Runner.Output)
 	if err != nil {
 		return nil, nil, err
@@ -273,9 +273,7 @@ func (r EinoADKPlaceholderRunner) executeStepRetrieval(ctx context.Context, requ
 	if knowledgeRef, _ := node["knowledgeRef"].(string); strings.TrimSpace(knowledgeRef) != "" {
 		call.Name = knowledgeRef
 	}
-	if query, _ := stepInput["query"].(string); strings.TrimSpace(query) != "" {
-		call.Query = query
-	}
+	call.Query = defaultRetrievalQuery(stepInput)
 	switch value := stepInput["topK"].(type) {
 	case int:
 		call.TopK = value
@@ -596,9 +594,92 @@ func mergeStepState(state map[string]interface{}, output map[string]interface{})
 	}
 	if toolOutput, _ := output["output"].(map[string]interface{}); len(toolOutput) > 0 {
 		merged["toolOutput"] = toolOutput
+		name, _ := output["name"].(string)
+		if name == "" {
+			name = nodeName
+		}
+		merged["tools"] = mergeNamedOutputMap(merged["tools"], name, toolOutput)
 	}
 	if results, ok := output["results"]; ok {
 		merged["retrievalResults"] = results
+		name, _ := output["name"].(string)
+		if name == "" {
+			name = nodeName
+		}
+		merged["retrieval"] = mergeNamedOutputMap(merged["retrieval"], name, map[string]interface{}{
+			"query":   output["query"],
+			"results": results,
+			"topK":    output["topK"],
+		})
+	}
+	return merged
+}
+
+func llmStepInput(state map[string]interface{}) map[string]interface{} {
+	input := cloneMap(state)
+
+	context := map[string]interface{}{}
+	if retrieval, _ := input["retrieval"].(map[string]interface{}); len(retrieval) > 0 {
+		context["retrieval"] = retrieval
+	}
+	if retrievalResults, ok := input["retrievalResults"]; ok {
+		context["retrievalResults"] = retrievalResults
+	}
+	if tools, _ := input["tools"].(map[string]interface{}); len(tools) > 0 {
+		context["tools"] = tools
+	}
+	if toolOutput, _ := input["toolOutput"].(map[string]interface{}); len(toolOutput) > 0 {
+		context["toolOutput"] = toolOutput
+	}
+	if lastNode, _ := input["lastNode"].(string); strings.TrimSpace(lastNode) != "" {
+		context["lastNode"] = lastNode
+	}
+	if len(context) > 0 {
+		input["context"] = context
+	}
+	return input
+}
+
+func defaultRetrievalQuery(state map[string]interface{}) string {
+	if query, _ := state["query"].(string); strings.TrimSpace(query) != "" {
+		return query
+	}
+	if text, _ := state["text"].(string); strings.TrimSpace(text) != "" {
+		return text
+	}
+	if task, _ := state["task"].(string); strings.TrimSpace(task) != "" {
+		return task
+	}
+	payload, _ := state["payload"].(map[string]interface{})
+	if payload != nil {
+		if text, _ := payload["text"].(string); strings.TrimSpace(text) != "" {
+			return text
+		}
+	}
+	if result, _ := state["result"].(map[string]interface{}); result != nil {
+		if summary, _ := result["summary"].(string); strings.TrimSpace(summary) != "" {
+			return summary
+		}
+	}
+	if lastOutput, _ := state["lastOutput"].(map[string]interface{}); lastOutput != nil {
+		if result, _ := lastOutput["result"].(map[string]interface{}); result != nil {
+			if summary, _ := result["summary"].(string); strings.TrimSpace(summary) != "" {
+				return summary
+			}
+		}
+	}
+	return ""
+}
+
+func mergeNamedOutputMap(existing interface{}, name string, value map[string]interface{}) map[string]interface{} {
+	merged, _ := existing.(map[string]interface{})
+	if merged == nil {
+		merged = map[string]interface{}{}
+	} else {
+		merged = cloneMap(merged)
+	}
+	if strings.TrimSpace(name) != "" && len(value) > 0 {
+		merged[name] = value
 	}
 	return merged
 }

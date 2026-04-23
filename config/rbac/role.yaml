@@ -39,6 +39,7 @@ rules:
 - apiGroups:
   - windosx.com
   resources:
+  - agentevaluations
   - agentpolicies
   - agents
   - knowledgebases
@@ -52,18 +53,19 @@ rules:
 - apiGroups:
   - windosx.com
   resources:
-  - agentruns
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-- apiGroups:
-  - windosx.com
-  resources:
+  - agentevaluations/status
   - agentruns/status
   - agents/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - windosx.com
+  resources:
+  - agentruns
+  verbs:
+  - create
+  - get
+  - list
+  - watch

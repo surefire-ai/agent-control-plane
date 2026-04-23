@@ -103,6 +103,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.AgentEvaluationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create AgentEvaluation controller")
+		os.Exit(1)
+	}
+
 	if gatewayAddr != "" {
 		if err := mgr.Add(gateway.Server{
 			Addr:   gatewayAddr,

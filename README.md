@@ -46,9 +46,9 @@ capability.
 - `Agent` declares runtime, models, prompts, knowledge, tools, MCP servers,
   policies, graph shape, interfaces, memory, and observability settings.
 - `AgentRun` records an immutable execution request and its execution status.
-- `PromptTemplate`, `KnowledgeBase`, `ToolProvider`, `Dataset`, `MCPServer`,
-  `AgentPolicy`, and `AgentEvaluation` provide the supporting control-plane
-  resources.
+- `Tenant`, `Workspace`, `PromptTemplate`, `KnowledgeBase`, `ToolProvider`,
+  `Dataset`, `MCPServer`, `AgentPolicy`, and `AgentEvaluation` provide the
+  supporting control-plane resources.
 - A controller-manager compiles `Agent` resources, publishes deterministic
   status, and dispatches `AgentRun` resources to a runtime backend.
 - A worker runtime backend can dispatch each run as a Kubernetes Job. The
@@ -213,13 +213,15 @@ Agent pattern, SubAgent, and A2A TODOs live in
 `docs/phase2/agent-patterns-and-a2a-todo.md`.
 Phase 3 console planning lives in
 `docs/phase3/console-information-architecture.md`.
+Tenancy and workspace design notes live in
+`docs/phase3/tenancy-workspace-model.md`.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | Eino compile artifact | Static reference compiler, typed compiled artifact decoder, and v1 runner artifact emission exist. | Enrich the runner artifact with fully resolved prompt/tool/knowledge content. |
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Model credentials | In progress. | Sample Agents can reference same-namespace Kubernetes Secrets, and worker Jobs receive secret-backed model credentials without writing secret values into status or artifacts. |
-| Tenancy and workspace model | Not started. | Introduce tenant and workspace abstractions that can flow through API design, runtime isolation, RBAC, quotas, and future UI. |
+| Tenancy and workspace model | Bootstrap | `Tenant` and `Workspace` CRD skeletons now exist as the first control-plane surface for enterprise scoping. | Expand the model into runtime isolation, RBAC, quotas, workspace binding, and future UI semantics. |
 | Model provider strategy | Early foundation | The compiler now validates `ModelSpec.provider` against a provider catalog and emits provider family metadata into the compiled artifact. OpenAI-compatible providers such as OpenAI, Azure OpenAI, DeepSeek, Qwen, Moonshot, Doubao, GLM, Baichuan, MiniMax, and SiliconFlow can share the current runtime path. | Expand the capability matrix, add provider-specific runtime adapters where needed, and expose the catalog through future UI and policy surfaces. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |

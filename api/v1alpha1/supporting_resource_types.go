@@ -81,6 +81,39 @@ type MCPServerSpec struct {
 	HealthCheck    FreeformObject `json:"healthCheck,omitempty"`
 }
 
+type TenantSpec struct {
+	DisplayName string         `json:"displayName,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Profile     FreeformObject `json:"profile,omitempty"`
+	Governance  FreeformObject `json:"governance,omitempty"`
+	Provider    FreeformObject `json:"provider,omitempty"`
+}
+
+type TenantStatus struct {
+	ConditionedStatus  `json:",inline"`
+	Phase              string `json:"phase,omitempty"`
+	ObservedGeneration int64  `json:"observedGeneration,omitempty"`
+	WorkspaceCount     int32  `json:"workspaceCount,omitempty"`
+}
+
+type WorkspaceSpec struct {
+	TenantRef   LocalObjectReference `json:"tenantRef"`
+	DisplayName string               `json:"displayName,omitempty"`
+	Description string               `json:"description,omitempty"`
+	Namespace   string               `json:"namespace,omitempty"`
+	Provider    FreeformObject       `json:"provider,omitempty"`
+	Governance  FreeformObject       `json:"governance,omitempty"`
+}
+
+type WorkspaceStatus struct {
+	ConditionedStatus  `json:",inline"`
+	Phase              string            `json:"phase,omitempty"`
+	ObservedGeneration int64             `json:"observedGeneration,omitempty"`
+	TenantRef          string            `json:"tenantRef,omitempty"`
+	Namespace          string            `json:"namespace,omitempty"`
+	Endpoint           map[string]string `json:"endpoint,omitempty"`
+}
+
 type AgentPolicySpec struct {
 	HumanInTheLoop FreeformObject `json:"humanInTheLoop,omitempty"`
 	Guardrails     FreeformObject `json:"guardrails,omitempty"`
@@ -209,6 +242,38 @@ type EvaluationComparisonStatus struct {
 type ResourceStatus struct {
 	ConditionedStatus `json:",inline"`
 	Phase             string `json:"phase,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+type Tenant struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              TenantSpec   `json:"spec,omitempty"`
+	Status            TenantStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+type TenantList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Tenant `json:"items"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+type Workspace struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              WorkspaceSpec   `json:"spec,omitempty"`
+	Status            WorkspaceStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+type WorkspaceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Workspace `json:"items"`
 }
 
 // +kubebuilder:object:root=true

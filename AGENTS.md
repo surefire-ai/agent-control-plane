@@ -145,14 +145,17 @@ Examples:
 These are current facts of the repo and should be preserved unless the user
 explicitly asks for a directional change:
 
-- `Agent`, `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`,
-  `Dataset`, `MCPServer`, `AgentPolicy`, `AgentEvaluation`, and `Skill` are
-  CRD-backed resources.
+- `Agent`, `AgentRun`, `Tenant`, `Workspace`, `PromptTemplate`,
+  `ToolProvider`, `KnowledgeBase`, `Dataset`, `MCPServer`, `AgentPolicy`,
+  `AgentEvaluation`, and `Skill` are CRD-backed resources.
 - The product target is an enterprise multi-tenant platform, not a single-team
   sandbox.
 - The product target is also a user-facing enterprise platform where the web
   console is expected to support visual agent orchestration, evaluation,
   publishing, and release management.
+- `Tenant` and `Workspace` are the starting control-plane surface for
+  enterprise scoping; extend them deliberately before introducing parallel
+  tenant models elsewhere in the stack.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with
@@ -286,6 +289,7 @@ When behavior changes materially, update the relevant docs:
 - `docs/phase2/eino-runtime-design.md`
 - `docs/phase2/agent-patterns-and-a2a-todo.md`
 - `docs/phase3/console-information-architecture.md`
+- `docs/phase3/tenancy-workspace-model.md`
 
 When the change affects enterprise product direction, also keep these topics
 current in docs and code comments where appropriate:

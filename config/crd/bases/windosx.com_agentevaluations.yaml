@@ -143,6 +143,21 @@ spec:
             type: object
           status:
             properties:
+              comparison:
+                properties:
+                  baselineAgentRef:
+                    type: string
+                  baselineGatePassed:
+                    type: boolean
+                  baselineScore:
+                    type: number
+                  currentGatePassed:
+                    type: boolean
+                  currentScore:
+                    type: number
+                  scoreDelta:
+                    type: number
+                type: object
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

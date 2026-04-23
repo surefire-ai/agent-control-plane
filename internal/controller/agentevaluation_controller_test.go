@@ -343,6 +343,126 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 	}
 }
 
+func TestAgentEvaluationReconcilerBuildsBaselineComparison(t *testing.T) {
+	scheme := testScheme(t)
+	evaluation := &apiv1alpha1.AgentEvaluation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "eval-compare",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentEvaluationSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-current"},
+			DatasetRef: apiv1alpha1.EvaluationDatasetReference{
+				Name:     "ehs-hazard-benchmark-v1",
+				Revision: "2026-04",
+			},
+			Baseline: &apiv1alpha1.EvaluationBaselineSpec{
+				AgentRef: &apiv1alpha1.LocalObjectReference{Name: "agent-baseline"},
+			},
+			Runtime: apiv1alpha1.FreeformObject{
+				"samples": agentruntime.JSONValue([]map[string]interface{}{
+					{
+						"name": "case-a",
+						"input": map[string]interface{}{
+							"task": "identify_hazard",
+							"payload": map[string]interface{}{
+								"text": "发现配电箱有裸露电线",
+							},
+						},
+						"expected": map[string]interface{}{
+							"overallRiskLevel": "medium",
+						},
+					},
+				}),
+			},
+			Thresholds: []apiv1alpha1.EvaluationThresholdSpec{
+				{Metric: "run_success", Operator: "gte", Target: 1.0, Blocking: true},
+				{Metric: "confidence", Operator: "gte", Target: 0.8, Blocking: true},
+				{Metric: "overallRiskLevel", Operator: "gte", Target: 1.0, Blocking: true},
+			},
+			Gate: apiv1alpha1.EvaluationGateSpec{
+				Mode:        "all_blocking",
+				BlockOnFail: true,
+			},
+		},
+	}
+	currentAgent := readyAgent("agent-current", "ehs", "sha256:current")
+	baselineAgent := readyAgent("agent-baseline", "ehs", "sha256:baseline")
+	currentRun := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eval-compare-run-g1-case-a",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-current"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase:         string(apiv1alpha1.AgentRunPhaseSucceeded),
+			AgentRevision: "sha256:current",
+			Output: apiv1alpha1.FreeformObject{
+				"overallRiskLevel": agentruntime.JSONValue("medium"),
+				"confidence":       agentruntime.JSONValue(0.91),
+			},
+		},
+	}
+	baselineRun := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eval-compare-baseline-run-g1-case-a",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-baseline"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase:         string(apiv1alpha1.AgentRunPhaseSucceeded),
+			AgentRevision: "sha256:baseline",
+			Output: apiv1alpha1.FreeformObject{
+				"overallRiskLevel": agentruntime.JSONValue("low"),
+				"confidence":       agentruntime.JSONValue(0.62),
+			},
+		},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
+		WithObjects(evaluation, currentAgent, baselineAgent, currentRun, baselineRun).
+		Build()
+	reconciler := &AgentEvaluationReconciler{
+		Client: kubeClient,
+		Scheme: scheme,
+	}
+
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "eval-compare"}}
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.AgentEvaluation
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &updated); err != nil {
+		t.Fatalf("get AgentEvaluation returned error: %v", err)
+	}
+	if updated.Status.Phase != "Succeeded" {
+		t.Fatalf("expected Succeeded phase, got %q", updated.Status.Phase)
+	}
+	if updated.Status.Comparison == nil {
+		t.Fatalf("expected comparison status, got %#v", updated.Status)
+	}
+	if updated.Status.Comparison.BaselineAgentRef != "agent-baseline" {
+		t.Fatalf("expected baseline agent ref, got %#v", updated.Status.Comparison)
+	}
+	if updated.Status.Comparison.CurrentScore <= updated.Status.Comparison.BaselineScore {
+		t.Fatalf("expected current score to beat baseline, got %#v", updated.Status.Comparison)
+	}
+	if updated.Status.Comparison.ScoreDelta <= 0 {
+		t.Fatalf("expected positive score delta, got %#v", updated.Status.Comparison)
+	}
+	if !updated.Status.Comparison.CurrentGatePassed || updated.Status.Comparison.BaselineGatePassed {
+		t.Fatalf("expected current gate pass and baseline gate fail, got %#v", updated.Status.Comparison)
+	}
+}
+
 func TestExpectedMetricScoreSupportsExactMatchAndCount(t *testing.T) {
 	sample := evaluationSample{
 		Name: "case-a",

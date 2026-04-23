@@ -170,12 +170,13 @@ type EvaluationReportingSpec struct {
 
 type AgentEvaluationStatus struct {
 	ConditionedStatus  `json:",inline"`
-	Phase              string                   `json:"phase,omitempty"`
-	ObservedGeneration int64                    `json:"observedGeneration,omitempty"`
-	LatestRunRef       map[string]string        `json:"latestRunRef,omitempty"`
-	Summary            EvaluationSummaryStatus  `json:"summary,omitempty"`
-	Results            []EvaluationMetricStatus `json:"results,omitempty"`
-	ReportRef          FreeformObject           `json:"reportRef,omitempty"`
+	Phase              string                      `json:"phase,omitempty"`
+	ObservedGeneration int64                       `json:"observedGeneration,omitempty"`
+	LatestRunRef       map[string]string           `json:"latestRunRef,omitempty"`
+	Summary            EvaluationSummaryStatus     `json:"summary,omitempty"`
+	Comparison         *EvaluationComparisonStatus `json:"comparison,omitempty"`
+	Results            []EvaluationMetricStatus    `json:"results,omitempty"`
+	ReportRef          FreeformObject              `json:"reportRef,omitempty"`
 }
 
 type EvaluationSummaryStatus struct {
@@ -194,6 +195,15 @@ type EvaluationMetricStatus struct {
 	Threshold float64 `json:"threshold,omitempty"`
 	Passed    bool    `json:"passed,omitempty"`
 	Reason    string  `json:"reason,omitempty"`
+}
+
+type EvaluationComparisonStatus struct {
+	BaselineAgentRef   string  `json:"baselineAgentRef,omitempty"`
+	CurrentScore       float64 `json:"currentScore,omitempty"`
+	BaselineScore      float64 `json:"baselineScore,omitempty"`
+	ScoreDelta         float64 `json:"scoreDelta,omitempty"`
+	CurrentGatePassed  bool    `json:"currentGatePassed,omitempty"`
+	BaselineGatePassed bool    `json:"baselineGatePassed,omitempty"`
 }
 
 type ResourceStatus struct {

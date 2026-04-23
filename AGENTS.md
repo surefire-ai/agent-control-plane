@@ -150,6 +150,10 @@ explicitly asks for a directional change:
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with
   typed dataset, baseline, evaluator, threshold gate, and reporting fields.
+- `AgentEvaluation` can now evaluate both a current agent and an optional
+  baseline agent, then publish score deltas and gate deltas into status;
+  extend that comparison path rather than creating a second revision-compare
+  mechanism.
 - `Dataset` is the reusable evaluation sample surface; prefer referencing it
   from `AgentEvaluation.datasetRef` over embedding large sample sets directly
   into runtime config.

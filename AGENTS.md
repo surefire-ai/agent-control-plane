@@ -285,6 +285,7 @@ When behavior changes materially, update the relevant docs:
 - `README.zh-CN.md`
 - `docs/phase2/eino-runtime-design.md`
 - `docs/phase2/agent-patterns-and-a2a-todo.md`
+- `docs/phase3/console-information-architecture.md`
 
 When the change affects enterprise product direction, also keep these topics
 current in docs and code comments where appropriate:

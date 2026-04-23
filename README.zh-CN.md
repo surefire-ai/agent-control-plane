@@ -159,6 +159,8 @@ Release notes 见 `docs/releases/v0.1.0.md`。
 Phase 2 runtime 设计见 `docs/phase2/eino-runtime-design.md`。
 Agent pattern、SubAgent 和 A2A TODO 见
 `docs/phase2/agent-patterns-and-a2a-todo.md`。
+Phase 3 console 规划见
+`docs/phase3/console-information-architecture.md`。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |

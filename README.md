@@ -211,6 +211,8 @@ The Phase 2 runtime design lives in
 `docs/phase2/eino-runtime-design.md`.
 Agent pattern, SubAgent, and A2A TODOs live in
 `docs/phase2/agent-patterns-and-a2a-todo.md`.
+Phase 3 console planning lives in
+`docs/phase3/console-information-architecture.md`.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |

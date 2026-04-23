@@ -156,6 +156,9 @@ explicitly asks for a directional change:
 - `Tenant` and `Workspace` are the starting control-plane surface for
   enterprise scoping; extend them deliberately before introducing parallel
   tenant models elsewhere in the stack.
+- `Workspace` now has a lightweight lifecycle: it resolves `tenantRef`,
+  publishes a console scope endpoint, and records its effective namespace.
+- `Tenant` now records an aggregated `workspaceCount` in status.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with

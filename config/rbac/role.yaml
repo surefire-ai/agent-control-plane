@@ -46,7 +46,9 @@ rules:
   - knowledgebases
   - mcpservers
   - prompttemplates
+  - tenants
   - toolproviders
+  - workspaces
   verbs:
   - get
   - list
@@ -57,6 +59,8 @@ rules:
   - agentevaluations/status
   - agentruns/status
   - agents/status
+  - tenants/status
+  - workspaces/status
   verbs:
   - get
   - patch

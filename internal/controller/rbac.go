@@ -3,6 +3,10 @@
 // +kubebuilder:rbac:groups=windosx.com,resources=prompttemplates,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=knowledgebases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=toolproviders,verbs=get;list;watch
+// +kubebuilder:rbac:groups=windosx.com,resources=tenants,verbs=get;list;watch
+// +kubebuilder:rbac:groups=windosx.com,resources=tenants/status,verbs=get;patch;update
+// +kubebuilder:rbac:groups=windosx.com,resources=workspaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=windosx.com,resources=workspaces/status,verbs=get;patch;update
 // +kubebuilder:rbac:groups=windosx.com,resources=datasets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=mcpservers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentpolicies,verbs=get;list;watch

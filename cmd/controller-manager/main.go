@@ -111,6 +111,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&controller.TenantReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create Tenant controller")
+		os.Exit(1)
+	}
+
+	if err := (&controller.WorkspaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		ctrl.Log.Error(err, "unable to create Workspace controller")
+		os.Exit(1)
+	}
+
 	if gatewayAddr != "" {
 		if err := mgr.Add(gateway.Server{
 			Addr:   gatewayAddr,

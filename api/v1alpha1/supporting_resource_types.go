@@ -105,10 +105,82 @@ const (
 )
 
 type AgentEvaluationSpec struct {
-	AgentRef   LocalObjectReference `json:"agentRef"`
-	DatasetRef map[string]string    `json:"datasetRef,omitempty"`
-	Evaluators []map[string]string  `json:"evaluators,omitempty"`
-	Thresholds map[string]float64   `json:"thresholds,omitempty"`
+	AgentRef   LocalObjectReference       `json:"agentRef"`
+	Baseline   *EvaluationBaselineSpec    `json:"baseline,omitempty"`
+	DatasetRef EvaluationDatasetReference `json:"datasetRef"`
+	Evaluators []EvaluationEvaluatorSpec  `json:"evaluators,omitempty"`
+	Thresholds []EvaluationThresholdSpec  `json:"thresholds,omitempty"`
+	Gate       EvaluationGateSpec         `json:"gate,omitempty"`
+	Reporting  EvaluationReportingSpec    `json:"reporting,omitempty"`
+	Runtime    FreeformObject             `json:"runtime,omitempty"`
+}
+
+type EvaluationBaselineSpec struct {
+	AgentRef  *LocalObjectReference `json:"agentRef,omitempty"`
+	Revision  string                `json:"revision,omitempty"`
+	Reference string                `json:"reference,omitempty"`
+}
+
+type EvaluationDatasetReference struct {
+	Kind      string `json:"kind,omitempty"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
+	Revision  string `json:"revision,omitempty"`
+}
+
+type EvaluationEvaluatorSpec struct {
+	Name   string         `json:"name"`
+	Type   string         `json:"type"`
+	Metric string         `json:"metric,omitempty"`
+	Weight float64        `json:"weight,omitempty"`
+	Config FreeformObject `json:"config,omitempty"`
+}
+
+type EvaluationThresholdSpec struct {
+	Metric   string  `json:"metric"`
+	Operator string  `json:"operator,omitempty"`
+	Target   float64 `json:"target"`
+	Blocking bool    `json:"blocking,omitempty"`
+}
+
+type EvaluationGateSpec struct {
+	Mode        string   `json:"mode,omitempty"`
+	Required    []string `json:"required,omitempty"`
+	BlockOnFail bool     `json:"blockOnFail,omitempty"`
+}
+
+type EvaluationReportingSpec struct {
+	Formats []string          `json:"formats,omitempty"`
+	Sinks   []string          `json:"sinks,omitempty"`
+	Labels  map[string]string `json:"labels,omitempty"`
+}
+
+type AgentEvaluationStatus struct {
+	ConditionedStatus  `json:",inline"`
+	Phase              string                   `json:"phase,omitempty"`
+	ObservedGeneration int64                    `json:"observedGeneration,omitempty"`
+	LatestRunRef       map[string]string        `json:"latestRunRef,omitempty"`
+	Summary            EvaluationSummaryStatus  `json:"summary,omitempty"`
+	Results            []EvaluationMetricStatus `json:"results,omitempty"`
+	ReportRef          FreeformObject           `json:"reportRef,omitempty"`
+}
+
+type EvaluationSummaryStatus struct {
+	DatasetRevision  string  `json:"datasetRevision,omitempty"`
+	BaselineRevision string  `json:"baselineRevision,omitempty"`
+	SamplesTotal     int32   `json:"samplesTotal,omitempty"`
+	SamplesEvaluated int32   `json:"samplesEvaluated,omitempty"`
+	Score            float64 `json:"score,omitempty"`
+	GatePassed       bool    `json:"gatePassed,omitempty"`
+}
+
+type EvaluationMetricStatus struct {
+	Name      string  `json:"name,omitempty"`
+	Metric    string  `json:"metric,omitempty"`
+	Score     float64 `json:"score,omitempty"`
+	Threshold float64 `json:"threshold,omitempty"`
+	Passed    bool    `json:"passed,omitempty"`
+	Reason    string  `json:"reason,omitempty"`
 }
 
 type ResourceStatus struct {
@@ -233,8 +305,8 @@ type AgentRunList struct {
 type AgentEvaluation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              AgentEvaluationSpec `json:"spec,omitempty"`
-	Status            ResourceStatus      `json:"status,omitempty"`
+	Spec              AgentEvaluationSpec   `json:"spec,omitempty"`
+	Status            AgentEvaluationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

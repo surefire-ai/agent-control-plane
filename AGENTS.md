@@ -148,6 +148,8 @@ explicitly asks for a directional change:
   sandbox.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
+- `AgentEvaluation` is moving toward a first-class enterprise contract with
+  typed dataset, baseline, evaluator, threshold gate, and reporting fields.
 - Model provider support should evolve into a capability matrix that treats
   Chinese domestic providers as first-class targets.
 - `Skill` can currently contribute prompts, tools, knowledge, functions, and

@@ -6,20 +6,58 @@ metadata:
 spec:
   agentRef:
     name: ehs-hazard-identification-agent
+  baseline:
+    revision: ehs-hazard-identification-agent-r0001
   datasetRef:
     kind: Dataset
     name: ehs-hazard-benchmark-v1
+    revision: "2026-04"
   evaluators:
     - name: schema_validity
       type: rule
+      metric: schema_validity
     - name: citation_completeness
       type: rule
+      metric: citation_completeness
     - name: risk_level_accuracy
       type: llm_judge
+      metric: risk_level_accuracy
+      config:
+        rubric: ehs-risk-accuracy-v1
     - name: recommendation_actionability
       type: llm_judge
+      metric: recommendation_actionability
+      config:
+        rubric: actionability-v1
   thresholds:
-    schema_validity: 1.0
-    citation_completeness: 0.95
-    risk_level_accuracy: 0.85
-    recommendation_actionability: 0.85
+    - metric: schema_validity
+      operator: gte
+      target: 1.0
+      blocking: true
+    - metric: citation_completeness
+      operator: gte
+      target: 0.95
+      blocking: true
+    - metric: risk_level_accuracy
+      operator: gte
+      target: 0.85
+      blocking: true
+    - metric: recommendation_actionability
+      operator: gte
+      target: 0.85
+  gate:
+    mode: all_blocking
+    required:
+      - schema_validity
+      - citation_completeness
+      - risk_level_accuracy
+    blockOnFail: true
+  reporting:
+    formats:
+      - summary
+      - metric_breakdown
+    sinks:
+      - status
+      - artifact
+    labels:
+      environment: pre-release

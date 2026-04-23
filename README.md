@@ -15,8 +15,9 @@ in `config/samples/ehs`.
 
 ## Project Positioning
 
-Agent Control Plane should be understood as a Kubernetes operator for AI agents,
-not as a standalone SDK or a one-shot workflow runner.
+Agent Control Plane should be understood as an **enterprise, multi-tenant Agent
+Control Plane product** built on top of Kubernetes, not as a standalone SDK or
+a one-shot workflow runner.
 
 - The **operator layer** is responsible for reconciling CRDs such as `Agent`,
   `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`, and
@@ -30,7 +31,9 @@ not as a standalone SDK or a one-shot workflow runner.
 
 In other words, the project is not trying to put all agent logic inside the
 operator process. The operator owns declaration, reconciliation, scheduling,
-and governance; workers own execution.
+and governance; workers own execution. The product direction is explicitly
+enterprise-first: multi-tenancy, evaluation, provider breadth, governance, and
+day-to-day usability matter as much as raw runtime capability.
 
 ## What It Provides
 
@@ -74,6 +77,8 @@ code.
 ## Architecture Direction
 
 - The repository is building toward an **Agent Control Plane Operator for Kubernetes**.
+- The product direction is an **Enterprise Multi-Tenant Agent Control Plane**
+  with evaluation as a first-class capability, not a sidecar feature.
 - Go hosts the Kubernetes API types, CRD controllers, compiler, admission
   checks, runtime dispatch, and future gateway.
 - Go is expected to host the Eino-based runtime worker.
@@ -92,6 +97,23 @@ code.
   retrieval work.
 - CRDs remain the declarative API surface between platform users and the
   operator.
+
+### Product Priorities
+
+The project should be designed around these priorities:
+
+- **Enterprise and multi-tenant by default**: tenancy, isolation, RBAC,
+  quotas, auditability, and workspace boundaries should be treated as product
+  requirements, not as optional future add-ons.
+- **Evaluation as a differentiator**: dataset management, revision comparison,
+  threshold gates, pre-release evaluation, regression monitoring, and
+  multi-model comparison should become a recognizable product strength.
+- **Provider breadth as a platform capability**: model support should evolve
+  from "one OpenAI-compatible path" into a provider capability matrix that
+  works well across global and Chinese domestic model providers.
+- **UX-first console direction**: Phase 3 should optimize for the daily user
+  experience of tenants, operators, evaluators, and application teams rather
+  than shipping a thin admin panel.
 
 ### Build, Buy, Integrate
 
@@ -182,11 +204,13 @@ Agent pattern, SubAgent, and A2A TODOs live in
 | Eino compile artifact | Static reference compiler, typed compiled artifact decoder, and v1 runner artifact emission exist. | Enrich the runner artifact with fully resolved prompt/tool/knowledge content. |
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Model credentials | In progress. | Sample Agents can reference same-namespace Kubernetes Secrets, and worker Jobs receive secret-backed model credentials without writing secret values into status or artifacts. |
+| Tenancy and workspace model | Not started. | Introduce tenant and workspace abstractions that can flow through API design, runtime isolation, RBAC, quotas, and future UI. |
+| Model provider strategy | Early foundation only. | Define a provider capability matrix, normalize provider metadata, and expand first-class support for both global and Chinese domestic model vendors. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, and revision. | Define artifacts, logs, errors, cancellation, and retry behavior. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
 | Agent patterns | Partial | `spec.pattern` exists, the compiler preserves pattern metadata, and `react` can expand into a runner graph that consumes the agent's selected tools and knowledge when `spec.graph` is empty. More runtime semantics are still pending. |
 | Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
-| Evaluation | `AgentEvaluation` CRD exists. | Add an evaluation reconciler and result reporting. |
+| Evaluation | `AgentEvaluation` CRD exists. | Expand evaluation into a first-class product contract with dataset management, revision comparison, threshold gates, and result reporting. |
 
 Phase 2 exit criteria:
 
@@ -201,10 +225,12 @@ Goal: make the platform usable by teams, not only by cluster operators.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| UI | Not started in this repository. | Build a console for agents, runs, traces, evaluations, and publishing workflows. |
+| UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, agent build and publish flows, run debugging, evaluation comparison, provider management, and collaboration. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
 | SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
-| Tenant | Not started. | Add tenancy model, namespace mapping, RBAC boundaries, quotas, and audit trails. |
+| Tenant and workspace experience | Not started. | Add tenancy model, workspace mapping, RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |
+| Evaluation-first workflows | Not started. | Build dataset management, revision comparison, threshold gates, release readiness checks, and regression views into the product surface. |
+| Provider management UX | Not started. | Expose provider selection, capability differences, credential references, and model switching in a user-facing workflow. |
 | Governance workflows | Policy CRD exists. | Add review, approval, human-in-the-loop, and exception workflows. |
 
 Phase 3 exit criteria:

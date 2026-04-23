@@ -13,8 +13,8 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 
 ## 项目定位
 
-Agent Control Plane 应该被理解为一个面向 AI Agent 的 Kubernetes Operator，
-而不是一个独立 SDK，也不是只跑一次的工作流脚本。
+Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景的 Agent Control Plane 产品**，
+底座建立在 Kubernetes 之上，而不是一个独立 SDK，也不是只跑一次的工作流脚本。
 
 - **operator 层** 负责持续 reconcile `Agent`、`AgentRun`、
   `PromptTemplate`、`ToolProvider`、`KnowledgeBase`、`AgentPolicy`
@@ -25,7 +25,9 @@ Agent Control Plane 应该被理解为一个面向 AI Agent 的 Kubernetes Opera
   调用、retrieval、checkpoint，以及未来的图执行。
 
 换句话说，这个项目并不是要把所有 Agent 逻辑都塞进 operator 进程里。
-operator 负责声明、reconcile、调度和治理；worker 负责执行。
+operator 负责声明、reconcile、调度和治理；worker 负责执行。项目方向也明确是
+企业产品优先：多租户、evaluation、provider 广度、治理和日常使用体验，和 runtime
+能力本身同等重要。
 
 ## 项目能力
 
@@ -51,6 +53,8 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 ## 架构方向
 
 - 本仓库正在朝 **Agent Control Plane Operator for Kubernetes** 的方向演进。
+- 产品方向是 **Enterprise Multi-Tenant Agent Control Plane**，并将
+  evaluation 作为一等能力，而不是附属功能。
 - Go 承载 Kubernetes API 类型、CRD controller、compiler、admission check、runtime dispatch，以及未来的 gateway。
 - Go 预计承载基于 Eino 的 runtime worker。
 - 默认 runner 方向是 `runtime.engine: eino` 与 `runtime.runnerClass: adk`；LangGraph 保留为未来兼容 adapter。
@@ -62,6 +66,19 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 - `controller-manager` 是 operator 控制面，负责监听 CRD、reconcile 期望状态、编译 artifact，并管理 run lifecycle。
 - `worker` 是执行侧 runtime 入口，负责消费 compiled artifact 和 run input，并执行模型调用以及未来的 tool/retrieval 工作。
 - CRD 仍然是平台用户与 operator 之间的声明式 API 边界。
+
+### 产品优先级
+
+项目后续设计应明确围绕以下主线展开：
+
+- **企业级与多租户默认前提**：tenancy、隔离、RBAC、quota、审计、workspace
+  边界都应被视为产品基本要求，而不是后期补丁。
+- **Evaluation 作为核心卖点**：评测集管理、revision 对比、阈值门禁、
+  上线前评估、线上回归监控和多模型横向比较，应成为产品辨识度的一部分。
+- **模型厂商支持作为平台能力矩阵**：模型支持应从“有一条 OpenAI-compatible
+  路径”升级为 provider capability matrix，兼顾国际厂商与中国本土模型提供商。
+- **UX-first Web Console**：Phase 3 的目标不是做一个薄管理台，而是做一个用户
+  会高频使用的产品界面。
 
 ### Build / Buy / Integrate 原则
 
@@ -144,11 +161,13 @@ Agent pattern、SubAgent 和 A2A TODO 见
 | Eino compile artifact | 已有静态引用 compiler、typed compiled artifact decoder 和 v1 runner artifact 输出。 | 继续把 prompt/tool/knowledge 内容解析进 runner artifact。 |
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Model credentials | 进行中。 | Sample Agent 已可通过同 namespace 的 Kubernetes Secret 引用模型凭据，worker Job 会注入密钥但不会把明文写入 status 或 artifacts。 |
+| Tenancy 与 workspace 模型 | 尚未开始。 | 引入 tenant 和 workspace 抽象，并让它们贯穿 API 设计、runtime 隔离、RBAC、quota 和未来 UI。 |
+| Model provider strategy | 仅有早期基础。 | 定义 provider capability matrix，统一 provider 元数据，并增强对国际厂商与中国本土模型提供商的支持。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Agent patterns | 部分完成。 | 已支持 `spec.pattern`，compiler 会保留 pattern 元数据，并在 `spec.graph` 为空时把 `react` 展开成会消费 Agent 已选 tools 与 knowledge 的 runner graph；更多 runtime 语义仍待实现。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
-| Evaluation | 已有 `AgentEvaluation` CRD。 | 增加 evaluation reconciler 和结果上报。 |
+| Evaluation | 已有 `AgentEvaluation` CRD。 | 将 evaluation 扩展为一等产品契约，覆盖评测集管理、revision 对比、阈值门禁和结果上报。 |
 
 Phase 2 退出标准：
 
@@ -163,10 +182,12 @@ Phase 2 退出标准：
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| UI | 本仓库尚未开始。 | 构建用于 agents、runs、traces、evaluations 和发布流程的控制台。 |
+| UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理与协作体验的控制台。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
 | SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
-| Tenant | 尚未开始。 | 增加租户模型、namespace 映射、RBAC 边界、quota 和审计轨迹。 |
+| Tenant 与 workspace 体验 | 尚未开始。 | 增加租户模型、workspace 映射、RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |
+| Evaluation-first workflows | 尚未开始。 | 将评测集管理、revision 对比、阈值门禁、上线检查和回归视图纳入产品主界面。 |
+| Provider management UX | 尚未开始。 | 提供 provider 选择、能力差异、credential 引用和模型切换的用户工作流。 |
 | Governance workflows | 已有 Policy CRD。 | 增加 review、approval、human-in-the-loop 和 exception 工作流。 |
 
 Phase 3 退出标准：

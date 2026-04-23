@@ -24,6 +24,8 @@ Current repository direction:
 - `react` is the first supported pattern preset.
 - Do **not** introduce a separate `rag` preset. ReAct should consume the
   agent's normal `knowledgeRefs` and `toolRefs`.
+- Product direction is explicitly **enterprise, multi-tenant, evaluation-led,
+  and UX-aware**.
 
 ## What To Optimize For
 
@@ -31,9 +33,11 @@ When making changes, optimize for these goals in order:
 
 1. Preserve a clean boundary between control plane and execution plane.
 2. Keep CRDs and compiled artifacts deterministic and auditable.
-3. Prefer incremental extension of the existing model over broad redesign.
-4. Keep the worker runtime simple enough to validate locally in Kubernetes.
-5. Make changes that support the current roadmap:
+3. Make the product shape enterprise-ready: tenancy, isolation, governance,
+   provider breadth, and evaluation are not optional extras.
+4. Prefer incremental extension of the existing model over broad redesign.
+5. Keep the worker runtime simple enough to validate locally in Kubernetes.
+6. Make changes that support the current roadmap:
    `Skill -> Pattern -> Runtime semantics -> SubAgent/A2A`.
 
 ## Build, Buy, Integrate Policy
@@ -48,6 +52,9 @@ These are the core differentiators and should stay first-class:
 - compiler rules and validation
 - deterministic compiled artifacts
 - `AgentRun` lifecycle and status contract
+- evaluation contract, revision comparison, and release-gate semantics
+- provider abstraction and capability modeling
+- tenant and workspace boundaries in the control-plane model
 - Kubernetes runtime dispatch and secret-handling boundaries
 - opinionated `Skill` and `Pattern` behavior
 
@@ -59,6 +66,8 @@ These areas are worth studying and adapting, but not necessarily copying:
 - package and marketplace models
 - SubAgent composition
 - A2A-compatible resource boundaries
+- enterprise evaluation UX and workflow patterns
+- provider catalog and model-switching UX
 - product-facing console and platform workflows
 
 ### Integrate instead of rewrite
@@ -135,6 +144,12 @@ explicitly asks for a directional change:
 - `Agent`, `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`,
   `MCPServer`, `AgentPolicy`, `AgentEvaluation`, and `Skill` are CRD-backed
   resources.
+- The product target is an enterprise multi-tenant platform, not a single-team
+  sandbox.
+- Evaluation should grow into a flagship capability, not remain an auxiliary
+  CRD.
+- Model provider support should evolve into a capability matrix that treats
+  Chinese domestic providers as first-class targets.
 - `Skill` can currently contribute prompts, tools, knowledge, functions, and
   graph fragments.
 - `react` can expand into a runner graph when `spec.graph` is empty.
@@ -179,6 +194,8 @@ If you change compiler, runtime, or worker behavior:
 1. update focused tests first or alongside the change
 2. run at least the affected package tests
 3. run `make test` before finishing
+4. consider whether the change affects tenancy, evaluation, provider support,
+   or future UI semantics; if so, update the relevant docs
 
 If you change samples or local validation behavior:
 
@@ -238,6 +255,14 @@ When behavior changes materially, update the relevant docs:
 - `README.zh-CN.md`
 - `docs/phase2/eino-runtime-design.md`
 - `docs/phase2/agent-patterns-and-a2a-todo.md`
+
+When the change affects enterprise product direction, also keep these topics
+current in docs and code comments where appropriate:
+
+- multi-tenant and workspace boundaries
+- evaluation-first product semantics
+- provider capability matrix and domestic provider support
+- UX implications for the future web console
 
 Keep docs aligned with current truth. Do not leave roadmap tables claiming
 "Not started" when code already exists.

@@ -16,8 +16,9 @@ in `config/samples/ehs`.
 ## Project Positioning
 
 Agent Control Plane should be understood as an **enterprise, multi-tenant Agent
-Control Plane product** built on top of Kubernetes, not as a standalone SDK or
-a one-shot workflow runner.
+orchestration, evaluation, and release platform** built on top of Kubernetes,
+not as a standalone SDK, a thin cluster admin UI, or a one-shot workflow
+runner.
 
 - The **operator layer** is responsible for reconciling CRDs such as `Agent`,
   `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`, and
@@ -28,12 +29,17 @@ a one-shot workflow runner.
 - The **execution layer** lives behind worker and runtime backends. It is where
   model calls, tool calls, retrieval, checkpoints, and future graph execution
   happen.
+- The **console layer** is intended to be a first-class product surface where
+  users visually compose agents, inspect evaluations, compare revisions, and
+  promote releases without hand-authoring every workflow detail in YAML.
 
 In other words, the project is not trying to put all agent logic inside the
 operator process. The operator owns declaration, reconciliation, scheduling,
-and governance; workers own execution. The product direction is explicitly
-enterprise-first: multi-tenancy, evaluation, provider breadth, governance, and
-day-to-day usability matter as much as raw runtime capability.
+and governance; workers own execution; the console owns the day-to-day product
+experience for building, evaluating, and releasing agents. The product
+direction is explicitly enterprise-first: multi-tenancy, evaluation, provider
+breadth, governance, and day-to-day usability matter as much as raw runtime
+capability.
 
 ## What It Provides
 
@@ -58,6 +64,10 @@ code.
 - **Enterprise agent publishing**: platform teams can define, review, publish,
   and roll back agents with Kubernetes-native specs, status, revisions, and
   RBAC boundaries.
+- **Visual agent orchestration**: application teams can use the web console to
+  compose prompts, tools, knowledge, skills, and graph flows visually, then
+  publish the resulting agent configuration through the same control-plane
+  contract.
 - **Business workflow automation**: product teams can expose repeatable agent
   workflows such as document review, ticket triage, incident response,
   inspection analysis, and knowledge-assisted decision support.
@@ -86,7 +96,8 @@ code.
   runner direction; LangGraph remains a future compatibility adapter.
 - PostgreSQL, pgvector, S3-compatible storage, and a queue are expected to
   provide state, retrieval, artifacts, and async execution as the system matures.
-- TypeScript can host the future console, marketplace UI, and generated SDKs.
+- TypeScript should host the future enterprise console, visual orchestration
+  studio, marketplace UI, and generated SDKs.
 
 ### Control Plane Boundary
 
@@ -113,7 +124,9 @@ The project should be designed around these priorities:
   works well across global and Chinese domestic model providers.
 - **UX-first console direction**: Phase 3 should optimize for the daily user
   experience of tenants, operators, evaluators, and application teams rather
-  than shipping a thin admin panel.
+  than shipping a thin admin panel. The console is expected to be the primary
+  product entrypoint for visual agent orchestration, evaluation, release, and
+  governance workflows.
 
 ### Build, Buy, Integrate
 
@@ -225,7 +238,7 @@ Goal: make the platform usable by teams, not only by cluster operators.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |
-| UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, agent build and publish flows, run debugging, evaluation comparison, provider management, and collaboration. |
+| UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, visual agent orchestration, agent build and publish flows, run debugging, evaluation comparison, provider management, collaboration, and release workflows. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
 | SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
 | Tenant and workspace experience | Not started. | Add tenancy model, workspace mapping, RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |
@@ -235,7 +248,7 @@ Goal: make the platform usable by teams, not only by cluster operators.
 
 Phase 3 exit criteria:
 
-- Users can publish, inspect, invoke, and debug agents from the UI.
+- Users can visually compose, publish, inspect, invoke, evaluate, release, and debug agents from the UI.
 - Marketplace packages can be listed, installed, versioned, and reviewed.
 - Tenant isolation is explicit across API, runtime, storage, and observability.
 - Governance workflows are auditable and enforceable.

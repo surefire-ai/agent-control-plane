@@ -13,8 +13,8 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 
 ## 项目定位
 
-Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景的 Agent Control Plane 产品**，
-底座建立在 Kubernetes 之上，而不是一个独立 SDK，也不是只跑一次的工作流脚本。
+Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景的 Agent 编排、评测与发布平台**，
+底座建立在 Kubernetes 之上，而不是一个独立 SDK、一个薄薄的集群管理台，也不是只跑一次的工作流脚本。
 
 - **operator 层** 负责持续 reconcile `Agent`、`AgentRun`、
   `PromptTemplate`、`ToolProvider`、`KnowledgeBase`、`AgentPolicy`
@@ -23,11 +23,13 @@ Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景
   发布 status，执行平台契约，并把运行请求分发给执行 backend。
 - **执行层** 位于 worker 和 runtime backend 后面，负责模型调用、tool
   调用、retrieval、checkpoint，以及未来的图执行。
+- **console 层** 是一等产品入口，负责承载可视化的 Agent 编排、Evaluation
+  查看、revision 对比和发布体验，而不是仅仅展示 Kubernetes 资源。
 
 换句话说，这个项目并不是要把所有 Agent 逻辑都塞进 operator 进程里。
-operator 负责声明、reconcile、调度和治理；worker 负责执行。项目方向也明确是
-企业产品优先：多租户、evaluation、provider 广度、治理和日常使用体验，和 runtime
-能力本身同等重要。
+operator 负责声明、reconcile、调度和治理；worker 负责执行；console 负责团队每天
+真正会使用的编排、评测、发布和协作体验。项目方向也明确是企业产品优先：多租户、
+evaluation、provider 广度、治理和日常使用体验，和 runtime 能力本身同等重要。
 
 ## 项目能力
 
@@ -44,6 +46,8 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 
 - **企业级 Agent 发布**：平台团队可以用 Kubernetes 原生 spec、status、revision 和
   RBAC 边界来定义、评审、发布和回滚 Agent。
+- **可视化 Agent 编排**：应用团队可以直接在 Web Console 里组合 prompt、tool、
+  knowledge、skill 和 graph flow，并把结果发布为统一的控制平面资源，而不是手写全部 YAML。
 - **业务流程自动化**：产品团队可以暴露可重复运行的 Agent 工作流，例如文档审核、工单分诊、事件响应、巡检分析和知识辅助决策。
 - **受监管、可审计的 AI 运行**：风控、合规和运营团队可以为每次 Agent 调用关联策略、trace reference、评估计划和不可变运行记录。
 - **垂直领域 Agent 系统**：领域团队可以打包 EHS 危害识别、质量巡检、维修计划、客户支持、财务运营等知识密集型场景的专用 Agent。
@@ -59,7 +63,7 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 - Go 预计承载基于 Eino 的 runtime worker。
 - 默认 runner 方向是 `runtime.engine: eino` 与 `runtime.runnerClass: adk`；LangGraph 保留为未来兼容 adapter。
 - PostgreSQL、pgvector、S3 兼容存储和队列预计用于状态、检索、产物和异步执行。
-- TypeScript 可用于未来的控制台、Marketplace UI 和生成式 SDK。
+- TypeScript 应承载未来的企业级控制台、可视化编排工作台、Marketplace UI 和生成式 SDK。
 
 ### 控制面边界
 
@@ -78,7 +82,7 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 - **模型厂商支持作为平台能力矩阵**：模型支持应从“有一条 OpenAI-compatible
   路径”升级为 provider capability matrix，兼顾国际厂商与中国本土模型提供商。
 - **UX-first Web Console**：Phase 3 的目标不是做一个薄管理台，而是做一个用户
-  会高频使用的产品界面。
+  会高频使用的产品界面。它应该成为可视化 Agent 编排、Evaluation、发布和治理的主入口。
 
 ### Build / Buy / Integrate 原则
 
@@ -182,7 +186,7 @@ Phase 2 退出标准：
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
-| UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理与协作体验的控制台。 |
+| UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、可视化 Agent 编排、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理、协作与发布体验的控制台。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
 | SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
 | Tenant 与 workspace 体验 | 尚未开始。 | 增加租户模型、workspace 映射、RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |
@@ -192,7 +196,7 @@ Phase 2 退出标准：
 
 Phase 3 退出标准：
 
-- 用户可以在 UI 中发布、查看、调用和调试 agents。
+- 用户可以在 UI 中可视化编排、发布、查看、调用、评测和调试 agents。
 - Marketplace package 可以被列出、安装、版本化和审查。
 - API、runtime、storage 和 observability 中的租户隔离都有明确边界。
 - 治理工作流可审计、可执行。

@@ -26,6 +26,8 @@ Current repository direction:
   agent's normal `knowledgeRefs` and `toolRefs`.
 - Product direction is explicitly **enterprise, multi-tenant, evaluation-led,
   and UX-aware**.
+- The future console is a **first-class visual orchestration, evaluation, and
+  release surface**, not a thin dashboard layered on top of CRDs.
 
 ## What To Optimize For
 
@@ -35,9 +37,11 @@ When making changes, optimize for these goals in order:
 2. Keep CRDs and compiled artifacts deterministic and auditable.
 3. Make the product shape enterprise-ready: tenancy, isolation, governance,
    provider breadth, and evaluation are not optional extras.
-4. Prefer incremental extension of the existing model over broad redesign.
-5. Keep the worker runtime simple enough to validate locally in Kubernetes.
-6. Make changes that support the current roadmap:
+4. Treat the web console as a product surface for visual orchestration,
+   evaluation, release, and collaboration, not as a passive admin view.
+5. Prefer incremental extension of the existing model over broad redesign.
+6. Keep the worker runtime simple enough to validate locally in Kubernetes.
+7. Make changes that support the current roadmap:
    `Skill -> Pattern -> Runtime semantics -> SubAgent/A2A`.
 
 ## Build, Buy, Integrate Policy
@@ -146,6 +150,9 @@ explicitly asks for a directional change:
   CRD-backed resources.
 - The product target is an enterprise multi-tenant platform, not a single-team
   sandbox.
+- The product target is also a user-facing enterprise platform where the web
+  console is expected to support visual agent orchestration, evaluation,
+  publishing, and release management.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with
@@ -217,7 +224,8 @@ If you change compiler, runtime, or worker behavior:
 2. run at least the affected package tests
 3. run `make test` before finishing
 4. consider whether the change affects tenancy, evaluation, provider support,
-   or future UI semantics; if so, update the relevant docs
+   visual orchestration semantics, or future UI semantics; if so, update the
+   relevant docs
 
 If you change samples or local validation behavior:
 

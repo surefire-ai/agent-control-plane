@@ -58,7 +58,14 @@ spec:
     labels:
       environment: pre-release
   runtime:
-    sampleInput:
-      task: identify_hazard
-      payload:
-        text: 发现配电箱接线端裸露，现场未设置警示标识，存在触电风险。
+    samples:
+      - name: power-box-exposed-wire
+        input:
+          task: identify_hazard
+          payload:
+            text: 发现配电箱接线端裸露，现场未设置警示标识，存在触电风险。
+      - name: blocked-fire-access
+        input:
+          task: identify_hazard
+          payload:
+            text: 消防通道堆放杂物，灭火器被遮挡，人员疏散和取用消防器材受阻。

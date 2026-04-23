@@ -79,7 +79,7 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 	if updated.Status.LatestRunRef["agentRevision"] != "sha256:agent" {
 		t.Fatalf("expected agent revision ref, got %#v", updated.Status.LatestRunRef)
 	}
-	if updated.Status.LatestRunRef["name"] != "eval-1-run-g2" {
+	if updated.Status.LatestRunRef["name"] != "eval-1-run-g2-sample-0" {
 		t.Fatalf("expected managed run name, got %#v", updated.Status.LatestRunRef)
 	}
 	if updated.Status.ReportRef["report"].Raw == nil {
@@ -90,7 +90,7 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 	}
 
 	var managedRun apiv1alpha1.AgentRun
-	if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: "eval-1-run-g2"}, &managedRun); err != nil {
+	if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: "eval-1-run-g2-sample-0"}, &managedRun); err != nil {
 		t.Fatalf("expected managed AgentRun to be created: %v", err)
 	}
 }
@@ -216,10 +216,24 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 				Revision: "agent-1-r0001",
 			},
 			Runtime: apiv1alpha1.FreeformObject{
-				"sampleInput": agentruntime.JSONValue(map[string]interface{}{
-					"task": "identify_hazard",
-					"payload": map[string]interface{}{
-						"text": "发现配电箱有裸露电线",
+				"samples": agentruntime.JSONValue([]map[string]interface{}{
+					{
+						"name": "case-a",
+						"input": map[string]interface{}{
+							"task": "identify_hazard",
+							"payload": map[string]interface{}{
+								"text": "发现配电箱有裸露电线",
+							},
+						},
+					},
+					{
+						"name": "case-b",
+						"input": map[string]interface{}{
+							"task": "identify_hazard",
+							"payload": map[string]interface{}{
+								"text": "灭火器被遮挡",
+							},
+						},
 					},
 				}),
 			},
@@ -236,9 +250,9 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 		},
 	}
 	agent := readyAgent("agent-1", "ehs", "sha256:agent")
-	run := &apiv1alpha1.AgentRun{
+	runA := &apiv1alpha1.AgentRun{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "eval-1-run-g1",
+			Name:      "eval-1-run-g1-case-a",
 			Namespace: "ehs",
 		},
 		Spec: apiv1alpha1.AgentRunSpec{
@@ -257,11 +271,32 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 			},
 		},
 	}
+	runB := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eval-1-run-g1-case-b",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase:         string(apiv1alpha1.AgentRunPhaseSucceeded),
+			AgentRevision: "sha256:agent",
+			Output: apiv1alpha1.FreeformObject{
+				"summary":          agentruntime.JSONValue("inspection complete"),
+				"hazards":          agentruntime.JSONValue([]interface{}{}),
+				"overallRiskLevel": agentruntime.JSONValue("low"),
+				"nextActions":      agentruntime.JSONValue([]string{"clear pathway"}),
+				"confidence":       agentruntime.JSONValue(0.87),
+				"needsHumanReview": agentruntime.JSONValue(false),
+			},
+		},
+	}
 
 	kubeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
-		WithObjects(evaluation, agent, run).
+		WithObjects(evaluation, agent, runA, runB).
 		Build()
 	reconciler := &AgentEvaluationReconciler{
 		Client: kubeClient,
@@ -280,8 +315,8 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 	if updated.Status.Phase != "Succeeded" {
 		t.Fatalf("expected Succeeded phase, got %q", updated.Status.Phase)
 	}
-	if updated.Status.Summary.SamplesEvaluated != 1 {
-		t.Fatalf("expected one evaluated sample, got %#v", updated.Status.Summary)
+	if updated.Status.Summary.SamplesEvaluated != 2 || updated.Status.Summary.SamplesTotal != 2 {
+		t.Fatalf("expected two evaluated samples, got %#v", updated.Status.Summary)
 	}
 	if !updated.Status.Summary.GatePassed {
 		t.Fatalf("expected gate passed, got %#v", updated.Status.Summary)
@@ -289,7 +324,70 @@ func TestAgentEvaluationReconcilerAggregatesManagedRunResults(t *testing.T) {
 	if len(updated.Status.Results) != 3 {
 		t.Fatalf("expected 3 metric results, got %#v", updated.Status.Results)
 	}
-	if updated.Status.LatestRunRef["name"] != "eval-1-run-g1" {
+	if updated.Status.LatestRunRef["name"] != "eval-1-run-g1-case-b" {
 		t.Fatalf("expected latest run ref name, got %#v", updated.Status.LatestRunRef)
+	}
+}
+
+func TestAgentEvaluationReconcilerCreatesMultipleManagedRuns(t *testing.T) {
+	scheme := testScheme(t)
+	evaluation := &apiv1alpha1.AgentEvaluation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "eval-2",
+			Namespace:  "ehs",
+			Generation: 3,
+		},
+		Spec: apiv1alpha1.AgentEvaluationSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			DatasetRef: apiv1alpha1.EvaluationDatasetReference{
+				Name:     "ehs-hazard-benchmark-v2",
+				Revision: "2026-05",
+			},
+			Runtime: apiv1alpha1.FreeformObject{
+				"samples": agentruntime.JSONValue([]map[string]interface{}{
+					{
+						"name": "power-box",
+						"input": map[string]interface{}{
+							"task":    "identify_hazard",
+							"payload": map[string]interface{}{"text": "配电箱外壳破损"},
+						},
+					},
+					{
+						"name": "fire-lane",
+						"input": map[string]interface{}{
+							"task":    "identify_hazard",
+							"payload": map[string]interface{}{"text": "消防通道堆放杂物"},
+						},
+					},
+				}),
+			},
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
+		WithObjects(evaluation, agent).
+		Build()
+	reconciler := &AgentEvaluationReconciler{Client: kubeClient, Scheme: scheme}
+
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "eval-2"}}
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.AgentEvaluation
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &updated); err != nil {
+		t.Fatalf("get AgentEvaluation returned error: %v", err)
+	}
+	if updated.Status.Summary.SamplesTotal != 2 {
+		t.Fatalf("expected two total samples, got %#v", updated.Status.Summary)
+	}
+
+	for _, runName := range []string{"eval-2-run-g3-power-box", "eval-2-run-g3-fire-lane"} {
+		var managedRun apiv1alpha1.AgentRun
+		if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: runName}, &managedRun); err != nil {
+			t.Fatalf("expected managed AgentRun %q to be created: %v", runName, err)
+		}
 	}
 }

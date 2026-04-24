@@ -169,10 +169,10 @@ Tenancy 与 workspace 设计说明见
 | Eino compile artifact | 已有静态引用 compiler、typed compiled artifact decoder 和 v1 runner artifact 输出。 | 继续把 prompt/tool/knowledge 内容解析进 runner artifact。 |
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Model credentials | 进行中。 | Sample Agent 已可通过同 namespace 的 Kubernetes Secret 引用模型凭据，worker Job 会注入密钥但不会把明文写入 status 或 artifacts。 |
-| Tenancy 与 workspace 模型 | Early foundation | 已加入 `Tenant` 与 `Workspace` CRD skeleton，作为企业级作用域的第一层控制面接口；轻量 controller 已能解析 `tenantRef`、发布 workspace console scope，并统计 tenant 下的 workspace 数量；`Agent` / `AgentEvaluation` 现在也可显式声明 `workspaceRef`，并由 controller 执行基础校验。 | 继续把这层模型扩展到 runtime 隔离、RBAC、quota、workspace 绑定与未来 UI 语义中。 |
+| Tenancy 与 workspace 模型 | Early foundation | 已加入 `Tenant` 与 `Workspace` CRD skeleton，作为企业级作用域的第一层控制面接口；轻量 controller 已能解析 `tenantRef`、发布 workspace console scope，并统计 tenant 下的 workspace 数量；`Agent` / `AgentEvaluation` 现在也可显式声明 `workspaceRef`，并由 controller 执行基础校验。Workspace policy 还可以提供默认 `AgentPolicy`，并在 Agent 编译前限制允许使用的模型 provider。 | 继续把这层模型扩展到 runtime 隔离、RBAC、quota、workspace 绑定与未来 UI 语义中。 |
 | Model provider strategy | 已有早期基础。 | compiler 现在会按 provider catalog 校验 `ModelSpec.provider`，并把 provider family 元数据写入 compiled artifact。OpenAI-compatible 一族目前已可统一覆盖 OpenAI、Azure OpenAI、DeepSeek、Qwen、Moonshot、Doubao、GLM、Baichuan、MiniMax、SiliconFlow。 | 继续扩展 capability matrix，并在需要时增加 provider-specific runtime adapter，同时为未来 UI 和 policy 暴露这份 catalog。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference 和 revision。 | 定义 artifacts、logs、errors、取消和重试行为。 |
-| Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
+| Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`；当 Agent 未显式设置 policy 时，workspace-scoped 默认 policy 已可进入 compiled artifact。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
 | Agent patterns | 部分完成。 | 已支持 `spec.pattern`，compiler 会保留 pattern 元数据，并在 `spec.graph` 为空时把 `react` 展开成会消费 Agent 已选 tools 与 knowledge 的 runner graph；更多 runtime 语义仍待实现。 |
 | Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
 | Evaluation | `AgentEvaluation` 已具备 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析 readiness、分别为 current/baseline 创建受管 `AgentRun`，并把 baseline revision、聚合后的 run state、基础规则型指标、早期 structured metric、gate 结果和 comparison delta 写入 status。 | 在此基础上继续扩展 richer result reporting、revision 对比和发布门禁行为。 |

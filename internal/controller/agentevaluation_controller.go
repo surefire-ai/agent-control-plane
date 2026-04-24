@@ -54,7 +54,7 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	original := evaluation.DeepCopy()
 	previousStatus := evaluation.Status.DeepCopy()
 
-	workspaceName, err := resolveWorkspaceScope(ctx, r.Client, req.Namespace, evaluation.Spec.WorkspaceRef)
+	workspaceName, _, err := resolveWorkspaceScope(ctx, r.Client, req.Namespace, evaluation.Spec.WorkspaceRef)
 	if err != nil {
 		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "WorkspaceReferenceFailed", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)

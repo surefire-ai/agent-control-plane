@@ -6,6 +6,7 @@ import (
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
 	"github.com/surefire-ai/agent-control-plane/internal/compiler"
+	"github.com/surefire-ai/agent-control-plane/internal/providers"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +39,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	original := agent.DeepCopy()
 	previousStatus := agent.Status.DeepCopy()
 
-	workspaceName, err := resolveWorkspaceScope(ctx, r.Client, req.Namespace, agent.Spec.WorkspaceRef)
+	workspaceName, workspace, err := resolveWorkspaceScope(ctx, r.Client, req.Namespace, agent.Spec.WorkspaceRef)
 	if err != nil {
 		setAgentStatus(&agent, "NotReady", workspaceName, "", nil, metav1.Condition{
 			Type:               agentReadyCondition,
@@ -52,8 +53,22 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 		return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
 	}
+	effectiveAgent, err := agentWithWorkspaceDefaults(agent, workspace)
+	if err != nil {
+		setAgentStatus(&agent, "NotReady", workspaceName, "", nil, metav1.Condition{
+			Type:               agentReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             "WorkspacePolicyRejected",
+			Message:            err.Error(),
+			ObservedGeneration: agent.Generation,
+		})
+		if equality.Semantic.DeepEqual(previousStatus, &agent.Status) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
+	}
 
-	result, err := compiler.CompileAgent(agent, refs)
+	result, err := compiler.CompileAgent(effectiveAgent, refs)
 	if err != nil {
 		setAgentStatus(&agent, "NotReady", workspaceName, "", nil, metav1.Condition{
 			Type:               agentReadyCondition,
@@ -175,21 +190,55 @@ func setAgentStatus(agent *apiv1alpha1.Agent, phase string, workspaceRef string,
 	agent.Status.Conditions = mergeCondition(agent.Status.Conditions, condition)
 }
 
-func resolveWorkspaceScope(ctx context.Context, reader client.Reader, namespace string, ref *apiv1alpha1.LocalObjectReference) (string, error) {
+func resolveWorkspaceScope(ctx context.Context, reader client.Reader, namespace string, ref *apiv1alpha1.LocalObjectReference) (string, *apiv1alpha1.Workspace, error) {
 	if ref == nil || ref.Name == "" {
-		return "", nil
+		return "", nil, nil
 	}
 	var workspace apiv1alpha1.Workspace
 	if err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: ref.Name}, &workspace); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ref.Name, fmt.Errorf("referenced Workspace %q not found", ref.Name)
+			return ref.Name, nil, fmt.Errorf("referenced Workspace %q not found", ref.Name)
 		}
-		return ref.Name, err
+		return ref.Name, nil, err
 	}
 	if workspace.Status.Phase != "Ready" {
-		return workspace.Name, fmt.Errorf("referenced Workspace %q is not Ready", workspace.Name)
+		return workspace.Name, &workspace, fmt.Errorf("referenced Workspace %q is not Ready", workspace.Name)
 	}
-	return workspace.Name, nil
+	return workspace.Name, &workspace, nil
+}
+
+func agentWithWorkspaceDefaults(agent apiv1alpha1.Agent, workspace *apiv1alpha1.Workspace) (apiv1alpha1.Agent, error) {
+	if workspace == nil {
+		return agent, nil
+	}
+	effective := agent.DeepCopy()
+	if effective.Spec.PolicyRef == "" && workspace.Spec.PolicyRef != "" {
+		effective.Spec.PolicyRef = workspace.Spec.PolicyRef
+	}
+	if err := validateWorkspaceProviders(*effective, *workspace); err != nil {
+		return apiv1alpha1.Agent{}, err
+	}
+	return *effective, nil
+}
+
+func validateWorkspaceProviders(agent apiv1alpha1.Agent, workspace apiv1alpha1.Workspace) error {
+	allowed := map[string]struct{}{}
+	for _, providerName := range workspace.Spec.ProviderPolicy.AllowedProviders {
+		normalized := providers.Normalize(providerName)
+		if normalized != "" {
+			allowed[normalized] = struct{}{}
+		}
+	}
+	if len(allowed) == 0 {
+		return nil
+	}
+	for name, model := range agent.Spec.Models {
+		providerName := providers.Normalize(model.Provider)
+		if _, ok := allowed[providerName]; !ok {
+			return fmt.Errorf("model %q uses provider %q outside Workspace %q allowedProviders", name, model.Provider, workspace.Name)
+		}
+	}
+	return nil
 }
 
 func mergeCondition(existing []metav1.Condition, next metav1.Condition) []metav1.Condition {

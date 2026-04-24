@@ -138,6 +138,96 @@ func TestAgentReconcilerFailsWhenWorkspaceMissing(t *testing.T) {
 	}
 }
 
+func TestAgentReconcilerAppliesWorkspacePolicyDefaults(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := apiv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme returned error: %v", err)
+	}
+
+	workspace := readyWorkspace("workspace-a", "ehs", "tenant-a")
+	workspace.Spec.PolicyRef = "workspace-policy"
+	workspace.Spec.ProviderPolicy.AllowedProviders = []string{"openai"}
+	agent := &apiv1alpha1.Agent{
+		ObjectMeta: metav1.ObjectMeta{Name: "hazard-agent", Namespace: "ehs", Generation: 1},
+		Spec: apiv1alpha1.AgentSpec{
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "workspace-a"},
+			Lifecycle:    apiv1alpha1.AgentLifecycleSpec{DesiredPhase: apiv1alpha1.AgentPhasePublished},
+			Models: map[string]apiv1alpha1.ModelSpec{
+				"planner": {Provider: "openai", Model: "gpt-4.1"},
+			},
+		},
+	}
+	policy := &apiv1alpha1.AgentPolicy{ObjectMeta: metav1.ObjectMeta{Name: "workspace-policy", Namespace: "ehs"}}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.Agent{}).
+		WithObjects(agent, workspace, policy).
+		Build()
+
+	reconciler := &AgentReconciler{Client: kubeClient, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "hazard-agent"}}
+	if _, err := reconciler.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.Agent
+	if err := kubeClient.Get(context.Background(), req.NamespacedName, &updated); err != nil {
+		t.Fatalf("get Agent returned error: %v", err)
+	}
+	if updated.Status.Phase != string(apiv1alpha1.AgentPhasePublished) {
+		t.Fatalf("expected Published phase, got %q", updated.Status.Phase)
+	}
+	if updated.Status.WorkspaceRef != "workspace-a" {
+		t.Fatalf("expected workspace ref in status, got %#v", updated.Status)
+	}
+	if jsonString(updated.Status.CompiledArtifact["policyRef"]) != "workspace-policy" {
+		t.Fatalf("expected workspace policy in artifact, got %#v", updated.Status.CompiledArtifact["policyRef"])
+	}
+}
+
+func TestAgentReconcilerRejectsWorkspaceDisallowedProvider(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := apiv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme returned error: %v", err)
+	}
+
+	workspace := readyWorkspace("workspace-a", "ehs", "tenant-a")
+	workspace.Spec.ProviderPolicy.AllowedProviders = []string{"qwen"}
+	agent := &apiv1alpha1.Agent{
+		ObjectMeta: metav1.ObjectMeta{Name: "hazard-agent", Namespace: "ehs", Generation: 1},
+		Spec: apiv1alpha1.AgentSpec{
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "workspace-a"},
+			Models: map[string]apiv1alpha1.ModelSpec{
+				"planner": {Provider: "openai", Model: "gpt-4.1"},
+			},
+		},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.Agent{}).
+		WithObjects(agent, workspace).
+		Build()
+
+	reconciler := &AgentReconciler{Client: kubeClient, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "hazard-agent"}}
+	if _, err := reconciler.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.Agent
+	if err := kubeClient.Get(context.Background(), req.NamespacedName, &updated); err != nil {
+		t.Fatalf("get Agent returned error: %v", err)
+	}
+	if updated.Status.Phase != "NotReady" {
+		t.Fatalf("expected NotReady phase, got %q", updated.Status.Phase)
+	}
+	if len(updated.Status.Conditions) != 1 || updated.Status.Conditions[0].Reason != "WorkspacePolicyRejected" {
+		t.Fatalf("expected WorkspacePolicyRejected condition, got %#v", updated.Status.Conditions)
+	}
+}
+
 func assertContains(t *testing.T, values map[string]struct{}, key string) {
 	t.Helper()
 	if _, ok := values[key]; !ok {

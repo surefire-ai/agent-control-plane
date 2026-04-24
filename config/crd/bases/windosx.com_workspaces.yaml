@@ -47,9 +47,20 @@ spec:
                 type: object
               namespace:
                 type: string
+              policyRef:
+                type: string
               provider:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
+                type: object
+              providerPolicy:
+                properties:
+                  allowedProviders:
+                    items:
+                      type: string
+                    type: array
+                  defaultProvider:
+                    type: string
                 type: object
               tenantRef:
                 properties:

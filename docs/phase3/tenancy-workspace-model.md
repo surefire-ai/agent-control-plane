@@ -71,6 +71,8 @@ The first API skeleton currently carries:
 - `tenantRef`
 - display metadata
 - optional namespace mapping
+- optional default policy reference
+- optional provider policy
 - freeform provider metadata
 - freeform governance metadata
 
@@ -114,6 +116,22 @@ shape of every policy and provider contract.
 
 These fields should be tightened gradually as real workflows stabilize.
 
+## Current Workspace Enforcement
+
+The first workspace-aware enforcement path is now attached to `Agent`
+compilation.
+
+- `Agent.spec.workspaceRef` must point at a Ready `Workspace` when set.
+- `AgentEvaluation.spec.workspaceRef` must point at a Ready `Workspace` when
+  set.
+- `Workspace.spec.policyRef` is used as the effective `AgentPolicy` when an
+  agent does not set `Agent.spec.policyRef`.
+- `Workspace.spec.providerPolicy.allowedProviders` restricts which model
+  providers an agent can use before compilation starts.
+
+This gives the console an early but real workspace-level governance model for
+the build and evaluation flow.
+
 ## What This Iteration Does Not Do Yet
 
 This first skeleton does not yet:
@@ -130,8 +148,8 @@ surface before wiring enforcement and lifecycle behavior around it.
 
 ## Expected Next Steps
 
-1. Add `Tenant` and `Workspace` status semantics through controllers
-2. Decide how agents, evaluations, and providers attach to workspaces
-3. Introduce workspace-aware provider and policy resolution
-4. Map workspace semantics into console navigation and permissions
-5. Tighten governance and provider substructures as real workflows settle
+1. Decide how provider credentials and provider bindings attach to workspaces
+2. Introduce workspace-aware runtime identity and audit metadata
+3. Map workspace semantics into console navigation and permissions
+4. Tighten governance and provider substructures as real workflows settle
+5. Extend workspace scoping beyond agents and evaluations where it is useful

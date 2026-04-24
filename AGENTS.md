@@ -161,6 +161,10 @@ explicitly asks for a directional change:
 - `Tenant` now records an aggregated `workspaceCount` in status.
 - `Agent` and `AgentEvaluation` can now declare `workspaceRef`; controllers
   already validate those references against Ready workspaces before proceeding.
+- `Workspace.spec.policyRef` can provide the default `AgentPolicy` for agents
+  that do not set `Agent.spec.policyRef`, and
+  `Workspace.spec.providerPolicy.allowedProviders` is enforced before agent
+  compilation.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with

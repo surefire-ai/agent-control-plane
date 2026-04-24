@@ -97,12 +97,19 @@ type TenantStatus struct {
 }
 
 type WorkspaceSpec struct {
-	TenantRef   LocalObjectReference `json:"tenantRef"`
-	DisplayName string               `json:"displayName,omitempty"`
-	Description string               `json:"description,omitempty"`
-	Namespace   string               `json:"namespace,omitempty"`
-	Provider    FreeformObject       `json:"provider,omitempty"`
-	Governance  FreeformObject       `json:"governance,omitempty"`
+	TenantRef      LocalObjectReference        `json:"tenantRef"`
+	DisplayName    string                      `json:"displayName,omitempty"`
+	Description    string                      `json:"description,omitempty"`
+	Namespace      string                      `json:"namespace,omitempty"`
+	PolicyRef      string                      `json:"policyRef,omitempty"`
+	ProviderPolicy WorkspaceProviderPolicySpec `json:"providerPolicy,omitempty"`
+	Provider       FreeformObject              `json:"provider,omitempty"`
+	Governance     FreeformObject              `json:"governance,omitempty"`
+}
+
+type WorkspaceProviderPolicySpec struct {
+	DefaultProvider  string   `json:"defaultProvider,omitempty"`
+	AllowedProviders []string `json:"allowedProviders,omitempty"`
 }
 
 type WorkspaceStatus struct {

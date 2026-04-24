@@ -8,6 +8,8 @@ Last updated: 2026-04-23
 This document defines the intended information architecture for the future web
 console.
 
+The implementation root for the future console is [web/README.md](../../web/README.md).
+
 The console is not a thin Kubernetes dashboard. It is the primary product
 surface for:
 

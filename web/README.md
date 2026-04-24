@@ -20,11 +20,6 @@ Keep this directory focused on the future console implementation. Control-plane
 API types, controllers, compiler behavior, and worker runtime code should stay
 in the existing Go packages.
 
-## Design References
-
-- [Console information architecture](../docs/phase3/console-information-architecture.md)
-- [Tenancy and workspace model](../docs/phase3/tenancy-workspace-model.md)
-
 ## Implementation Direction
 
 The first implementation should prioritize the build, evaluate, and release

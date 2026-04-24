@@ -215,6 +215,7 @@ Phase 3 console planning lives in
 `docs/phase3/console-information-architecture.md`.
 Tenancy and workspace design notes live in
 `docs/phase3/tenancy-workspace-model.md`.
+The future web console implementation root is `web/`.
 
 | Milestone | Current state | Next work |
 | --- | --- | --- |

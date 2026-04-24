@@ -163,6 +163,7 @@ Phase 3 console 规划见
 `docs/phase3/console-information-architecture.md`。
 Tenancy 与 workspace 设计说明见
 `docs/phase3/tenancy-workspace-model.md`。
+未来 Web Console 的实现目录是 `web/`。
 
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |

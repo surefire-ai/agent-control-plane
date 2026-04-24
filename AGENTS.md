@@ -224,6 +224,11 @@ explicitly asks for a directional change:
   - canonical samples and smoke overlays
 - `docs/phase2/`
   - roadmap and design docs for the runtime direction
+- `docs/phase3/`
+  - console, tenancy, workspace, and enterprise product design notes
+- `web/`
+  - future web console implementation; do not place backend control-plane code
+    here
 
 ## Required Workflow For Code Changes
 

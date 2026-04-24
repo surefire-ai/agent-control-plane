@@ -159,6 +159,8 @@ explicitly asks for a directional change:
 - `Workspace` now has a lightweight lifecycle: it resolves `tenantRef`,
   publishes a console scope endpoint, and records its effective namespace.
 - `Tenant` now records an aggregated `workspaceCount` in status.
+- `Agent` and `AgentEvaluation` can now declare `workspaceRef`; controllers
+  already validate those references against Ready workspaces before proceeding.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with

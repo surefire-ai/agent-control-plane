@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
 	"github.com/surefire-ai/agent-control-plane/internal/compiler"
@@ -37,9 +38,24 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	original := agent.DeepCopy()
 	previousStatus := agent.Status.DeepCopy()
 
+	workspaceName, err := resolveWorkspaceScope(ctx, r.Client, req.Namespace, agent.Spec.WorkspaceRef)
+	if err != nil {
+		setAgentStatus(&agent, "NotReady", workspaceName, "", nil, metav1.Condition{
+			Type:               agentReadyCondition,
+			Status:             metav1.ConditionFalse,
+			Reason:             "WorkspaceReferenceFailed",
+			Message:            err.Error(),
+			ObservedGeneration: agent.Generation,
+		})
+		if equality.Semantic.DeepEqual(previousStatus, &agent.Status) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
+	}
+
 	result, err := compiler.CompileAgent(agent, refs)
 	if err != nil {
-		setAgentStatus(&agent, "NotReady", "", nil, metav1.Condition{
+		setAgentStatus(&agent, "NotReady", workspaceName, "", nil, metav1.Condition{
 			Type:               agentReadyCondition,
 			Status:             metav1.ConditionFalse,
 			Reason:             "CompilationFailed",
@@ -52,7 +68,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, r.Status().Patch(ctx, &agent, client.MergeFrom(original))
 	}
 
-	setAgentStatus(&agent, string(agent.Spec.Lifecycle.DesiredPhase), result.Revision, result.Artifact, metav1.Condition{
+	setAgentStatus(&agent, string(agent.Spec.Lifecycle.DesiredPhase), workspaceName, result.Revision, result.Artifact, metav1.Condition{
 		Type:               agentReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "CompilationSucceeded",
@@ -146,9 +162,10 @@ func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func setAgentStatus(agent *apiv1alpha1.Agent, phase string, revision string, artifact apiv1alpha1.FreeformObject, condition metav1.Condition) {
+func setAgentStatus(agent *apiv1alpha1.Agent, phase string, workspaceRef string, revision string, artifact apiv1alpha1.FreeformObject, condition metav1.Condition) {
 	agent.Status.Phase = phase
 	agent.Status.ObservedGeneration = agent.Generation
+	agent.Status.WorkspaceRef = workspaceRef
 	agent.Status.CompiledRevision = revision
 	agent.Status.CompiledArtifact = artifact
 	agent.Status.Endpoint = map[string]string{
@@ -156,6 +173,23 @@ func setAgentStatus(agent *apiv1alpha1.Agent, phase string, revision string, art
 			"/namespaces/" + agent.Namespace + "/agents/" + agent.Name + ":invoke",
 	}
 	agent.Status.Conditions = mergeCondition(agent.Status.Conditions, condition)
+}
+
+func resolveWorkspaceScope(ctx context.Context, reader client.Reader, namespace string, ref *apiv1alpha1.LocalObjectReference) (string, error) {
+	if ref == nil || ref.Name == "" {
+		return "", nil
+	}
+	var workspace apiv1alpha1.Workspace
+	if err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: ref.Name}, &workspace); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ref.Name, fmt.Errorf("referenced Workspace %q not found", ref.Name)
+		}
+		return ref.Name, err
+	}
+	if workspace.Status.Phase != "Ready" {
+		return workspace.Name, fmt.Errorf("referenced Workspace %q is not Ready", workspace.Name)
+	}
+	return workspace.Name, nil
 }
 
 func mergeCondition(existing []metav1.Condition, next metav1.Condition) []metav1.Condition {

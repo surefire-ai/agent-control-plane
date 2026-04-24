@@ -99,6 +99,11 @@ func (in *AgentEvaluationList) DeepCopyObject() runtime.Object {
 func (in *AgentEvaluationSpec) DeepCopyInto(out *AgentEvaluationSpec) {
 	*out = *in
 	out.AgentRef = in.AgentRef
+	if in.WorkspaceRef != nil {
+		in, out := &in.WorkspaceRef, &out.WorkspaceRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	if in.Baseline != nil {
 		in, out := &in.Baseline, &out.Baseline
 		*out = new(EvaluationBaselineSpec)
@@ -712,6 +717,11 @@ func (in *AgentRuntimeSpec) DeepCopy() *AgentRuntimeSpec {
 func (in *AgentSpec) DeepCopyInto(out *AgentSpec) {
 	*out = *in
 	out.Lifecycle = in.Lifecycle
+	if in.WorkspaceRef != nil {
+		in, out := &in.WorkspaceRef, &out.WorkspaceRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	in.Runtime.DeepCopyInto(&out.Runtime)
 	if in.Models != nil {
 		in, out := &in.Models, &out.Models

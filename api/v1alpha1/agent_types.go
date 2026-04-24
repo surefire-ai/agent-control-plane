@@ -11,6 +11,7 @@ const (
 
 type AgentSpec struct {
 	Lifecycle     AgentLifecycleSpec     `json:"lifecycle,omitempty"`
+	WorkspaceRef  *LocalObjectReference  `json:"workspaceRef,omitempty"`
 	Runtime       AgentRuntimeSpec       `json:"runtime,omitempty"`
 	Models        map[string]ModelSpec   `json:"models,omitempty"`
 	Identity      AgentIdentitySpec      `json:"identity,omitempty"`
@@ -128,6 +129,7 @@ type AgentStatus struct {
 	ConditionedStatus  `json:",inline"`
 	Phase              string            `json:"phase,omitempty"`
 	ObservedGeneration int64             `json:"observedGeneration,omitempty"`
+	WorkspaceRef       string            `json:"workspaceRef,omitempty"`
 	CompiledRevision   string            `json:"compiledRevision,omitempty"`
 	CompiledArtifact   FreeformObject    `json:"compiledArtifact,omitempty"`
 	Endpoint           map[string]string `json:"endpoint,omitempty"`

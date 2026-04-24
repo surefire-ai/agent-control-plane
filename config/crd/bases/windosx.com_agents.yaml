@@ -249,6 +249,13 @@ spec:
                 items:
                   type: string
                 type: array
+              workspaceRef:
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
             type: object
           status:
             properties:
@@ -322,6 +329,8 @@ spec:
                 format: int64
                 type: integer
               phase:
+                type: string
+              workspaceRef:
                 type: string
             type: object
         type: object

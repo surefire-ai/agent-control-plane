@@ -268,6 +268,35 @@ func readyAgent(name string, namespace string, revision string) *apiv1alpha1.Age
 	}
 }
 
+func readyWorkspace(name string, namespace string, tenantRef string) *apiv1alpha1.Workspace {
+	return &apiv1alpha1.Workspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: apiv1alpha1.WorkspaceSpec{
+			TenantRef: apiv1alpha1.LocalObjectReference{Name: tenantRef},
+		},
+		Status: apiv1alpha1.WorkspaceStatus{
+			Phase:     "Ready",
+			TenantRef: tenantRef,
+			Namespace: namespace,
+			ConditionedStatus: apiv1alpha1.ConditionedStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:               workspaceReadyCondition,
+						Status:             metav1.ConditionTrue,
+						Reason:             "TenantResolved",
+						Message:            "ready",
+						ObservedGeneration: 1,
+						LastTransitionTime: metav1.NewTime(time.Date(2026, 4, 16, 9, 0, 0, 0, time.UTC)),
+					},
+				},
+			},
+		},
+	}
+}
+
 func fixedClock() func() metav1.Time {
 	return func() metav1.Time {
 		return metav1.NewTime(time.Date(2026, 4, 16, 10, 0, 0, 0, time.UTC))

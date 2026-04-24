@@ -7,6 +7,8 @@ import (
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -64,7 +66,7 @@ func TestSetAgentStatusSetsEndpointAndReadyCondition(t *testing.T) {
 	artifact := apiv1alpha1.FreeformObject{
 		"kind": {},
 	}
-	setAgentStatus(agent, "Published", "sha256:test", artifact, metav1.Condition{
+	setAgentStatus(agent, "Published", "workspace-a", "sha256:test", artifact, metav1.Condition{
 		Type:               agentReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "CompilationSucceeded",
@@ -78,6 +80,9 @@ func TestSetAgentStatusSetsEndpointAndReadyCondition(t *testing.T) {
 	if agent.Status.CompiledRevision != "sha256:test" {
 		t.Fatalf("expected compiled revision, got %q", agent.Status.CompiledRevision)
 	}
+	if agent.Status.WorkspaceRef != "workspace-a" {
+		t.Fatalf("expected workspace ref, got %q", agent.Status.WorkspaceRef)
+	}
 	if agent.Status.CompiledArtifact == nil {
 		t.Fatal("expected compiled artifact to be set")
 	}
@@ -89,6 +94,47 @@ func TestSetAgentStatusSetsEndpointAndReadyCondition(t *testing.T) {
 	}
 	if agent.Status.Conditions[0].LastTransitionTime.IsZero() {
 		t.Fatal("expected Ready condition to have lastTransitionTime")
+	}
+}
+
+func TestAgentReconcilerFailsWhenWorkspaceMissing(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := apiv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme returned error: %v", err)
+	}
+
+	agent := &apiv1alpha1.Agent{
+		ObjectMeta: metav1.ObjectMeta{Name: "hazard-agent", Namespace: "ehs", Generation: 1},
+		Spec: apiv1alpha1.AgentSpec{
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "missing-workspace"},
+			Lifecycle:    apiv1alpha1.AgentLifecycleSpec{DesiredPhase: apiv1alpha1.AgentPhasePublished},
+		},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.Agent{}).
+		WithObjects(agent).
+		Build()
+
+	reconciler := &AgentReconciler{Client: kubeClient, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "hazard-agent"}}
+	if _, err := reconciler.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.Agent
+	if err := kubeClient.Get(context.Background(), req.NamespacedName, &updated); err != nil {
+		t.Fatalf("get Agent returned error: %v", err)
+	}
+	if updated.Status.Phase != "NotReady" {
+		t.Fatalf("expected NotReady phase, got %q", updated.Status.Phase)
+	}
+	if updated.Status.WorkspaceRef != "missing-workspace" {
+		t.Fatalf("expected workspace ref in status, got %#v", updated.Status)
+	}
+	if len(updated.Status.Conditions) != 1 || updated.Status.Conditions[0].Reason != "WorkspaceReferenceFailed" {
+		t.Fatalf("expected WorkspaceReferenceFailed condition, got %#v", updated.Status.Conditions)
 	}
 }
 

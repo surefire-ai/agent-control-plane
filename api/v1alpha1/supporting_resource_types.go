@@ -151,14 +151,15 @@ const (
 )
 
 type AgentEvaluationSpec struct {
-	AgentRef   LocalObjectReference       `json:"agentRef"`
-	Baseline   *EvaluationBaselineSpec    `json:"baseline,omitempty"`
-	DatasetRef EvaluationDatasetReference `json:"datasetRef"`
-	Evaluators []EvaluationEvaluatorSpec  `json:"evaluators,omitempty"`
-	Thresholds []EvaluationThresholdSpec  `json:"thresholds,omitempty"`
-	Gate       EvaluationGateSpec         `json:"gate,omitempty"`
-	Reporting  EvaluationReportingSpec    `json:"reporting,omitempty"`
-	Runtime    FreeformObject             `json:"runtime,omitempty"`
+	AgentRef     LocalObjectReference       `json:"agentRef"`
+	WorkspaceRef *LocalObjectReference      `json:"workspaceRef,omitempty"`
+	Baseline     *EvaluationBaselineSpec    `json:"baseline,omitempty"`
+	DatasetRef   EvaluationDatasetReference `json:"datasetRef"`
+	Evaluators   []EvaluationEvaluatorSpec  `json:"evaluators,omitempty"`
+	Thresholds   []EvaluationThresholdSpec  `json:"thresholds,omitempty"`
+	Gate         EvaluationGateSpec         `json:"gate,omitempty"`
+	Reporting    EvaluationReportingSpec    `json:"reporting,omitempty"`
+	Runtime      FreeformObject             `json:"runtime,omitempty"`
 }
 
 type EvaluationBaselineSpec struct {
@@ -205,6 +206,7 @@ type AgentEvaluationStatus struct {
 	ConditionedStatus  `json:",inline"`
 	Phase              string                      `json:"phase,omitempty"`
 	ObservedGeneration int64                       `json:"observedGeneration,omitempty"`
+	WorkspaceRef       string                      `json:"workspaceRef,omitempty"`
 	LatestRunRef       map[string]string           `json:"latestRunRef,omitempty"`
 	Summary            EvaluationSummaryStatus     `json:"summary,omitempty"`
 	Comparison         *EvaluationComparisonStatus `json:"comparison,omitempty"`

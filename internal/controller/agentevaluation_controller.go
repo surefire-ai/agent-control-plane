@@ -54,55 +54,61 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	original := evaluation.DeepCopy()
 	previousStatus := evaluation.Status.DeepCopy()
 
+	workspaceName, err := resolveWorkspaceScope(ctx, r.Client, req.Namespace, evaluation.Spec.WorkspaceRef)
+	if err != nil {
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "WorkspaceReferenceFailed", err.Error())
+		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
+	}
+
 	agent, err := r.resolveAgent(ctx, req.Namespace, evaluation.Spec.AgentRef.Name)
 	if err != nil {
-		setAgentEvaluationNotReady(&evaluation, req.Namespace, "AgentReferenceFailed", err.Error())
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "AgentReferenceFailed", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 	if !isAgentReady(*agent) {
-		setAgentEvaluationPending(&evaluation, req.Namespace, "WaitingForAgent", fmt.Sprintf("waiting for Agent %q to become Ready", agent.Name))
+		setAgentEvaluationPending(&evaluation, req.Namespace, workspaceName, "WaitingForAgent", fmt.Sprintf("waiting for Agent %q to become Ready", agent.Name))
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 
 	baselineRevision, err := r.resolveBaselineRevision(ctx, req.Namespace, evaluation.Spec, agent.Status.CompiledRevision)
 	if err != nil {
-		setAgentEvaluationNotReady(&evaluation, req.Namespace, "BaselineReferenceFailed", err.Error())
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "BaselineReferenceFailed", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 	baselineAgent, err := r.resolveBaselineAgent(ctx, req.Namespace, evaluation.Spec)
 	if err != nil {
-		setAgentEvaluationNotReady(&evaluation, req.Namespace, "BaselineReferenceFailed", err.Error())
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "BaselineReferenceFailed", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 
 	samples, hasSamples, err := r.evaluationSamples(ctx, req.Namespace, evaluation.Spec)
 	if err != nil {
-		setAgentEvaluationNotReady(&evaluation, req.Namespace, "InvalidEvaluationRuntime", err.Error())
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "InvalidEvaluationRuntime", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 	if !hasSamples {
-		setAgentEvaluationReady(&evaluation, req.Namespace, agent.Status.CompiledRevision, baselineRevision)
+		setAgentEvaluationReady(&evaluation, req.Namespace, workspaceName, agent.Status.CompiledRevision, baselineRevision)
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 
 	runs, created, err := r.ensureEvaluationRuns(ctx, &evaluation, agent.Name, samples, false)
 	if err != nil {
-		setAgentEvaluationNotReady(&evaluation, req.Namespace, "EvaluationRunCreateFailed", err.Error())
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "EvaluationRunCreateFailed", err.Error())
 		return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 	if created {
-		setAgentEvaluationRunning(&evaluation, req.Namespace, agent.Status.CompiledRevision, baselineRevision, runs, "created managed AgentRun set for evaluation execution")
+		setAgentEvaluationRunning(&evaluation, req.Namespace, workspaceName, agent.Status.CompiledRevision, baselineRevision, runs, "created managed AgentRun set for evaluation execution")
 		return ctrl.Result{Requeue: true}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 	}
 	var baselineRuns []apiv1alpha1.AgentRun
 	if baselineAgent != nil {
 		baselineRuns, created, err = r.ensureEvaluationRuns(ctx, &evaluation, baselineAgent.Name, samples, true)
 		if err != nil {
-			setAgentEvaluationNotReady(&evaluation, req.Namespace, "BaselineRunCreateFailed", err.Error())
+			setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "BaselineRunCreateFailed", err.Error())
 			return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 		}
 		if created {
-			setAgentEvaluationRunning(&evaluation, req.Namespace, agent.Status.CompiledRevision, baselineRevision, append(runs, baselineRuns...), "created baseline AgentRun set for comparison")
+			setAgentEvaluationRunning(&evaluation, req.Namespace, workspaceName, agent.Status.CompiledRevision, baselineRevision, append(runs, baselineRuns...), "created baseline AgentRun set for comparison")
 			return ctrl.Result{Requeue: true}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
 		}
 	}
@@ -111,11 +117,11 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	allRuns = append(allRuns, baselineRuns...)
 	allTerminal, hasFailed, unsupported := runSetState(allRuns)
 	if unsupported != "" {
-		setAgentEvaluationNotReady(&evaluation, req.Namespace, "EvaluationRunUnknownPhase", unsupported)
+		setAgentEvaluationNotReady(&evaluation, req.Namespace, workspaceName, "EvaluationRunUnknownPhase", unsupported)
 	} else if !allTerminal {
-		setAgentEvaluationRunning(&evaluation, req.Namespace, agent.Status.CompiledRevision, baselineRevision, allRuns, "waiting for managed AgentRun set to complete")
+		setAgentEvaluationRunning(&evaluation, req.Namespace, workspaceName, agent.Status.CompiledRevision, baselineRevision, allRuns, "waiting for managed AgentRun set to complete")
 	} else if hasFailed {
-		setAgentEvaluationFailed(&evaluation, req.Namespace, agent.Status.CompiledRevision, baselineRevision, allRuns)
+		setAgentEvaluationFailed(&evaluation, req.Namespace, workspaceName, agent.Status.CompiledRevision, baselineRevision, allRuns)
 	} else {
 		current := evaluatedRunSet{
 			Agent:    agent,
@@ -139,7 +145,7 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			baselineSet.GatePassed = gatePassed(evaluation.Spec.Gate, baselineSet.Results)
 			baseline = baselineSet
 		}
-		setAgentEvaluationSucceeded(&evaluation, req.Namespace, current, baselineRevision, baseline)
+		setAgentEvaluationSucceeded(&evaluation, req.Namespace, workspaceName, current, baselineRevision, baseline)
 	}
 
 	return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
@@ -270,8 +276,8 @@ func (r *AgentEvaluationReconciler) ensureEvaluationRuns(ctx context.Context, ev
 	return runs, createdAny, nil
 }
 
-func setAgentEvaluationPending(evaluation *apiv1alpha1.AgentEvaluation, namespace string, reason string, message string) {
-	setAgentEvaluationStatus(evaluation, namespace, "Pending", metav1.Condition{
+func setAgentEvaluationPending(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, reason string, message string) {
+	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "Pending", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionFalse,
 		Reason:             reason,
@@ -280,8 +286,8 @@ func setAgentEvaluationPending(evaluation *apiv1alpha1.AgentEvaluation, namespac
 	})
 }
 
-func setAgentEvaluationNotReady(evaluation *apiv1alpha1.AgentEvaluation, namespace string, reason string, message string) {
-	setAgentEvaluationStatus(evaluation, namespace, "NotReady", metav1.Condition{
+func setAgentEvaluationNotReady(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, reason string, message string) {
+	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "NotReady", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionFalse,
 		Reason:             reason,
@@ -290,7 +296,7 @@ func setAgentEvaluationNotReady(evaluation *apiv1alpha1.AgentEvaluation, namespa
 	})
 }
 
-func setAgentEvaluationReady(evaluation *apiv1alpha1.AgentEvaluation, namespace string, agentRevision string, baselineRevision string) {
+func setAgentEvaluationReady(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, agentRevision string, baselineRevision string) {
 	evaluation.Status.Results = nil
 	evaluation.Status.Comparison = nil
 	evaluation.Status.Summary.DatasetRevision = evaluation.Spec.DatasetRef.Revision
@@ -305,7 +311,7 @@ func setAgentEvaluationReady(evaluation *apiv1alpha1.AgentEvaluation, namespace 
 	if len(evaluation.Spec.Thresholds) == 0 {
 		evaluation.Status.Summary.GatePassed = true
 	}
-	setAgentEvaluationStatus(evaluation, namespace, "Ready", metav1.Condition{
+	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "Ready", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "ContractResolved",
@@ -314,7 +320,7 @@ func setAgentEvaluationReady(evaluation *apiv1alpha1.AgentEvaluation, namespace 
 	})
 }
 
-func setAgentEvaluationRunning(evaluation *apiv1alpha1.AgentEvaluation, namespace string, agentRevision string, baselineRevision string, runs []apiv1alpha1.AgentRun, message string) {
+func setAgentEvaluationRunning(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, agentRevision string, baselineRevision string, runs []apiv1alpha1.AgentRun, message string) {
 	evaluation.Status.Summary.DatasetRevision = evaluation.Spec.DatasetRef.Revision
 	evaluation.Status.Summary.BaselineRevision = baselineRevision
 	evaluation.Status.Summary.SamplesTotal = int32(len(runs))
@@ -326,7 +332,7 @@ func setAgentEvaluationRunning(evaluation *apiv1alpha1.AgentEvaluation, namespac
 		"agentRevision": agentRevision,
 		"phase":         latest.Status.Phase,
 	}
-	setAgentEvaluationStatus(evaluation, namespace, "Running", metav1.Condition{
+	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "Running", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionFalse,
 		Reason:             "EvaluationRunInProgress",
@@ -335,7 +341,7 @@ func setAgentEvaluationRunning(evaluation *apiv1alpha1.AgentEvaluation, namespac
 	})
 }
 
-func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namespace string, current evaluatedRunSet, baselineRevision string, baseline *evaluatedRunSet) {
+func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, current evaluatedRunSet, baselineRevision string, baseline *evaluatedRunSet) {
 	evaluation.Status.Summary.DatasetRevision = evaluation.Spec.DatasetRef.Revision
 	evaluation.Status.Summary.BaselineRevision = baselineRevision
 	evaluation.Status.Summary.SamplesTotal = int32(len(current.Runs))
@@ -371,7 +377,7 @@ func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namesp
 		"runName":  jsonValue(latest.Name),
 		"runCount": jsonAnyValue(len(current.Runs)),
 	}
-	setAgentEvaluationStatus(evaluation, namespace, "Succeeded", metav1.Condition{
+	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "Succeeded", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionTrue,
 		Reason:             "EvaluationRunSucceeded",
@@ -380,7 +386,7 @@ func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namesp
 	})
 }
 
-func setAgentEvaluationFailed(evaluation *apiv1alpha1.AgentEvaluation, namespace string, agentRevision string, baselineRevision string, runs []apiv1alpha1.AgentRun) {
+func setAgentEvaluationFailed(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, agentRevision string, baselineRevision string, runs []apiv1alpha1.AgentRun) {
 	evaluation.Status.Summary.DatasetRevision = evaluation.Spec.DatasetRef.Revision
 	evaluation.Status.Summary.BaselineRevision = baselineRevision
 	evaluation.Status.Summary.SamplesTotal = int32(len(runs))
@@ -396,7 +402,7 @@ func setAgentEvaluationFailed(evaluation *apiv1alpha1.AgentEvaluation, namespace
 		"agentRevision": agentRevision,
 		"phase":         latest.Status.Phase,
 	}
-	setAgentEvaluationStatus(evaluation, namespace, "Failed", metav1.Condition{
+	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "Failed", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionFalse,
 		Reason:             "EvaluationRunFailed",
@@ -405,9 +411,10 @@ func setAgentEvaluationFailed(evaluation *apiv1alpha1.AgentEvaluation, namespace
 	})
 }
 
-func setAgentEvaluationStatus(evaluation *apiv1alpha1.AgentEvaluation, namespace string, phase string, condition metav1.Condition) {
+func setAgentEvaluationStatus(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, phase string, condition metav1.Condition) {
 	evaluation.Status.Phase = phase
 	evaluation.Status.ObservedGeneration = evaluation.Generation
+	evaluation.Status.WorkspaceRef = workspaceRef
 	if len(evaluation.Status.ReportRef) == 0 {
 		evaluation.Status.ReportRef = apiv1alpha1.FreeformObject{
 			"provider": jsonValue("kubernetes-status"),

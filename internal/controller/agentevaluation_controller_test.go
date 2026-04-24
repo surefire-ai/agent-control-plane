@@ -21,7 +21,8 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 			Generation: 2,
 		},
 		Spec: apiv1alpha1.AgentEvaluationSpec{
-			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			AgentRef:     apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "workspace-a"},
 			DatasetRef: apiv1alpha1.EvaluationDatasetReference{
 				Kind:     "Dataset",
 				Name:     "ehs-hazard-benchmark-v1",
@@ -44,11 +45,12 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 		},
 	}
 	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+	workspace := readyWorkspace("workspace-a", "ehs", "tenant-a")
 
 	kubeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
-		WithObjects(evaluation, agent).
+		WithObjects(evaluation, agent, workspace).
 		Build()
 	reconciler := &AgentEvaluationReconciler{
 		Client: kubeClient,
@@ -66,6 +68,9 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 	}
 	if updated.Status.Phase != "Running" {
 		t.Fatalf("expected Running phase, got %q", updated.Status.Phase)
+	}
+	if updated.Status.WorkspaceRef != "workspace-a" {
+		t.Fatalf("expected workspace ref, got %#v", updated.Status)
 	}
 	if updated.Status.ObservedGeneration != 2 {
 		t.Fatalf("expected observed generation 2, got %d", updated.Status.ObservedGeneration)
@@ -92,6 +97,54 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 	var managedRun apiv1alpha1.AgentRun
 	if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: "eval-1-run-g2-sample-0"}, &managedRun); err != nil {
 		t.Fatalf("expected managed AgentRun to be created: %v", err)
+	}
+}
+
+func TestAgentEvaluationReconcilerFailsWhenWorkspaceMissing(t *testing.T) {
+	scheme := testScheme(t)
+	evaluation := &apiv1alpha1.AgentEvaluation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "eval-workspace",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentEvaluationSpec{
+			AgentRef:     apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "missing-workspace"},
+			DatasetRef: apiv1alpha1.EvaluationDatasetReference{
+				Name: "ehs-hazard-benchmark-v1",
+			},
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentEvaluation{}, &apiv1alpha1.AgentRun{}).
+		WithObjects(evaluation, agent).
+		Build()
+	reconciler := &AgentEvaluationReconciler{
+		Client: kubeClient,
+		Scheme: scheme,
+	}
+
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "eval-workspace"}}
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.AgentEvaluation
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &updated); err != nil {
+		t.Fatalf("get AgentEvaluation returned error: %v", err)
+	}
+	if updated.Status.Phase != "NotReady" {
+		t.Fatalf("expected NotReady phase, got %q", updated.Status.Phase)
+	}
+	if updated.Status.WorkspaceRef != "missing-workspace" {
+		t.Fatalf("expected workspace ref, got %#v", updated.Status)
+	}
+	if len(updated.Status.Conditions) != 1 || updated.Status.Conditions[0].Reason != "WorkspaceReferenceFailed" {
+		t.Fatalf("expected WorkspaceReferenceFailed condition, got %#v", updated.Status.Conditions)
 	}
 }
 

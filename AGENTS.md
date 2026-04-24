@@ -188,6 +188,9 @@ explicitly asks for a directional change:
   `spec.runtime.sampleInput` or `spec.runtime.samples` and fold aggregated
   run/gate status back into its own status; extend that path instead of
   inventing a parallel evaluation engine.
+- `AgentRun` now carries workspace identity in status. Gateway-created runs
+  inherit it from the target `Agent`, and evaluation-managed runs inherit it
+  from `AgentEvaluation.spec.workspaceRef`.
 - Model provider support should evolve into a capability matrix that treats
   Chinese domestic providers as first-class targets.
 - `ModelSpec.provider` is no longer just a free-form string in practice: the

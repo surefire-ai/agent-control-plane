@@ -80,6 +80,95 @@ func TestAgentRunReconcilerCompletesWithMockRuntime(t *testing.T) {
 	}
 }
 
+func TestAgentRunReconcilerRecordsAgentWorkspace(t *testing.T) {
+	scheme := testScheme(t)
+	run := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "run-1",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+	agent.Status.WorkspaceRef = "workspace-a"
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentRun{}).
+		WithObjects(run, agent).
+		Build()
+	reconciler := &AgentRunReconciler{
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: agentruntime.NewMockRuntime(),
+	}
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
+
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var pending apiv1alpha1.AgentRun
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &pending); err != nil {
+		t.Fatalf("get AgentRun returned error: %v", err)
+	}
+	if pending.Status.WorkspaceRef != "workspace-a" {
+		t.Fatalf("expected workspace ref, got %q", pending.Status.WorkspaceRef)
+	}
+}
+
+func TestAgentRunReconcilerFailsWhenRunWorkspaceDoesNotMatchAgent(t *testing.T) {
+	scheme := testScheme(t)
+	run := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "run-1",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef:     apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "workspace-b"},
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+	agent.Status.WorkspaceRef = "workspace-a"
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentRun{}).
+		WithObjects(run, agent).
+		Build()
+	reconciler := &AgentRunReconciler{
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: agentruntime.NewMockRuntime(),
+	}
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
+
+	if _, err := reconciler.Reconcile(context.Background(), request); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var failed apiv1alpha1.AgentRun
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &failed); err != nil {
+		t.Fatalf("get AgentRun returned error: %v", err)
+	}
+	if failed.Status.Phase != string(apiv1alpha1.AgentRunPhaseFailed) {
+		t.Fatalf("expected Failed phase, got %q", failed.Status.Phase)
+	}
+	if failed.Status.WorkspaceRef != "workspace-b" {
+		t.Fatalf("expected explicit workspace ref to be recorded, got %q", failed.Status.WorkspaceRef)
+	}
+	if failed.Status.Conditions[0].Reason != "WorkspaceMismatch" {
+		t.Fatalf("expected WorkspaceMismatch condition reason, got %#v", failed.Status.Conditions)
+	}
+}
+
 func TestAgentRunReconcilerFailsWhenAgentIsMissing(t *testing.T) {
 	scheme := testScheme(t)
 	run := &apiv1alpha1.AgentRun{

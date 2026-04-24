@@ -98,6 +98,9 @@ func TestAgentEvaluationReconcilerMarksReadyWhenContractResolves(t *testing.T) {
 	if err := kubeClient.Get(context.Background(), client.ObjectKey{Namespace: "ehs", Name: "eval-1-run-g2-sample-0"}, &managedRun); err != nil {
 		t.Fatalf("expected managed AgentRun to be created: %v", err)
 	}
+	if managedRun.Spec.WorkspaceRef == nil || managedRun.Spec.WorkspaceRef.Name != "workspace-a" {
+		t.Fatalf("expected managed AgentRun workspace ref, got %#v", managedRun.Spec.WorkspaceRef)
+	}
 }
 
 func TestAgentEvaluationReconcilerFailsWhenWorkspaceMissing(t *testing.T) {

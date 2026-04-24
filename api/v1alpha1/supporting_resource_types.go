@@ -139,9 +139,10 @@ type AgentPolicySpec struct {
 }
 
 type AgentRunSpec struct {
-	AgentRef  LocalObjectReference `json:"agentRef"`
-	Input     FreeformObject       `json:"input,omitempty"`
-	Execution FreeformObject       `json:"execution,omitempty"`
+	AgentRef     LocalObjectReference  `json:"agentRef"`
+	WorkspaceRef *LocalObjectReference `json:"workspaceRef,omitempty"`
+	Input        FreeformObject        `json:"input,omitempty"`
+	Execution    FreeformObject        `json:"execution,omitempty"`
 }
 
 type AgentRunStatus struct {
@@ -153,6 +154,7 @@ type AgentRunStatus struct {
 	TraceRef          FreeformObject `json:"traceRef,omitempty"`
 	Ticket            FreeformObject `json:"ticket,omitempty"`
 	AgentRevision     string         `json:"agentRevision,omitempty"`
+	WorkspaceRef      string         `json:"workspaceRef,omitempty"`
 }
 
 type AgentRunPhase string

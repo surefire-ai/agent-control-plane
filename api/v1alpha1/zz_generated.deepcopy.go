@@ -613,6 +613,11 @@ func (in *AgentRunList) DeepCopyObject() runtime.Object {
 func (in *AgentRunSpec) DeepCopyInto(out *AgentRunSpec) {
 	*out = *in
 	out.AgentRef = in.AgentRef
+	if in.WorkspaceRef != nil {
+		in, out := &in.WorkspaceRef, &out.WorkspaceRef
+		*out = new(LocalObjectReference)
+		**out = **in
+	}
 	if in.Input != nil {
 		in, out := &in.Input, &out.Input
 		*out = make(FreeformObject, len(*in))

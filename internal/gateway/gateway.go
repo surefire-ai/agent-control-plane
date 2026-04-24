@@ -154,9 +154,10 @@ func (s Server) handleInvoke(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		Spec: apiv1alpha1.AgentRunSpec{
-			AgentRef:  apiv1alpha1.LocalObjectReference{Name: agent.Name},
-			Input:     copyFreeform(request.Input),
-			Execution: copyFreeform(request.Execution),
+			AgentRef:     apiv1alpha1.LocalObjectReference{Name: agent.Name},
+			WorkspaceRef: agentRunWorkspaceRef(agent),
+			Input:        copyFreeform(request.Input),
+			Execution:    copyFreeform(request.Execution),
 		},
 	}
 	if err := s.Client.Create(r.Context(), &run); err != nil {
@@ -219,6 +220,17 @@ func agentReady(agent apiv1alpha1.Agent) bool {
 		}
 	}
 	return false
+}
+
+func agentRunWorkspaceRef(agent apiv1alpha1.Agent) *apiv1alpha1.LocalObjectReference {
+	if agent.Status.WorkspaceRef != "" {
+		return &apiv1alpha1.LocalObjectReference{Name: agent.Status.WorkspaceRef}
+	}
+	if agent.Spec.WorkspaceRef == nil || agent.Spec.WorkspaceRef.Name == "" {
+		return nil
+	}
+	ref := *agent.Spec.WorkspaceRef
+	return &ref
 }
 
 func runName(agentName string, now time.Time) string {

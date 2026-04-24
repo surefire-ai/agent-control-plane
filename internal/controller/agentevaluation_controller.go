@@ -260,8 +260,9 @@ func (r *AgentEvaluationReconciler) ensureEvaluationRuns(ctx context.Context, ev
 				},
 			},
 			Spec: apiv1alpha1.AgentRunSpec{
-				AgentRef: apiv1alpha1.LocalObjectReference{Name: agentName},
-				Input:    sample.Input,
+				AgentRef:     apiv1alpha1.LocalObjectReference{Name: agentName},
+				WorkspaceRef: cloneLocalObjectReference(evaluation.Spec.WorkspaceRef),
+				Input:        sample.Input,
 			},
 		}
 		if err := controllerutil.SetControllerReference(evaluation, run, r.Scheme); err != nil {
@@ -274,6 +275,14 @@ func (r *AgentEvaluationReconciler) ensureEvaluationRuns(ctx context.Context, ev
 		createdAny = true
 	}
 	return runs, createdAny, nil
+}
+
+func cloneLocalObjectReference(ref *apiv1alpha1.LocalObjectReference) *apiv1alpha1.LocalObjectReference {
+	if ref == nil {
+		return nil
+	}
+	cloned := *ref
+	return &cloned
 }
 
 func setAgentEvaluationPending(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, reason string, message string) {

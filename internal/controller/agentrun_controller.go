@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
@@ -50,23 +51,29 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	if err := r.Get(ctx, agentKey, &agent); err != nil {
 		if apierrors.IsNotFound(err) {
-			setAgentRunFailed(&run, now, fmt.Sprintf("referenced Agent %q not found", run.Spec.AgentRef.Name))
+			setAgentRunFailed(&run, now, explicitRunWorkspace(run), fmt.Sprintf("referenced Agent %q not found", run.Spec.AgentRef.Name))
 			return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 		}
 		return ctrl.Result{}, err
 	}
 
+	workspaceRef, err := resolveAgentRunWorkspace(run, agent)
+	if err != nil {
+		setAgentRunFailedWithReason(&run, now, workspaceRef, "WorkspaceMismatch", err.Error())
+		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+	}
+
 	if !isAgentReady(agent) {
-		setAgentRunPending(&run, now, fmt.Sprintf("waiting for Agent %q to become Ready", agent.Name))
+		setAgentRunPending(&run, now, workspaceRef, fmt.Sprintf("waiting for Agent %q to become Ready", agent.Name))
 		return ctrl.Result{RequeueAfter: time.Second}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	}
 
 	switch run.Status.Phase {
 	case "":
-		setAgentRunPending(&run, now, "AgentRun accepted")
+		setAgentRunPending(&run, now, workspaceRef, "AgentRun accepted")
 		return ctrl.Result{Requeue: true}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	case string(apiv1alpha1.AgentRunPhasePending):
-		setAgentRunRunning(&run, agent, now)
+		setAgentRunRunning(&run, agent, now, workspaceRef)
 		return ctrl.Result{Requeue: true}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	case string(apiv1alpha1.AgentRunPhaseRunning):
 		result, err := r.runner().Execute(ctx, agentruntime.Request{
@@ -75,21 +82,21 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		})
 		if err != nil {
 			if errors.Is(err, agentruntime.ErrRuntimeInProgress) {
-				setAgentRunRunning(&run, agent, now)
+				setAgentRunRunning(&run, agent, now, workspaceRef)
 				return ctrl.Result{RequeueAfter: time.Second}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 			}
 			var runtimeFailure agentruntime.Failure
 			if errors.As(err, &runtimeFailure) {
-				setAgentRunRuntimeFailed(&run, agent, now, runtimeFailure)
+				setAgentRunRuntimeFailed(&run, agent, now, workspaceRef, runtimeFailure)
 				return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 			}
-			setAgentRunFailed(&run, now, err.Error())
+			setAgentRunFailed(&run, now, workspaceRef, err.Error())
 			return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 		}
-		setAgentRunSucceeded(&run, agent, now, result)
+		setAgentRunSucceeded(&run, agent, now, workspaceRef, result)
 		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	default:
-		setAgentRunFailed(&run, now, "unsupported AgentRun phase "+run.Status.Phase)
+		setAgentRunFailed(&run, now, workspaceRef, "unsupported AgentRun phase "+run.Status.Phase)
 		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	}
 }
@@ -139,8 +146,31 @@ func isAgentReady(agent apiv1alpha1.Agent) bool {
 	return false
 }
 
-func setAgentRunPending(run *apiv1alpha1.AgentRun, now metav1.Time, message string) {
+func explicitRunWorkspace(run apiv1alpha1.AgentRun) string {
+	if run.Spec.WorkspaceRef == nil {
+		return ""
+	}
+	return strings.TrimSpace(run.Spec.WorkspaceRef.Name)
+}
+
+func resolveAgentRunWorkspace(run apiv1alpha1.AgentRun, agent apiv1alpha1.Agent) (string, error) {
+	runWorkspace := explicitRunWorkspace(run)
+	agentWorkspace := strings.TrimSpace(agent.Status.WorkspaceRef)
+	if agentWorkspace == "" && agent.Spec.WorkspaceRef != nil {
+		agentWorkspace = strings.TrimSpace(agent.Spec.WorkspaceRef.Name)
+	}
+	if runWorkspace != "" && agentWorkspace != "" && runWorkspace != agentWorkspace {
+		return runWorkspace, fmt.Errorf("AgentRun workspace %q does not match Agent workspace %q", runWorkspace, agentWorkspace)
+	}
+	if runWorkspace != "" {
+		return runWorkspace, nil
+	}
+	return agentWorkspace, nil
+}
+
+func setAgentRunPending(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRef string, message string) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhasePending)
+	run.Status.WorkspaceRef = workspaceRef
 	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
 		Type:               agentRunCompletedCondition,
 		Status:             metav1.ConditionFalse,
@@ -151,9 +181,10 @@ func setAgentRunPending(run *apiv1alpha1.AgentRun, now metav1.Time, message stri
 	})
 }
 
-func setAgentRunRunning(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time) {
+func setAgentRunRunning(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, workspaceRef string) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseRunning)
 	run.Status.AgentRevision = agent.Status.CompiledRevision
+	run.Status.WorkspaceRef = workspaceRef
 	run.Status.StartedAt = &now
 	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
 		Type:               agentRunCompletedCondition,
@@ -165,9 +196,10 @@ func setAgentRunRunning(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now 
 	})
 }
 
-func setAgentRunSucceeded(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, result agentruntime.Result) {
+func setAgentRunSucceeded(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, workspaceRef string, result agentruntime.Result) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseSucceeded)
 	run.Status.AgentRevision = agent.Status.CompiledRevision
+	run.Status.WorkspaceRef = workspaceRef
 	run.Status.FinishedAt = &now
 	run.Status.Output = result.Output
 	run.Status.TraceRef = result.TraceRef
@@ -189,22 +221,28 @@ func setAgentRunSucceeded(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, no
 	})
 }
 
-func setAgentRunFailed(run *apiv1alpha1.AgentRun, now metav1.Time, message string) {
+func setAgentRunFailed(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRef string, message string) {
+	setAgentRunFailedWithReason(run, now, workspaceRef, "Failed", message)
+}
+
+func setAgentRunFailedWithReason(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRef string, reason string, message string) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseFailed)
+	run.Status.WorkspaceRef = workspaceRef
 	run.Status.FinishedAt = &now
 	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
 		Type:               agentRunCompletedCondition,
 		Status:             metav1.ConditionFalse,
-		Reason:             "Failed",
+		Reason:             reason,
 		Message:            message,
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,
 	})
 }
 
-func setAgentRunRuntimeFailed(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, failure agentruntime.Failure) {
+func setAgentRunRuntimeFailed(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, now metav1.Time, workspaceRef string, failure agentruntime.Failure) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseFailed)
 	run.Status.AgentRevision = agent.Status.CompiledRevision
+	run.Status.WorkspaceRef = workspaceRef
 	run.Status.FinishedAt = &now
 	run.Status.Output = failure.Output
 	run.Status.TraceRef = failure.TraceRef

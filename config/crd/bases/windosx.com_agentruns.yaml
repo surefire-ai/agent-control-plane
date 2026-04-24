@@ -52,6 +52,13 @@ spec:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
                 type: object
+              workspaceRef:
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - agentRef
             type: object
@@ -135,6 +142,8 @@ spec:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
                 type: object
+              workspaceRef:
+                type: string
             type: object
         type: object
     served: true

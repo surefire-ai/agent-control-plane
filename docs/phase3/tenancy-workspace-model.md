@@ -133,28 +133,36 @@ compilation.
 - `Workspace.spec.providerPolicy.bindings` can provide provider-specific
   `baseURL` and Secret-backed credential references for agent models that do
   not override them.
+- `AgentRun.spec.workspaceRef` can explicitly declare the run workspace, and
+  `AgentRun.status.workspaceRef` records the effective workspace identity.
+- Gateway-created runs inherit workspace identity from the target `Agent`.
+- Evaluation-managed runs inherit workspace identity from the owning
+  `AgentEvaluation`.
+- A run fails fast with `WorkspaceMismatch` when its explicit workspace does
+  not match the referenced agent's workspace.
 
 This gives the console an early but real workspace-level governance model for
 the build and evaluation flow.
 
 ## What This Iteration Does Not Do Yet
 
-This first skeleton does not yet:
+This foundation does not yet:
 
-- reconcile `Tenant` or `Workspace`
 - enforce RBAC or quota boundaries
-- inject workspace identity into runtime execution
-- require agents or evaluations to reference a workspace
+- inject full tenant/workspace security context into runtime execution
+- require every agent, evaluation, or run to reference a workspace
 - define workspace membership or approval models
 - define billing or chargeback semantics
 
 That is deliberate. The current milestone is about introducing the product
-surface before wiring enforcement and lifecycle behavior around it.
+surface and the first lifecycle hooks before wiring full enterprise enforcement
+around them.
 
 ## Expected Next Steps
 
-1. Introduce workspace-aware runtime identity and audit metadata
-2. Map workspace semantics into console navigation and permissions
+1. Map workspace semantics into console navigation and permissions
+2. Connect workspace identity to runtime audit trails and traces
 3. Tighten governance and provider substructures as real workflows settle
-4. Extend workspace scoping beyond agents and evaluations where it is useful
+4. Extend workspace scoping beyond agents, evaluations, and runs where it is
+   useful
 5. Add release-channel semantics for workspace-scoped publish flows

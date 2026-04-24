@@ -65,6 +65,9 @@ func TestGatewayInvokeCreatesAgentRun(t *testing.T) {
 	if run.Spec.AgentRef.Name != "ehs-agent" {
 		t.Fatalf("unexpected AgentRef: %#v", run.Spec.AgentRef)
 	}
+	if run.Spec.WorkspaceRef == nil || run.Spec.WorkspaceRef.Name != "workspace-a" {
+		t.Fatalf("unexpected WorkspaceRef: %#v", run.Spec.WorkspaceRef)
+	}
 	if jsonString(t, run.Spec.Input["task"]) != "identify_hazard" {
 		t.Fatalf("unexpected task input: %#v", run.Spec.Input["task"])
 	}
@@ -157,6 +160,7 @@ func readyAgent() *apiv1alpha1.Agent {
 		ObjectMeta: metav1.ObjectMeta{Name: "ehs-agent", Namespace: "ehs"},
 		Status: apiv1alpha1.AgentStatus{
 			CompiledRevision: "sha256:agent",
+			WorkspaceRef:     "workspace-a",
 			CompiledArtifact: apiv1alpha1.FreeformObject{
 				"kind": apiextensionsv1.JSON{Raw: []byte(`"AgentCompiledArtifact"`)},
 			},

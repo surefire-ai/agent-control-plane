@@ -59,6 +59,27 @@ spec:
                     items:
                       type: string
                     type: array
+                  bindings:
+                    items:
+                      properties:
+                        baseURL:
+                          type: string
+                        credentialRef:
+                          properties:
+                            key:
+                              type: string
+                            name:
+                              type: string
+                          required:
+                          - key
+                          - name
+                          type: object
+                        provider:
+                          type: string
+                      required:
+                      - provider
+                      type: object
+                    type: array
                   defaultProvider:
                     type: string
                 type: object

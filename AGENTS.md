@@ -165,6 +165,9 @@ explicitly asks for a directional change:
   that do not set `Agent.spec.policyRef`, and
   `Workspace.spec.providerPolicy.allowedProviders` is enforced before agent
   compilation.
+- `Workspace.spec.providerPolicy.bindings` can provide provider-level defaults
+  such as `baseURL` and Secret-backed `credentialRef`; inherit references only,
+  never secret values.
 - Evaluation should grow into a flagship capability, not remain an auxiliary
   CRD.
 - `AgentEvaluation` is moving toward a first-class enterprise contract with

@@ -128,6 +128,11 @@ compilation.
   agent does not set `Agent.spec.policyRef`.
 - `Workspace.spec.providerPolicy.allowedProviders` restricts which model
   providers an agent can use before compilation starts.
+- `Workspace.spec.providerPolicy.defaultProvider` can fill missing model
+  provider fields.
+- `Workspace.spec.providerPolicy.bindings` can provide provider-specific
+  `baseURL` and Secret-backed credential references for agent models that do
+  not override them.
 
 This gives the console an early but real workspace-level governance model for
 the build and evaluation flow.
@@ -148,8 +153,8 @@ surface before wiring enforcement and lifecycle behavior around it.
 
 ## Expected Next Steps
 
-1. Decide how provider credentials and provider bindings attach to workspaces
-2. Introduce workspace-aware runtime identity and audit metadata
-3. Map workspace semantics into console navigation and permissions
-4. Tighten governance and provider substructures as real workflows settle
-5. Extend workspace scoping beyond agents and evaluations where it is useful
+1. Introduce workspace-aware runtime identity and audit metadata
+2. Map workspace semantics into console navigation and permissions
+3. Tighten governance and provider substructures as real workflows settle
+4. Extend workspace scoping beyond agents and evaluations where it is useful
+5. Add release-channel semantics for workspace-scoped publish flows

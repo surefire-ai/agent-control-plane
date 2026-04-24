@@ -108,8 +108,15 @@ type WorkspaceSpec struct {
 }
 
 type WorkspaceProviderPolicySpec struct {
-	DefaultProvider  string   `json:"defaultProvider,omitempty"`
-	AllowedProviders []string `json:"allowedProviders,omitempty"`
+	DefaultProvider  string                         `json:"defaultProvider,omitempty"`
+	AllowedProviders []string                       `json:"allowedProviders,omitempty"`
+	Bindings         []WorkspaceProviderBindingSpec `json:"bindings,omitempty"`
+}
+
+type WorkspaceProviderBindingSpec struct {
+	Provider      string              `json:"provider"`
+	BaseURL       string              `json:"baseURL,omitempty"`
+	CredentialRef *SecretKeyReference `json:"credentialRef,omitempty"`
 }
 
 type WorkspaceStatus struct {

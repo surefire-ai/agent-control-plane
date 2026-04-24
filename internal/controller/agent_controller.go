@@ -215,10 +215,51 @@ func agentWithWorkspaceDefaults(agent apiv1alpha1.Agent, workspace *apiv1alpha1.
 	if effective.Spec.PolicyRef == "" && workspace.Spec.PolicyRef != "" {
 		effective.Spec.PolicyRef = workspace.Spec.PolicyRef
 	}
+	applyWorkspaceProviderDefaults(effective, *workspace)
 	if err := validateWorkspaceProviders(*effective, *workspace); err != nil {
 		return apiv1alpha1.Agent{}, err
 	}
 	return *effective, nil
+}
+
+func applyWorkspaceProviderDefaults(agent *apiv1alpha1.Agent, workspace apiv1alpha1.Workspace) {
+	if len(agent.Spec.Models) == 0 {
+		return
+	}
+	bindings := workspaceProviderBindings(workspace)
+	defaultProvider := providers.Normalize(workspace.Spec.ProviderPolicy.DefaultProvider)
+	for name, model := range agent.Spec.Models {
+		providerName := providers.Normalize(model.Provider)
+		if providerName == "" && defaultProvider != "" {
+			providerName = defaultProvider
+			model.Provider = defaultProvider
+		}
+		binding, ok := bindings[providerName]
+		if ok {
+			if model.BaseURL == "" {
+				model.BaseURL = binding.BaseURL
+			}
+			if model.CredentialRef == nil && binding.CredentialRef != nil {
+				credential := *binding.CredentialRef
+				model.CredentialRef = &credential
+			}
+		}
+		agent.Spec.Models[name] = model
+	}
+}
+
+func workspaceProviderBindings(workspace apiv1alpha1.Workspace) map[string]apiv1alpha1.WorkspaceProviderBindingSpec {
+	bindings := map[string]apiv1alpha1.WorkspaceProviderBindingSpec{}
+	for _, binding := range workspace.Spec.ProviderPolicy.Bindings {
+		providerName := providers.Normalize(binding.Provider)
+		if providerName == "" {
+			continue
+		}
+		normalized := binding
+		normalized.Provider = providerName
+		bindings[providerName] = normalized
+	}
+	return bindings
 }
 
 func validateWorkspaceProviders(agent apiv1alpha1.Agent, workspace apiv1alpha1.Workspace) error {

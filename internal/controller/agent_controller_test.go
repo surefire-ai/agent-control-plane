@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
@@ -183,6 +184,73 @@ func TestAgentReconcilerAppliesWorkspacePolicyDefaults(t *testing.T) {
 	}
 	if jsonString(updated.Status.CompiledArtifact["policyRef"]) != "workspace-policy" {
 		t.Fatalf("expected workspace policy in artifact, got %#v", updated.Status.CompiledArtifact["policyRef"])
+	}
+}
+
+func TestAgentReconcilerAppliesWorkspaceProviderBindings(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := apiv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme returned error: %v", err)
+	}
+
+	workspace := readyWorkspace("workspace-a", "ehs", "tenant-a")
+	workspace.Spec.ProviderPolicy.DefaultProvider = "qwen"
+	workspace.Spec.ProviderPolicy.AllowedProviders = []string{"qwen"}
+	workspace.Spec.ProviderPolicy.Bindings = []apiv1alpha1.WorkspaceProviderBindingSpec{
+		{
+			Provider:      "qwen",
+			BaseURL:       "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			CredentialRef: &apiv1alpha1.SecretKeyReference{Name: "qwen-credentials", Key: "apiKey"},
+		},
+	}
+	agent := &apiv1alpha1.Agent{
+		ObjectMeta: metav1.ObjectMeta{Name: "hazard-agent", Namespace: "ehs", Generation: 1},
+		Spec: apiv1alpha1.AgentSpec{
+			WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: "workspace-a"},
+			Lifecycle:    apiv1alpha1.AgentLifecycleSpec{DesiredPhase: apiv1alpha1.AgentPhasePublished},
+			Models: map[string]apiv1alpha1.ModelSpec{
+				"planner": {Model: "qwen-plus"},
+			},
+		},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.Agent{}).
+		WithObjects(agent, workspace).
+		Build()
+
+	reconciler := &AgentReconciler{Client: kubeClient, Scheme: scheme}
+	req := ctrl.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "hazard-agent"}}
+	if _, err := reconciler.Reconcile(context.Background(), req); err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+
+	var updated apiv1alpha1.Agent
+	if err := kubeClient.Get(context.Background(), req.NamespacedName, &updated); err != nil {
+		t.Fatalf("get Agent returned error: %v", err)
+	}
+	runner := map[string]interface{}{}
+	if err := json.Unmarshal(updated.Status.CompiledArtifact["runner"].Raw, &runner); err != nil {
+		t.Fatalf("failed to decode runner artifact: %v", err)
+	}
+	models, ok := runner["models"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected runner models, got %#v", runner["models"])
+	}
+	planner, ok := models["planner"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected planner model, got %#v", models)
+	}
+	if planner["provider"] != "qwen" {
+		t.Fatalf("expected inherited qwen provider, got %#v", planner)
+	}
+	if planner["baseURL"] != "https://dashscope.aliyuncs.com/compatible-mode/v1" {
+		t.Fatalf("expected inherited baseURL, got %#v", planner)
+	}
+	credentialRef, ok := planner["credentialRef"].(map[string]interface{})
+	if !ok || credentialRef["name"] != "qwen-credentials" || credentialRef["key"] != "apiKey" {
+		t.Fatalf("expected inherited credential ref, got %#v", planner["credentialRef"])
 	}
 }
 

@@ -17,6 +17,8 @@ type InfoResponse struct {
 	Component          string `json:"component"`
 	Mode               string `json:"mode"`
 	DatabaseConfigured bool   `json:"databaseConfigured"`
+	DatabaseDriver     string `json:"databaseDriver,omitempty"`
+	DatabaseStatus     string `json:"databaseStatus"`
 }
 
 func (s Server) Start(ctx context.Context) error {
@@ -87,10 +89,16 @@ func (s Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	config := s.Config.normalized()
+	databaseStatus := "not_configured"
+	if config.DatabaseURL != "" {
+		databaseStatus = "configured"
+	}
 	writeJSON(w, http.StatusOK, InfoResponse{
 		Component:          "manager",
 		Mode:               config.Mode,
 		DatabaseConfigured: config.DatabaseURL != "",
+		DatabaseDriver:     config.DatabaseDriver,
+		DatabaseStatus:     databaseStatus,
 	})
 }
 

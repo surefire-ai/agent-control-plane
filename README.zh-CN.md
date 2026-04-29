@@ -220,7 +220,7 @@ Phase 2 退出标准：
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、可视化 Agent 编排、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理、协作与发布体验的控制台。 |
-| Manager backend | 已 scaffold：`cmd/manager` 和 `internal/manager` 提供最小可选 HTTP 后台，包含 health、readiness 和 info endpoints；数据模型与同步契约已记录在 `docs/architecture/` 下。 | 增加数据库连接、migration，以及最小 workspace / agent-project API。 |
+| Manager backend | 已 scaffold：`cmd/manager` 和 `internal/manager` 提供最小可选 HTTP 后台，包含 health、readiness、info endpoints、数据库配置、内嵌 migration 文件和第一版 repository interface。 | 增加 PostgreSQL driver、migration runner，以及最小 workspace / agent-project API。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
 | SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
 | Tenant 与 workspace 体验 | 方向已明确。 | 在 manager 数据库中建模 tenant/workspace 产品状态，将其映射到 Kubernetes runtime scope 资源，并补齐 RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |
@@ -291,6 +291,8 @@ go run ./cmd/manager --bind-address=:8090
 ```
 
 当前 scaffold 暴露 `/healthz`、`/readyz` 和 `/api/v1/info`。
+数据库配置目前仍是可选项，可以通过 `--database-driver`、`--database-url`
+或对应的 `MANAGER_*` 环境变量传入。
 
 构建容器镜像：
 

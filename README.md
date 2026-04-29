@@ -279,7 +279,7 @@ Goal: make the platform usable by teams, not only by cluster operators.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, visual agent orchestration, agent build and publish flows, run debugging, evaluation comparison, provider management, collaboration, and release workflows. |
-| Manager backend | Scaffolded: `cmd/manager` and `internal/manager` provide a minimal optional HTTP backend with health, readiness, and info endpoints. The data model and sync contract are documented under `docs/architecture/`. | Add database connectivity, migrations, and the smallest workspace/agent-project API. |
+| Manager backend | Scaffolded: `cmd/manager` and `internal/manager` provide a minimal optional HTTP backend with health, readiness, info endpoints, database configuration, embedded migration files, and first repository interfaces. | Add a PostgreSQL driver, migration runner, and the smallest workspace/agent-project API. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
 | SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
 | Tenant and workspace experience | Direction clarified. | Model tenant/workspace product state in the manager database, map it to Kubernetes runtime scope resources, and add RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |
@@ -350,6 +350,9 @@ go run ./cmd/manager --bind-address=:8090
 ```
 
 The scaffold currently exposes `/healthz`, `/readyz`, and `/api/v1/info`.
+Database configuration is optional for now and can be supplied with
+`--database-driver` and `--database-url` or the matching `MANAGER_*`
+environment variables.
 
 Build container images:
 

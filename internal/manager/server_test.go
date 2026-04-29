@@ -27,8 +27,9 @@ func TestManagerHealthAndReadiness(t *testing.T) {
 func TestManagerInfo(t *testing.T) {
 	server := Server{
 		Config: Config{
-			Mode:        "managed",
-			DatabaseURL: "postgres://manager@example/agent-control-plane",
+			Mode:           "managed",
+			DatabaseDriver: "postgres",
+			DatabaseURL:    "postgres://manager@example/agent-control-plane",
 		},
 	}.Handler()
 
@@ -51,6 +52,12 @@ func TestManagerInfo(t *testing.T) {
 	}
 	if !response.DatabaseConfigured {
 		t.Fatalf("expected configured database, got %#v", response)
+	}
+	if response.DatabaseDriver != "postgres" {
+		t.Fatalf("expected postgres database driver, got %#v", response)
+	}
+	if response.DatabaseStatus != "configured" {
+		t.Fatalf("expected configured database status, got %#v", response)
 	}
 }
 

@@ -23,6 +23,9 @@ runner.
 - The **operator layer** is responsible for reconciling CRDs such as `Agent`,
   `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`, and
   `AgentPolicy`.
+- The **manager layer** is an optional product backend for the future console.
+  It owns database-backed product state such as organizations, workspaces,
+  users, teams, membership, release workflows, durable audits, and UI drafts.
 - The **control-plane controllers** compile desired state into deterministic
   runtime artifacts, publish status, enforce platform contracts, and dispatch
   runs to execution backends.
@@ -33,22 +36,26 @@ runner.
   users visually compose agents, inspect evaluations, compare revisions, and
   promote releases without hand-authoring every workflow detail in YAML.
 
-In other words, the project is not trying to put all agent logic inside the
-operator process. The operator owns declaration, reconciliation, scheduling,
-and governance; workers own execution; the console owns the day-to-day product
-experience for building, evaluating, and releasing agents. The product
-direction is explicitly enterprise-first: multi-tenancy, evaluation, provider
-breadth, governance, and day-to-day usability matter as much as raw runtime
-capability.
+In other words, the project is not trying to put all agent logic or all product
+state inside the operator process. The operator owns declaration,
+reconciliation, scheduling, and runtime governance; the optional manager owns
+database-backed enterprise product state; workers own execution; runners own
+agent execution semantics; the console owns the day-to-day product experience
+for building, evaluating, and releasing agents. The product direction is
+explicitly enterprise-first: multi-tenancy, evaluation, provider breadth,
+governance, and day-to-day usability matter as much as raw runtime capability.
 
 ## What It Provides
 
 - `Agent` declares runtime, models, prompts, knowledge, tools, MCP servers,
   policies, graph shape, interfaces, memory, and observability settings.
 - `AgentRun` records an immutable execution request and its execution status.
-- `Tenant`, `Workspace`, `PromptTemplate`, `KnowledgeBase`, `ToolProvider`,
-  `Dataset`, `MCPServer`, `AgentPolicy`, and `AgentEvaluation` provide the
-  supporting control-plane resources.
+- `PromptTemplate`, `KnowledgeBase`, `ToolProvider`, `Dataset`, `MCPServer`,
+  `AgentPolicy`, and `AgentEvaluation` provide supporting control-plane
+  resources.
+- `Tenant` and `Workspace` currently exist as lightweight Kubernetes runtime
+  scope resources. In managed enterprise mode, the canonical tenant and
+  workspace product records should live in the manager database.
 - A controller-manager compiles `Agent` resources, publishes deterministic
   status, and dispatches `AgentRun` resources to a runtime backend.
 - A worker runtime backend can dispatch each run as a Kubernetes Job. The
@@ -86,28 +93,48 @@ code.
 
 ## Architecture Direction
 
-- The repository is building toward an **Agent Control Plane Operator for Kubernetes**.
+- The repository is building toward a four-component system:
+  **operator**, **manager**, **worker**, and **runner**.
+- The operator remains the Kubernetes-native control plane.
+- The manager is optional and provides the database-backed enterprise product
+  backend used by the future Web Console.
+- The worker executes individual runs inside the runtime environment.
+- The runner is the pluggable agent execution engine boundary, starting with
+  Eino.
 - The product direction is an **Enterprise Multi-Tenant Agent Control Plane**
   with evaluation as a first-class capability, not a sidecar feature.
 - Go hosts the Kubernetes API types, CRD controllers, compiler, admission
   checks, runtime dispatch, and future gateway.
-- Go is expected to host the Eino-based runtime worker.
+- Go is expected to host the operator, worker, initial manager services, and
+  Eino-based runner integration.
 - `runtime.engine: eino` with `runtime.runnerClass: adk` is the default
   runner direction; LangGraph remains a future compatibility adapter.
 - PostgreSQL, pgvector, S3-compatible storage, and a queue are expected to
-  provide state, retrieval, artifacts, and async execution as the system matures.
+  provide manager state, retrieval, artifacts, and async execution as the
+  system matures.
 - TypeScript should host the future enterprise console, visual orchestration
   studio, marketplace UI, and generated SDKs.
+
+Component boundary details live in
+`docs/architecture/component-boundaries.md`.
 
 ### Control Plane Boundary
 
 - `controller-manager` is the operator control plane. It watches CRDs,
   reconciles desired state, compiles artifacts, and manages run lifecycle.
+- `manager` is the optional product backend. It should store product
+  workspaces, users, teams, memberships, release workflows, durable audit logs,
+  and UI drafts in a database, then create or sync Kubernetes resources through
+  the operator-facing API.
 - `worker` is the execution-side runtime entrypoint. It consumes compiled
   artifacts and run input, then performs model execution and future tool or
   retrieval work.
-- CRDs remain the declarative API surface between platform users and the
-  operator.
+- `runner` is the pluggable agent execution engine boundary used by workers.
+- CRDs remain the declarative API surface between platform users, the manager,
+  and the operator.
+- Product workspaces should not be modeled primarily as CRDs. The current
+  `Workspace` CRD is a lightweight runtime-scope bridge for Kubernetes-native
+  mode and manager-to-operator synchronization.
 
 ### Product Priorities
 
@@ -215,6 +242,8 @@ Phase 3 console planning lives in
 `docs/phase3/console-information-architecture.md`.
 Tenancy and workspace design notes live in
 `docs/phase3/tenancy-workspace-model.md`.
+The operator/manager/worker/runner boundary is documented in
+`docs/architecture/component-boundaries.md`.
 The future web console implementation root is `web/`.
 
 | Milestone | Current state | Next work |
@@ -222,7 +251,7 @@ The future web console implementation root is `web/`.
 | Eino compile artifact | Static reference compiler, typed compiled artifact decoder, and v1 runner artifact emission exist. | Enrich the runner artifact with fully resolved prompt/tool/knowledge content. |
 | Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
 | Model credentials | In progress. | Sample Agents can reference same-namespace Kubernetes Secrets, and worker Jobs receive secret-backed model credentials without writing secret values into status or artifacts. |
-| Tenancy and workspace model | Early foundation | `Tenant` and `Workspace` CRD skeletons now exist as the first control-plane surface for enterprise scoping, lightweight controllers can resolve `tenantRef`, publish workspace console scope, and count tenant workspaces, and `Agent` / `AgentEvaluation` can now declare explicit `workspaceRef` bindings that controllers validate. Workspace policy can provide a default `AgentPolicy`, restrict allowed model providers, and provide provider-level defaults such as `baseURL` and Secret-backed credential refs before agent compilation. | Expand the model into runtime isolation, RBAC, quotas, workspace binding, and future UI semantics. |
+| Tenancy and workspace model | Reframed | `Tenant` and `Workspace` CRDs now act as lightweight Kubernetes runtime-scope resources, not the canonical enterprise product database. The future manager should own product tenants, workspaces, membership, release workflows, durable audits, and UI drafts in its database. Current controllers still resolve `tenantRef`, publish workspace scope hints, count tenant workspaces, validate `Agent` / `AgentEvaluation` workspace refs, and apply workspace policy/provider defaults before compilation. | Design the optional manager database model and keep the CRD surface focused on runtime scope, policy references, provider restrictions, and Secret references. |
 | Model provider strategy | Early foundation | The compiler now validates `ModelSpec.provider` against a provider catalog and emits provider family metadata into the compiled artifact. OpenAI-compatible providers such as OpenAI, Azure OpenAI, DeepSeek, Qwen, Moonshot, Doubao, GLM, Baichuan, MiniMax, and SiliconFlow can share the current runtime path. | Expand the capability matrix, add provider-specific runtime adapters where needed, and expose the catalog through future UI and policy surfaces. |
 | Runtime contract | `AgentRun` carries input, output, trace reference, agent revision, and workspace identity. Gateway-created and evaluation-managed runs propagate the agent or evaluation workspace into the run record. | Define artifacts, logs, errors, cancellation, retry behavior, and richer audit metadata. |
 | Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist; workspace-scoped default policy inheritance now feeds the compiled agent artifact when an agent does not set its own policy. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
@@ -244,9 +273,10 @@ Goal: make the platform usable by teams, not only by cluster operators.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, visual agent orchestration, agent build and publish flows, run debugging, evaluation comparison, provider management, collaboration, and release workflows. |
+| Manager backend | Not started. | Add an optional database-backed manager service that powers the console and owns product tenants, workspaces, users, teams, membership, releases, durable audits, and UI drafts while syncing runtime resources to Kubernetes. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
 | SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
-| Tenant and workspace experience | Not started. | Add tenancy model, workspace mapping, RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |
+| Tenant and workspace experience | Direction clarified. | Model tenant/workspace product state in the manager database, map it to Kubernetes runtime scope resources, and add RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |
 | Evaluation-first workflows | Not started. | Build dataset management, revision comparison, threshold gates, release readiness checks, and regression views into the product surface. |
 | Provider management UX | Not started. | Expose provider selection, capability differences, credential references, and model switching in a user-facing workflow. |
 | Governance workflows | Policy CRD exists. | Add review, approval, human-in-the-loop, and exception workflows. |

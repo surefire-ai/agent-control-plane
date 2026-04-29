@@ -19,6 +19,9 @@ Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景
 - **operator 层** 负责持续 reconcile `Agent`、`AgentRun`、
   `PromptTemplate`、`ToolProvider`、`KnowledgeBase`、`AgentPolicy`
   等 CRD。
+- **manager 层** 是未来 Console 使用的可选产品后台，负责用数据库保存
+  organization、workspace、用户、团队、成员关系、发布流程、持久审计和
+  UI draft 等产品态数据。
 - **控制面 controller** 负责把期望状态编译成确定性的 runtime artifact，
   发布 status，执行平台契约，并把运行请求分发给执行 backend。
 - **执行层** 位于 worker 和 runtime backend 后面，负责模型调用、tool
@@ -26,16 +29,21 @@ Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景
 - **console 层** 是一等产品入口，负责承载可视化的 Agent 编排、Evaluation
   查看、revision 对比和发布体验，而不是仅仅展示 Kubernetes 资源。
 
-换句话说，这个项目并不是要把所有 Agent 逻辑都塞进 operator 进程里。
-operator 负责声明、reconcile、调度和治理；worker 负责执行；console 负责团队每天
-真正会使用的编排、评测、发布和协作体验。项目方向也明确是企业产品优先：多租户、
-evaluation、provider 广度、治理和日常使用体验，和 runtime 能力本身同等重要。
+换句话说，这个项目并不是要把所有 Agent 逻辑或所有产品态数据都塞进 operator
+进程里。operator 负责声明、reconcile、调度和 runtime 治理；可选 manager
+负责数据库中的企业产品状态；worker 负责执行；runner 负责具体 Agent 执行语义；
+console 负责团队每天真正会使用的编排、评测、发布和协作体验。项目方向也明确是
+企业产品优先：多租户、evaluation、provider 广度、治理和日常使用体验，和
+runtime 能力本身同等重要。
 
 ## 项目能力
 
 - `Agent` 声明 runtime、模型、prompt、知识库、工具、MCP Server、策略、图结构、接口、记忆和可观测性配置。
 - `AgentRun` 记录一次不可变的执行请求及其执行状态。
-- `Tenant`、`Workspace`、`PromptTemplate`、`KnowledgeBase`、`ToolProvider`、`Dataset`、`MCPServer`、`AgentPolicy` 和 `AgentEvaluation` 提供控制平面所需的配套资源。
+- `PromptTemplate`、`KnowledgeBase`、`ToolProvider`、`Dataset`、`MCPServer`、`AgentPolicy` 和 `AgentEvaluation` 提供控制平面所需的配套资源。
+- `Tenant` 和 `Workspace` 当前是轻量 Kubernetes runtime scope 资源；在
+  managed enterprise 模式下，canonical tenant/workspace 产品记录应存放在
+  manager 数据库中。
 - controller-manager 负责编译 `Agent` 资源、发布确定性的状态，并将 `AgentRun` 分发到 runtime backend。
 - worker runtime backend 可以将每次运行分发为 Kubernetes Job。当前 worker 仍是占位实现，用于支撑 Eino runtime 成熟前的控制平面验证。
 
@@ -56,20 +64,33 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 
 ## 架构方向
 
-- 本仓库正在朝 **Agent Control Plane Operator for Kubernetes** 的方向演进。
+- 本仓库正在朝四组件系统演进：**operator**、**manager**、**worker** 和
+  **runner**。
+- operator 仍然是 Kubernetes-native 控制面。
+- manager 是可选的数据库后台，为未来 Web Console 提供企业产品能力。
+- worker 在运行环境中执行单次 run。
+- runner 是可插拔 Agent 执行引擎边界，第一版以 Eino 为主。
 - 产品方向是 **Enterprise Multi-Tenant Agent Control Plane**，并将
   evaluation 作为一等能力，而不是附属功能。
 - Go 承载 Kubernetes API 类型、CRD controller、compiler、admission check、runtime dispatch，以及未来的 gateway。
-- Go 预计承载基于 Eino 的 runtime worker。
+- Go 预计承载 operator、worker、初始 manager 服务，以及基于 Eino 的 runner
+  集成。
 - 默认 runner 方向是 `runtime.engine: eino` 与 `runtime.runnerClass: adk`；LangGraph 保留为未来兼容 adapter。
-- PostgreSQL、pgvector、S3 兼容存储和队列预计用于状态、检索、产物和异步执行。
+- PostgreSQL、pgvector、S3 兼容存储和队列预计用于 manager 状态、检索、产物和异步执行。
 - TypeScript 应承载未来的企业级控制台、可视化编排工作台、Marketplace UI 和生成式 SDK。
+
+组件边界说明见 `docs/architecture/component-boundaries.md`。
 
 ### 控制面边界
 
 - `controller-manager` 是 operator 控制面，负责监听 CRD、reconcile 期望状态、编译 artifact，并管理 run lifecycle。
+- `manager` 是可选产品后台，应在数据库中保存 product workspace、用户、团队、
+  成员关系、发布流程、持久审计和 UI draft，再通过面向 operator 的 API 创建或同步 Kubernetes 资源。
 - `worker` 是执行侧 runtime 入口，负责消费 compiled artifact 和 run input，并执行模型调用以及未来的 tool/retrieval 工作。
-- CRD 仍然是平台用户与 operator 之间的声明式 API 边界。
+- `runner` 是 worker 使用的可插拔 Agent 执行引擎边界。
+- CRD 仍然是平台用户、manager 与 operator 之间的声明式 API 边界。
+- 产品态 workspace 不应该主要建模为 CRD。当前 `Workspace` CRD 是
+  Kubernetes-native 模式和 manager 到 operator 同步时使用的轻量 runtime-scope bridge。
 
 ### 产品优先级
 
@@ -163,6 +184,8 @@ Phase 3 console 规划见
 `docs/phase3/console-information-architecture.md`。
 Tenancy 与 workspace 设计说明见
 `docs/phase3/tenancy-workspace-model.md`。
+operator / manager / worker / runner 的组件边界见
+`docs/architecture/component-boundaries.md`。
 未来 Web Console 的实现目录是 `web/`。
 
 | 里程碑 | 当前状态 | 下一步 |
@@ -170,7 +193,7 @@ Tenancy 与 workspace 设计说明见
 | Eino compile artifact | 已有静态引用 compiler、typed compiled artifact decoder 和 v1 runner artifact 输出。 | 继续把 prompt/tool/knowledge 内容解析进 runner artifact。 |
 | Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
 | Model credentials | 进行中。 | Sample Agent 已可通过同 namespace 的 Kubernetes Secret 引用模型凭据，worker Job 会注入密钥但不会把明文写入 status 或 artifacts。 |
-| Tenancy 与 workspace 模型 | Early foundation | 已加入 `Tenant` 与 `Workspace` CRD skeleton，作为企业级作用域的第一层控制面接口；轻量 controller 已能解析 `tenantRef`、发布 workspace console scope，并统计 tenant 下的 workspace 数量；`Agent` / `AgentEvaluation` 现在也可显式声明 `workspaceRef`，并由 controller 执行基础校验。Workspace policy 还可以提供默认 `AgentPolicy`、限制允许使用的模型 provider，并在 Agent 编译前提供 provider 级 `baseURL` 和基于 Secret 的 credential ref 默认值。 | 继续把这层模型扩展到 runtime 隔离、RBAC、quota、workspace 绑定与未来 UI 语义中。 |
+| Tenancy 与 workspace 模型 | 已重新定向 | `Tenant` 与 `Workspace` CRD 现在被定位为轻量 Kubernetes runtime-scope 资源，而不是 canonical enterprise product database。未来 manager 应在数据库中管理 product tenant、workspace、成员关系、发布流程、持久审计和 UI draft。当前 controller 仍会解析 `tenantRef`、发布 workspace scope hint、统计 tenant 下的 workspace 数量、校验 `Agent` / `AgentEvaluation` 的 workspace ref，并在编译前应用 workspace policy/provider 默认值。 | 设计可选 manager 的数据库模型，并让 CRD 表面聚焦 runtime scope、policy reference、provider restriction 和 Secret reference。 |
 | Model provider strategy | 已有早期基础。 | compiler 现在会按 provider catalog 校验 `ModelSpec.provider`，并把 provider family 元数据写入 compiled artifact。OpenAI-compatible 一族目前已可统一覆盖 OpenAI、Azure OpenAI、DeepSeek、Qwen、Moonshot、Doubao、GLM、Baichuan、MiniMax、SiliconFlow。 | 继续扩展 capability matrix，并在需要时增加 provider-specific runtime adapter，同时为未来 UI 和 policy 暴露这份 catalog。 |
 | Runtime contract | `AgentRun` 已携带 input、output、trace reference、agent revision 和 workspace identity。gateway 创建的运行和 evaluation 托管运行都会把 agent 或 evaluation 的 workspace 写入 run 记录。 | 定义 artifacts、logs、errors、取消、重试和更完整的审计元数据。 |
 | Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`；当 Agent 未显式设置 policy 时，workspace-scoped 默认 policy 已可进入 compiled artifact。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
@@ -192,9 +215,10 @@ Phase 2 退出标准：
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、可视化 Agent 编排、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理、协作与发布体验的控制台。 |
+| Manager backend | 尚未开始。 | 增加可选的数据库型 manager service，为 console 提供 product tenant、workspace、用户、团队、成员关系、发布、持久审计和 UI draft 能力，同时把 runtime 资源同步到 Kubernetes。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
 | SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
-| Tenant 与 workspace 体验 | 尚未开始。 | 增加租户模型、workspace 映射、RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |
+| Tenant 与 workspace 体验 | 方向已明确。 | 在 manager 数据库中建模 tenant/workspace 产品状态，将其映射到 Kubernetes runtime scope 资源，并补齐 RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |
 | Evaluation-first workflows | 尚未开始。 | 将评测集管理、revision 对比、阈值门禁、上线检查和回归视图纳入产品主界面。 |
 | Provider management UX | 尚未开始。 | 提供 provider 选择、能力差异、credential 引用和模型切换的用户工作流。 |
 | Governance workflows | 已有 Policy CRD。 | 增加 review、approval、human-in-the-loop 和 exception 工作流。 |

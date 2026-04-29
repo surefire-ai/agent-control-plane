@@ -1,7 +1,7 @@
 # Console Information Architecture
 
 Status: draft  
-Last updated: 2026-04-23
+Last updated: 2026-04-29
 
 ## Purpose
 
@@ -20,6 +20,8 @@ surface for:
 
 The console should let users work at the product level while still mapping
 cleanly onto deterministic control-plane resources.
+The console is backed by the optional manager service, not directly by
+Kubernetes CRDs alone.
 
 ## Product Stance
 
@@ -27,6 +29,8 @@ The product should be understood as an enterprise agent platform with a
 Kubernetes-native control plane underneath.
 
 - Kubernetes remains the source of truth for control-plane objects.
+- The manager database is the source of truth for product tenants, workspaces,
+  users, teams, memberships, UI drafts, release workflows, and durable audits.
 - The console is the default user-facing workspace for building and operating
   agents.
 - Users should not need to hand-author graph YAML for common orchestration
@@ -76,14 +80,16 @@ The console should use this top-level navigation:
 
 ### Tenant switcher
 
-Top-level product boundary. Everything in the console should feel scoped to a
-tenant before it is scoped to a workspace.
+Top-level product boundary from the manager database. Everything in the
+console should feel scoped to a tenant before it is scoped to a workspace.
 
 ### Workspace navigation
 
-Primary working context for application teams. A workspace should gather the
-agents, runs, datasets, provider bindings, policies, and members needed for a
-single team, product, or business domain.
+Primary working context for application teams from the manager database. A
+workspace should gather the agents, runs, datasets, provider bindings, policies,
+and members needed for a single team, product, or business domain. Kubernetes
+`Workspace` resources, when present, are runtime-scope bridges rather than the
+canonical product workspace record.
 
 ## Primary Product Areas
 
@@ -276,11 +282,12 @@ The console should follow these rules:
 The first usable console should prioritize:
 
 1. Tenant and workspace shell
-2. Agent list and detail pages
-3. Visual orchestration studio for common agent assembly
-4. Evaluation list, detail, and baseline comparison
-5. Release readiness and publish workflow
-6. Run inspection and debugging
+2. Manager-backed workspace membership and provider binding basics
+3. Agent list and detail pages
+4. Visual orchestration studio for common agent assembly
+5. Evaluation list, detail, and baseline comparison
+6. Release readiness and publish workflow
+7. Run inspection and debugging
 
 The first console should not try to deliver every platform area on day one.
 Marketplace, full governance workflows, and advanced administration can follow
@@ -289,6 +296,9 @@ after the build/evaluate/release loop is solid.
 ## Open Design Questions
 
 - How should workspace boundaries map onto Kubernetes namespaces
+- What is the first manager database schema for tenants, workspaces, users,
+  teams, membership, provider accounts, and durable audits
+- What is the manager-to-operator synchronization contract
 - Which release concepts become first-class API fields versus console-only UX
 - How much freeform graph editing should the first studio allow
 - How should provider credentials and workspace bindings appear without leaking

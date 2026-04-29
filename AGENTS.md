@@ -4,14 +4,19 @@ This file guides AI collaborators working in this repository.
 
 ## Project Identity
 
-Agent Control Plane is a Kubernetes-native control plane for AI agents.
+Agent Control Plane is an enterprise Agent Control Plane built on Kubernetes.
 
-Treat this project as an **operator plus runtime system**, not as a generic app
-or a prompt playground.
+Treat this project as a four-component system, not as a generic app or a
+prompt playground:
 
 - The **operator/control plane** lives in `api/`, `internal/controller/`,
   `internal/compiler/`, `internal/gateway/`, and `internal/runtime/`.
+- The future **manager** is an optional database-backed product backend used by
+  the Web Console for tenants, workspaces, users, teams, releases, durable
+  audits, and UI drafts.
 - The **execution plane** lives in `cmd/worker/` and `internal/worker/`.
+- The **runner** boundary lives behind the worker and is where Eino and future
+  execution engines belong.
 - The declarative API surface is defined by Kubernetes CRDs under
   `api/v1alpha1/` and generated manifests under `config/crd/bases/`.
 
@@ -28,12 +33,15 @@ Current repository direction:
   and UX-aware**.
 - The future console is a **first-class visual orchestration, evaluation, and
   release surface**, not a thin dashboard layered on top of CRDs.
+- Product tenant/workspace state belongs in the future manager database.
+  Kubernetes `Tenant` and `Workspace` resources are lightweight runtime-scope
+  bridge resources, not the canonical enterprise product database.
 
 ## What To Optimize For
 
 When making changes, optimize for these goals in order:
 
-1. Preserve a clean boundary between control plane and execution plane.
+1. Preserve clean boundaries between operator, manager, worker, and runner.
 2. Keep CRDs and compiled artifacts deterministic and auditable.
 3. Make the product shape enterprise-ready: tenancy, isolation, governance,
    provider breadth, and evaluation are not optional extras.
@@ -58,7 +66,8 @@ These are the core differentiators and should stay first-class:
 - `AgentRun` lifecycle and status contract
 - evaluation contract, revision comparison, and release-gate semantics
 - provider abstraction and capability modeling
-- tenant and workspace boundaries in the control-plane model
+- tenant and workspace runtime-scope references in the control-plane model
+- manager-to-operator synchronization contracts
 - Kubernetes runtime dispatch and secret-handling boundaries
 - opinionated `Skill` and `Pattern` behavior
 
@@ -73,6 +82,7 @@ These areas are worth studying and adapting, but not necessarily copying:
 - enterprise evaluation UX and workflow patterns
 - provider catalog and model-switching UX
 - product-facing console and platform workflows
+- manager database schema and enterprise product workflows
 
 ### Integrate instead of rewrite
 
@@ -97,12 +107,17 @@ Keep these responsibilities separate:
 
 - `controller-manager` reconciles resources, compiles artifacts, manages status,
   and dispatches runs.
+- `manager` stores product state in a database and syncs runtime resources to
+  Kubernetes when running in managed enterprise mode.
 - `worker` consumes compiled artifacts and run input, then executes models,
   tools, retrieval, and future graph semantics.
+- `runner` implementations execute agent semantics behind the worker boundary.
 
 Do not move execution logic into controllers just because it seems convenient.
+Do not move product database concerns such as membership, UI drafts, billing,
+or durable audits into CRDs just because they are related to runtime scope.
 
-### 2. CRDs are the product surface
+### 2. CRDs are the operator surface
 
 If you add new behavior, prefer expressing it through:
 
@@ -112,6 +127,10 @@ If you add new behavior, prefer expressing it through:
 
 Avoid hidden behavior that only exists in worker code without an API or
 artifact representation.
+
+For enterprise product state, prefer manager-owned database models and a clear
+manager-to-operator sync contract. Do not turn CRDs into the primary store for
+users, teams, memberships, UI drafts, billing, or long-lived audit history.
 
 ### 3. Compiler first, runtime second
 
@@ -153,9 +172,9 @@ explicitly asks for a directional change:
 - The product target is also a user-facing enterprise platform where the web
   console is expected to support visual agent orchestration, evaluation,
   publishing, and release management.
-- `Tenant` and `Workspace` are the starting control-plane surface for
-  enterprise scoping; extend them deliberately before introducing parallel
-  tenant models elsewhere in the stack.
+- `Tenant` and `Workspace` currently exist as CRD-backed runtime-scope bridge
+  resources. Do not extend them into the canonical enterprise tenant/workspace
+  product database.
 - `Workspace` now has a lightweight lifecycle: it resolves `tenantRef`,
   publishes a console scope endpoint, and records its effective namespace.
 - `Tenant` now records an aggregated `workspaceCount` in status.
@@ -191,6 +210,9 @@ explicitly asks for a directional change:
 - `AgentRun` now carries workspace identity in status. Gateway-created runs
   inherit it from the target `Agent`, and evaluation-managed runs inherit it
   from `AgentEvaluation.spec.workspaceRef`.
+- The future manager should own product tenants, workspaces, users, teams,
+  memberships, releases, durable audits, and UI drafts in a database, while the
+  operator remains usable without the manager.
 - Model provider support should evolve into a capability matrix that treats
   Chinese domestic providers as first-class targets.
 - `ModelSpec.provider` is no longer just a free-form string in practice: the
@@ -227,6 +249,8 @@ explicitly asks for a directional change:
   - canonical samples and smoke overlays
 - `docs/phase2/`
   - roadmap and design docs for the runtime direction
+- `docs/architecture/`
+  - component boundaries and system-level architecture notes
 - `docs/phase3/`
   - console, tenancy, workspace, and enterprise product design notes
 - `web/`
@@ -306,6 +330,7 @@ When behavior changes materially, update the relevant docs:
 
 - `README.md`
 - `README.zh-CN.md`
+- `docs/architecture/component-boundaries.md`
 - `docs/phase2/eino-runtime-design.md`
 - `docs/phase2/agent-patterns-and-a2a-todo.md`
 - `docs/phase3/console-information-architecture.md`

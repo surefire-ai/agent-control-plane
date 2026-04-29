@@ -79,7 +79,9 @@ Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 - PostgreSQL、pgvector、S3 兼容存储和队列预计用于 manager 状态、检索、产物和异步执行。
 - TypeScript 应承载未来的企业级控制台、可视化编排工作台、Marketplace UI 和生成式 SDK。
 
-组件边界说明见 `docs/architecture/component-boundaries.md`。
+组件边界说明见 `docs/architecture/component-boundaries.md`。初始 manager 数据模型和
+manager 到 operator 的同步契约见 `docs/architecture/manager-data-model.md` 与
+`docs/architecture/manager-operator-sync.md`。
 
 ### 控制面边界
 
@@ -186,6 +188,9 @@ Tenancy 与 workspace 设计说明见
 `docs/phase3/tenancy-workspace-model.md`。
 operator / manager / worker / runner 的组件边界见
 `docs/architecture/component-boundaries.md`。
+manager 数据模型和同步契约见
+`docs/architecture/manager-data-model.md` 与
+`docs/architecture/manager-operator-sync.md`。
 未来 Web Console 的实现目录是 `web/`。
 
 | 里程碑 | 当前状态 | 下一步 |
@@ -215,7 +220,7 @@ Phase 2 退出标准：
 | 里程碑 | 当前状态 | 下一步 |
 | --- | --- | --- |
 | UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、可视化 Agent 编排、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理、协作与发布体验的控制台。 |
-| Manager backend | 尚未开始。 | 增加可选的数据库型 manager service，为 console 提供 product tenant、workspace、用户、团队、成员关系、发布、持久审计和 UI draft 能力，同时把 runtime 资源同步到 Kubernetes。 |
+| Manager backend | 设计已起草：组件边界、初始 manager 数据模型，以及 manager-to-operator sync contract 已记录在 `docs/architecture/` 下。 | Scaffold 可选 manager service，并实现最小的 workspace / agent-project API 与数据库存储。 |
 | Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
 | SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
 | Tenant 与 workspace 体验 | 方向已明确。 | 在 manager 数据库中建模 tenant/workspace 产品状态，将其映射到 Kubernetes runtime scope 资源，并补齐 RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |

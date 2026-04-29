@@ -8,6 +8,10 @@ Last updated: 2026-04-29
 This document explains the tenancy and workspace model after the project split
 between operator, manager, worker, and runner responsibilities.
 
+The manager data model is documented in
+`../architecture/manager-data-model.md`, and the manager-to-operator sync
+contract is documented in `../architecture/manager-operator-sync.md`.
+
 The goal is to avoid making Kubernetes CRDs the canonical database for
 enterprise product concepts such as workspaces, membership, collaboration,
 release workflows, billing, and durable audits.

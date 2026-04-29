@@ -116,7 +116,10 @@ code.
   studio, marketplace UI, and generated SDKs.
 
 Component boundary details live in
-`docs/architecture/component-boundaries.md`.
+`docs/architecture/component-boundaries.md`. The initial manager data model and
+manager-to-operator sync contract live in
+`docs/architecture/manager-data-model.md` and
+`docs/architecture/manager-operator-sync.md`.
 
 ### Control Plane Boundary
 
@@ -244,6 +247,9 @@ Tenancy and workspace design notes live in
 `docs/phase3/tenancy-workspace-model.md`.
 The operator/manager/worker/runner boundary is documented in
 `docs/architecture/component-boundaries.md`.
+The manager data model and sync contract are documented in
+`docs/architecture/manager-data-model.md` and
+`docs/architecture/manager-operator-sync.md`.
 The future web console implementation root is `web/`.
 
 | Milestone | Current state | Next work |
@@ -273,7 +279,7 @@ Goal: make the platform usable by teams, not only by cluster operators.
 | Milestone | Current state | Next work |
 | --- | --- | --- |
 | UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, visual agent orchestration, agent build and publish flows, run debugging, evaluation comparison, provider management, collaboration, and release workflows. |
-| Manager backend | Not started. | Add an optional database-backed manager service that powers the console and owns product tenants, workspaces, users, teams, membership, releases, durable audits, and UI drafts while syncing runtime resources to Kubernetes. |
+| Manager backend | Design drafted: the component boundary, initial manager data model, and manager-to-operator sync contract are documented under `docs/architecture/`. | Scaffold the optional manager service and implement the smallest workspace/agent-project API backed by a database. |
 | Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
 | SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
 | Tenant and workspace experience | Direction clarified. | Model tenant/workspace product state in the manager database, map it to Kubernetes runtime scope resources, and add RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |

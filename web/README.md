@@ -2,6 +2,12 @@
 
 This directory is reserved for the future Agent Control Plane web console.
 
+Relevant product backend design docs:
+
+- [Component boundaries](../docs/architecture/component-boundaries.md)
+- [Manager data model](../docs/architecture/manager-data-model.md)
+- [Manager to operator sync](../docs/architecture/manager-operator-sync.md)
+
 The console is intended to be the primary product surface for enterprise users,
 not a thin Kubernetes resource dashboard. It should be backed by the optional
 manager service and its database, then sync runtime resources to the

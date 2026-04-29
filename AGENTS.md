@@ -250,7 +250,8 @@ explicitly asks for a directional change:
 - `docs/phase2/`
   - roadmap and design docs for the runtime direction
 - `docs/architecture/`
-  - component boundaries and system-level architecture notes
+  - component boundaries, manager data model, manager/operator sync contract,
+    and system-level architecture notes
 - `docs/phase3/`
   - console, tenancy, workspace, and enterprise product design notes
 - `web/`
@@ -331,6 +332,8 @@ When behavior changes materially, update the relevant docs:
 - `README.md`
 - `README.zh-CN.md`
 - `docs/architecture/component-boundaries.md`
+- `docs/architecture/manager-data-model.md`
+- `docs/architecture/manager-operator-sync.md`
 - `docs/phase2/eino-runtime-design.md`
 - `docs/phase2/agent-patterns-and-a2a-todo.md`
 - `docs/phase3/console-information-architecture.md`

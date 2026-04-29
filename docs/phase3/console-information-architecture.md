@@ -9,6 +9,10 @@ This document defines the intended information architecture for the future web
 console.
 
 The implementation root for the future console is [web/README.md](../../web/README.md).
+The manager data model is documented in
+[`manager-data-model.md`](../architecture/manager-data-model.md), and the
+manager-to-operator sync contract is documented in
+[`manager-operator-sync.md`](../architecture/manager-operator-sync.md).
 
 The console is not a thin Kubernetes dashboard. It is the primary product
 surface for:

@@ -34,6 +34,8 @@
   },
   "status": {
     "active": "活跃",
+    "published": "已发布",
+    "draft": "草稿",
     "inactive": "停用",
     "archived": "归档"
   },
@@ -42,7 +44,11 @@
     "slug": "标识",
     "status": "状态",
     "region": "区域",
-    "namespace": "命名空间"
+    "namespace": "命名空间",
+    "pattern": "范式",
+    "model": "模型",
+    "runtime": "运行时",
+    "revision": "修订版本"
   },
   "tenant": {
     "title": "租户",
@@ -79,6 +85,13 @@
       "kubernetesNamespace": "Kubernetes 命名空间",
       "kubernetesWorkspaceName": "Kubernetes 工作区名称"
     }
+  },
+  "agent": {
+    "title": "Agents",
+    "subtitle": "设计、版本化并发布租户级 Agent",
+    "loadError": "加载 Agents 失败",
+    "emptyTitle": "暂无 Agent",
+    "emptyDescription": "工作区中创建的 Agent 会显示在这里。"
   },
   "productAreas": {
     "tenantScope": "租户范围：{{tenantId}}",

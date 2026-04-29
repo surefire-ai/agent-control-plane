@@ -36,10 +36,10 @@ The first Web Console scaffold is in place:
 The current UI is intentionally a product console shell rather than a landing
 page. The first implemented surface covers tenant navigation, workspace lists,
 workspace detail, workspace creation, workspace editing, and workspace deletion
-confirmation. The sidebar also reserves tenant-scoped product areas for
-Agents, Evaluations, Providers, and Settings so the console information
-architecture stays aligned with the enterprise roadmap while those backends are
-implemented.
+confirmation. Agents now have a tenant-scoped list view backed by the manager
+API contract. The sidebar also reserves product areas for Evaluations,
+Providers, and Settings so the console information architecture stays aligned
+with the enterprise roadmap while those backends are implemented.
 
 Generated frontend artifacts are ignored by git:
 

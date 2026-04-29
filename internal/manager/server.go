@@ -46,6 +46,22 @@ type TenantResponse struct {
 	DefaultRegion  string `json:"defaultRegion,omitempty"`
 }
 
+type AgentResponse struct {
+	ID             string `json:"id"`
+	TenantID       string `json:"tenantId"`
+	WorkspaceID    string `json:"workspaceId"`
+	Slug           string `json:"slug"`
+	DisplayName    string `json:"displayName"`
+	Description    string `json:"description,omitempty"`
+	Status         string `json:"status"`
+	Pattern        string `json:"pattern"`
+	RuntimeEngine  string `json:"runtimeEngine"`
+	RunnerClass    string `json:"runnerClass"`
+	ModelProvider  string `json:"modelProvider,omitempty"`
+	ModelName      string `json:"modelName,omitempty"`
+	LatestRevision string `json:"latestRevision,omitempty"`
+}
+
 type PaginatedWorkspacesResponse struct {
 	Workspaces []WorkspaceResponse `json:"workspaces"`
 	Page       int                 `json:"page"`
@@ -58,6 +74,13 @@ type PaginatedTenantsResponse struct {
 	Page    int              `json:"page"`
 	Limit   int              `json:"limit"`
 	Total   int              `json:"total"`
+}
+
+type PaginatedAgentsResponse struct {
+	Agents []AgentResponse `json:"agents"`
+	Page   int             `json:"page"`
+	Limit  int             `json:"limit"`
+	Total  int             `json:"total"`
 }
 
 type CreateWorkspaceRequest struct {
@@ -140,6 +163,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/info", s.handleInfo)
 	mux.HandleFunc("/api/v1/workspaces/", s.handleWorkspace)
 	mux.HandleFunc("/api/v1/tenants/", s.handleTenant)
+	mux.HandleFunc("/api/v1/agents/", s.handleAgent)
 	return corsMiddleware(mux)
 }
 
@@ -379,6 +403,79 @@ func (s Server) handleTenant(w http.ResponseWriter, r *http.Request) {
 	s.handleGetTenant(w, r, tenantID)
 }
 
+func (s Server) handleAgent(w http.ResponseWriter, r *http.Request) {
+	if s.Stores.Agents == nil {
+		writeError(w, http.StatusServiceUnavailable, "agent store is not configured")
+		return
+	}
+	agentID := strings.TrimPrefix(r.URL.Path, "/api/v1/agents/")
+	agentID = strings.TrimSpace(agentID)
+
+	if agentID == "" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+			return
+		}
+		s.handleListAgents(w, r)
+		return
+	}
+
+	if strings.Contains(agentID, "/") {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+		return
+	}
+	s.handleGetAgent(w, r, agentID)
+}
+
+func (s Server) handleGetAgent(w http.ResponseWriter, r *http.Request, agentID string) {
+	agent, err := s.Stores.Agents.GetAgent(r.Context(), agentID)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read agent")
+		return
+	}
+	writeJSON(w, http.StatusOK, agentResponseFromRecord(*agent))
+}
+
+func (s Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
+	page, limit := paginationFromQuery(r)
+	tenantID := r.URL.Query().Get("tenantId")
+	workspaceID := r.URL.Query().Get("workspaceId")
+	var records []AgentRecord
+	var total int
+	var err error
+	switch {
+	case workspaceID != "":
+		records, total, err = s.Stores.Agents.ListAgentsByWorkspace(r.Context(), workspaceID, page, limit)
+	case tenantID != "":
+		records, total, err = s.Stores.Agents.ListAgentsByTenant(r.Context(), tenantID, page, limit)
+	default:
+		records, total, err = s.Stores.Agents.ListAgents(r.Context(), page, limit)
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list agents")
+		return
+	}
+	agents := make([]AgentResponse, 0, len(records))
+	for _, rec := range records {
+		agents = append(agents, agentResponseFromRecord(rec))
+	}
+	writeJSON(w, http.StatusOK, PaginatedAgentsResponse{
+		Agents: agents,
+		Page:   page,
+		Limit:  limit,
+		Total:  total,
+	})
+}
+
 func (s Server) handleGetTenant(w http.ResponseWriter, r *http.Request, tenantID string) {
 	tenant, err := s.Stores.Tenants.GetTenant(r.Context(), tenantID)
 	if errors.Is(err, ErrNotFound) {
@@ -435,6 +532,24 @@ func workspaceResponseFromRecord(rec WorkspaceRecord) WorkspaceResponse {
 		Status:                  rec.Status,
 		KubernetesNamespace:     rec.KubernetesNamespace,
 		KubernetesWorkspaceName: rec.KubernetesWorkspaceName,
+	}
+}
+
+func agentResponseFromRecord(rec AgentRecord) AgentResponse {
+	return AgentResponse{
+		ID:             rec.ID,
+		TenantID:       rec.TenantID,
+		WorkspaceID:    rec.WorkspaceID,
+		Slug:           rec.Slug,
+		DisplayName:    rec.DisplayName,
+		Description:    rec.Description,
+		Status:         rec.Status,
+		Pattern:        rec.Pattern,
+		RuntimeEngine:  rec.RuntimeEngine,
+		RunnerClass:    rec.RunnerClass,
+		ModelProvider:  rec.ModelProvider,
+		ModelName:      rec.ModelName,
+		LatestRevision: rec.LatestRevision,
 	}
 }
 

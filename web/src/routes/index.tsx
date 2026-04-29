@@ -5,6 +5,7 @@ import { WorkspaceListPage } from "@/pages/WorkspaceListPage";
 import { WorkspaceDetailPage } from "@/pages/WorkspaceDetailPage";
 import { WorkspaceCreatePage } from "@/pages/WorkspaceCreatePage";
 import { ProductAreaPage } from "@/pages/ProductAreaPage";
+import { AgentListPage } from "@/pages/AgentListPage";
 
 export const router = createBrowserRouter([
   {
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/workspaces", element: <WorkspaceListPage /> },
       { path: "tenants/:tenantId/workspaces/new", element: <WorkspaceCreatePage /> },
       { path: "tenants/:tenantId/workspaces/:workspaceId", element: <WorkspaceDetailPage /> },
-      { path: "tenants/:tenantId/agents", element: <ProductAreaPage area="agents" /> },
+      { path: "tenants/:tenantId/agents", element: <AgentListPage /> },
       { path: "tenants/:tenantId/evaluations", element: <ProductAreaPage area="evaluations" /> },
       { path: "tenants/:tenantId/providers", element: <ProductAreaPage area="providers" /> },
       { path: "tenants/:tenantId/settings", element: <ProductAreaPage area="settings" /> },

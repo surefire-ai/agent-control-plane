@@ -34,6 +34,8 @@
   },
   "status": {
     "active": "Active",
+    "published": "Published",
+    "draft": "Draft",
     "inactive": "Inactive",
     "archived": "Archived"
   },
@@ -42,7 +44,11 @@
     "slug": "Slug",
     "status": "Status",
     "region": "Region",
-    "namespace": "Namespace"
+    "namespace": "Namespace",
+    "pattern": "Pattern",
+    "model": "Model",
+    "runtime": "Runtime",
+    "revision": "Revision"
   },
   "tenant": {
     "title": "Tenants",
@@ -79,6 +85,13 @@
       "kubernetesNamespace": "Kubernetes Namespace",
       "kubernetesWorkspaceName": "Kubernetes Workspace Name"
     }
+  },
+  "agent": {
+    "title": "Agents",
+    "subtitle": "Design, version, and publish tenant-scoped agents",
+    "loadError": "Failed to load agents",
+    "emptyTitle": "No agents",
+    "emptyDescription": "Agents created in workspaces will appear here."
   },
   "productAreas": {
     "tenantScope": "Tenant scope: {{tenantId}}",

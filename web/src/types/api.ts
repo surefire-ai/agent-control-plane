@@ -32,6 +32,29 @@ export interface PaginatedWorkspacesResponse {
   total: number;
 }
 
+export interface Agent {
+  id: string;
+  tenantId: string;
+  workspaceId: string;
+  slug: string;
+  displayName: string;
+  description?: string;
+  status: string;
+  pattern: string;
+  runtimeEngine: string;
+  runnerClass: string;
+  modelProvider?: string;
+  modelName?: string;
+  latestRevision?: string;
+}
+
+export interface PaginatedAgentsResponse {
+  agents: Agent[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 export interface CreateWorkspaceRequest {
   id: string;
   tenantId: string;

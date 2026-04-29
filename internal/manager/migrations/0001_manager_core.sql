@@ -42,6 +42,26 @@ CREATE TABLE IF NOT EXISTS workspaces (
     UNIQUE (tenant_id, slug)
 );
 
+CREATE TABLE IF NOT EXISTS agents (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    slug TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft',
+    pattern TEXT NOT NULL DEFAULT 'react',
+    runtime_engine TEXT NOT NULL DEFAULT 'eino',
+    runner_class TEXT NOT NULL DEFAULT 'adk',
+    model_provider TEXT NOT NULL DEFAULT '',
+    model_name TEXT NOT NULL DEFAULT '',
+    latest_revision TEXT NOT NULL DEFAULT '',
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (workspace_id, slug)
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     external_subject TEXT NOT NULL UNIQUE,

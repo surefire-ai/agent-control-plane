@@ -116,6 +116,63 @@ func (s devTenantStore) ListTenants(_ context.Context, page, limit int) ([]Tenan
 	return result, total, nil
 }
 
+type devAgentStore struct {
+	records    map[string]AgentRecord
+	orderedIDs []string
+}
+
+func (s devAgentStore) GetAgent(_ context.Context, id string) (*AgentRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s devAgentStore) ListAgents(_ context.Context, page, limit int) ([]AgentRecord, int, error) {
+	total := len(s.records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []AgentRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	result := make([]AgentRecord, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, s.records[s.orderedIDs[i]])
+	}
+	return result, total, nil
+}
+
+func (s devAgentStore) ListAgentsByTenant(_ context.Context, tenantID string, page, limit int) ([]AgentRecord, int, error) {
+	filtered := make([]AgentRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateAgents(filtered, page, limit)
+}
+
+func (s devAgentStore) ListAgentsByWorkspace(_ context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error) {
+	filtered := make([]AgentRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateAgents(filtered, page, limit)
+}
+
+func paginateAgents(records []AgentRecord, page, limit int) ([]AgentRecord, int, error) {
+	total := len(records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []AgentRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	return records[start:end], total, nil
+}
+
 func NewFakeStores() Stores {
 	workspaces := &devWorkspaceStore{
 		records: map[string]WorkspaceRecord{
@@ -133,8 +190,29 @@ func NewFakeStores() Stores {
 		},
 		orderedIDs: []string{"t_demo", "t_enterprise", "t_inactive"},
 	}
+	agents := &devAgentStore{
+		records: map[string]AgentRecord{
+			"agent_ehs_react": {
+				ID: "agent_ehs_react", TenantID: "t_demo", WorkspaceID: "ws_demo", Slug: "ehs-react",
+				DisplayName: "EHS ReAct Agent", Description: "Safety incident triage with tools and knowledge", Status: "published",
+				Pattern: "react", RuntimeEngine: "eino", RunnerClass: "adk", ModelProvider: "openai", ModelName: "gpt-4.1-mini", LatestRevision: "rev-20260429-001",
+			},
+			"agent_eval_guard": {
+				ID: "agent_eval_guard", TenantID: "t_demo", WorkspaceID: "ws_staging", Slug: "eval-guard",
+				DisplayName: "Evaluation Guard", Description: "Release gate evaluator for regression checks", Status: "draft",
+				Pattern: "react", RuntimeEngine: "eino", RunnerClass: "adk", ModelProvider: "qwen", ModelName: "qwen-plus", LatestRevision: "rev-20260429-002",
+			},
+			"agent_enterprise_ops": {
+				ID: "agent_enterprise_ops", TenantID: "t_enterprise", WorkspaceID: "ws_enterprise", Slug: "enterprise-ops",
+				DisplayName: "Enterprise Ops Agent", Description: "Operations assistant for enterprise workflows", Status: "published",
+				Pattern: "react", RuntimeEngine: "eino", RunnerClass: "adk", ModelProvider: "deepseek", ModelName: "deepseek-chat", LatestRevision: "rev-20260429-003",
+			},
+		},
+		orderedIDs: []string{"agent_ehs_react", "agent_eval_guard", "agent_enterprise_ops"},
+	}
 	return Stores{
 		Workspaces: workspaces,
 		Tenants:    tenants,
+		Agents:     agents,
 	}
 }

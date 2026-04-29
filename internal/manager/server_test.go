@@ -124,6 +124,62 @@ func (s fakeTenantStore) ListTenants(ctx context.Context, page, limit int) ([]Te
 	return result, total, nil
 }
 
+type fakeAgentStore struct {
+	records    map[string]AgentRecord
+	orderedIDs []string
+}
+
+func (s fakeAgentStore) GetAgent(ctx context.Context, id string) (*AgentRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s fakeAgentStore) ListAgents(ctx context.Context, page, limit int) ([]AgentRecord, int, error) {
+	total := len(s.records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []AgentRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	result := make([]AgentRecord, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, s.records[s.orderedIDs[i]])
+	}
+	return result, total, nil
+}
+
+func (s fakeAgentStore) ListAgentsByTenant(ctx context.Context, tenantID string, page, limit int) ([]AgentRecord, int, error) {
+	filtered := make([]AgentRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestAgents(filtered, page, limit), len(filtered), nil
+}
+
+func (s fakeAgentStore) ListAgentsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error) {
+	filtered := make([]AgentRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestAgents(filtered, page, limit), len(filtered), nil
+}
+
+func paginateTestAgents(records []AgentRecord, page, limit int) []AgentRecord {
+	start := (page - 1) * limit
+	if start >= len(records) {
+		return []AgentRecord{}
+	}
+	end := min(start+limit, len(records))
+	return records[start:end]
+}
+
 func TestManagerHealthAndReadiness(t *testing.T) {
 	handler := Server{}.Handler()
 	for _, path := range []string{"/healthz", "/readyz"} {
@@ -141,11 +197,11 @@ func TestManagerHealthAndReadiness(t *testing.T) {
 func TestManagerInfo(t *testing.T) {
 	server := Server{
 		Config: Config{
-			Mode:            "managed",
-			AutoMigrate:     true,
-			DatabaseDriver:  "pgx",
-			DatabaseURL:     "postgres://manager@example/agent-control-plane",
-			Addr:            ":8090",
+			Mode:           "managed",
+			AutoMigrate:    true,
+			DatabaseDriver: "pgx",
+			DatabaseURL:    "postgres://manager@example/agent-control-plane",
+			Addr:           ":8090",
 		},
 	}
 	handler := server.Handler()
@@ -676,5 +732,88 @@ func TestManagerTenantWithSubPath(t *testing.T) {
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("expected status 404 for sub-path, got %d", recorder.Code)
+	}
+}
+
+func TestManagerGetAgent(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Agents: &fakeAgentStore{
+				records: map[string]AgentRecord{
+					"agent_1": {
+						ID: "agent_1", TenantID: "t_1", WorkspaceID: "ws_1", Slug: "triage",
+						DisplayName: "Triage Agent", Status: "published", Pattern: "react",
+						RuntimeEngine: "eino", RunnerClass: "adk", ModelProvider: "qwen", ModelName: "qwen-plus",
+						LatestRevision: "rev-1",
+					},
+				},
+				orderedIDs: []string{"agent_1"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/agents/agent_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp AgentResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.ID != "agent_1" || resp.ModelProvider != "qwen" || resp.RuntimeEngine != "eino" {
+		t.Fatalf("unexpected agent response: %#v", resp)
+	}
+}
+
+func TestManagerListAgentsByTenant(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Agents: &fakeAgentStore{
+				records: map[string]AgentRecord{
+					"agent_1": {ID: "agent_1", TenantID: "t_1", WorkspaceID: "ws_1", Slug: "a1", DisplayName: "Agent 1", Status: "published", Pattern: "react", RuntimeEngine: "eino", RunnerClass: "adk"},
+					"agent_2": {ID: "agent_2", TenantID: "t_2", WorkspaceID: "ws_2", Slug: "a2", DisplayName: "Agent 2", Status: "draft", Pattern: "react", RuntimeEngine: "eino", RunnerClass: "adk"},
+					"agent_3": {ID: "agent_3", TenantID: "t_1", WorkspaceID: "ws_3", Slug: "a3", DisplayName: "Agent 3", Status: "draft", Pattern: "react", RuntimeEngine: "eino", RunnerClass: "adk"},
+				},
+				orderedIDs: []string{"agent_1", "agent_2", "agent_3"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/agents/?tenantId=t_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp PaginatedAgentsResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Agents) != 2 || resp.Total != 2 {
+		t.Fatalf("expected 2 tenant agents, got len=%d total=%d", len(resp.Agents), resp.Total)
+	}
+}
+
+func TestManagerAgentRequiresStore(t *testing.T) {
+	handler := Server{}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/agents/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503, got %d", recorder.Code)
+	}
+}
+
+func TestManagerAgentRejectsUnsupportedMethod(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Agents: &fakeAgentStore{records: map[string]AgentRecord{}, orderedIDs: []string{}},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/agents/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", recorder.Code)
 	}
 }

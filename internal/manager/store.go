@@ -33,6 +33,22 @@ type TenantRecord struct {
 	DefaultRegion  string
 }
 
+type AgentRecord struct {
+	ID             string
+	TenantID       string
+	WorkspaceID    string
+	Slug           string
+	DisplayName    string
+	Description    string
+	Status         string
+	Pattern        string
+	RuntimeEngine  string
+	RunnerClass    string
+	ModelProvider  string
+	ModelName      string
+	LatestRevision string
+}
+
 type WorkspaceStore interface {
 	GetWorkspace(ctx context.Context, id string) (*WorkspaceRecord, error)
 	ListWorkspaces(ctx context.Context, page, limit int) ([]WorkspaceRecord, int, error)
@@ -47,9 +63,17 @@ type TenantStore interface {
 	ListTenants(ctx context.Context, page, limit int) ([]TenantRecord, int, error)
 }
 
+type AgentStore interface {
+	GetAgent(ctx context.Context, id string) (*AgentRecord, error)
+	ListAgents(ctx context.Context, page, limit int) ([]AgentRecord, int, error)
+	ListAgentsByTenant(ctx context.Context, tenantID string, page, limit int) ([]AgentRecord, int, error)
+	ListAgentsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error)
+}
+
 type Stores struct {
 	Workspaces WorkspaceStore
 	Tenants    TenantStore
+	Agents     AgentStore
 }
 
 type SQLWorkspaceStore struct {
@@ -60,10 +84,15 @@ type SQLTenantStore struct {
 	DB *sql.DB
 }
 
+type SQLAgentStore struct {
+	DB *sql.DB
+}
+
 func NewSQLStores(db *sql.DB) Stores {
 	return Stores{
 		Workspaces: SQLWorkspaceStore{DB: db},
 		Tenants:    SQLTenantStore{DB: db},
+		Agents:     SQLAgentStore{DB: db},
 	}
 }
 
@@ -281,6 +310,119 @@ func (s SQLTenantStore) ListTenants(ctx context.Context, page, limit int) ([]Ten
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("iterate manager tenants: %w", err)
+	}
+	return records, total, nil
+}
+
+func (s SQLAgentStore) GetAgent(ctx context.Context, id string) (*AgentRecord, error) {
+	if s.DB == nil {
+		return nil, fmt.Errorf("manager database is required")
+	}
+	var agent AgentRecord
+	err := s.DB.QueryRowContext(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	FROM agents
+	WHERE id = $1`, id).Scan(
+		&agent.ID,
+		&agent.TenantID,
+		&agent.WorkspaceID,
+		&agent.Slug,
+		&agent.DisplayName,
+		&agent.Description,
+		&agent.Status,
+		&agent.Pattern,
+		&agent.RuntimeEngine,
+		&agent.RunnerClass,
+		&agent.ModelProvider,
+		&agent.ModelName,
+		&agent.LatestRevision,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get manager agent %q: %w", id, err)
+	}
+	return &agent, nil
+}
+
+func (s SQLAgentStore) ListAgents(ctx context.Context, page, limit int) ([]AgentRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM agents").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager agents: %w", err)
+	}
+	return s.listAgents(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	FROM agents
+	ORDER BY created_at DESC
+	LIMIT $1 OFFSET $2`, total, page, limit)
+}
+
+func (s SQLAgentStore) ListAgentsByTenant(ctx context.Context, tenantID string, page, limit int) ([]AgentRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM agents WHERE tenant_id = $1", tenantID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager agents by tenant %q: %w", tenantID, err)
+	}
+	return s.listAgents(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	FROM agents
+	WHERE tenant_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, tenantID)
+}
+
+func (s SQLAgentStore) ListAgentsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM agents WHERE workspace_id = $1", workspaceID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager agents by workspace %q: %w", workspaceID, err)
+	}
+	return s.listAgents(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	FROM agents
+	WHERE workspace_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, workspaceID)
+}
+
+func (s SQLAgentStore) listAgents(ctx context.Context, query string, total, page, limit int, filters ...any) ([]AgentRecord, int, error) {
+	offset := (page - 1) * limit
+	args := append([]any{}, filters...)
+	args = append(args, limit, offset)
+	rows, err := s.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list manager agents: %w", err)
+	}
+	defer rows.Close()
+
+	records := make([]AgentRecord, 0, limit)
+	for rows.Next() {
+		var rec AgentRecord
+		if err := rows.Scan(
+			&rec.ID,
+			&rec.TenantID,
+			&rec.WorkspaceID,
+			&rec.Slug,
+			&rec.DisplayName,
+			&rec.Description,
+			&rec.Status,
+			&rec.Pattern,
+			&rec.RuntimeEngine,
+			&rec.RunnerClass,
+			&rec.ModelProvider,
+			&rec.ModelName,
+			&rec.LatestRevision,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan manager agent: %w", err)
+		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate manager agents: %w", err)
 	}
 	return records, total, nil
 }

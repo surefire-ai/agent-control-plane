@@ -373,7 +373,9 @@ the runtime controller itself.
 The repository now includes the first manager process scaffold in
 `cmd/manager` and `internal/manager`. It intentionally does not open a
 database connection unless a database URL is supplied. The first embedded
-schema draft lives under `internal/manager/migrations/`.
+schema draft lives under `internal/manager/migrations/`, and
+`internal/manager` now includes a migration runner that can apply those
+migrations through `database/sql`.
 
 Start with the smallest useful manager schema:
 

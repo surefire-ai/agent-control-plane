@@ -32,3 +32,14 @@ func (d *Database) Close() error {
 	}
 	return d.DB.Close()
 }
+
+func (d *Database) ApplyBuiltInMigrations(ctx context.Context) ([]Migration, error) {
+	if d == nil || d.DB == nil {
+		return nil, fmt.Errorf("manager database is required")
+	}
+	migrations, err := BuiltInMigrations()
+	if err != nil {
+		return nil, err
+	}
+	return ApplyMigrations(ctx, SQLMigrationStore{DB: d.DB}, migrations)
+}

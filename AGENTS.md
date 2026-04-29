@@ -241,6 +241,8 @@ explicitly asks for a directional change:
   - reconciliation and status lifecycle
 - `internal/runtime/`
   - worker Job construction and runtime dispatch
+- `internal/manager/`
+  - optional product backend scaffold and future manager APIs
 - `internal/worker/`
   - execution semantics
 - `config/crd/bases/`

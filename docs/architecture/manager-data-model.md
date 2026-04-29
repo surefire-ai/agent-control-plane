@@ -370,6 +370,10 @@ the runtime controller itself.
 
 ## Initial Implementation Recommendation
 
+The repository now includes the first manager process scaffold in
+`cmd/manager` and `internal/manager`. It intentionally does not open a
+database connection yet.
+
 Start with the smallest useful manager schema:
 
 1. organizations

@@ -31,7 +31,7 @@ fmt:
 
 .PHONY: build
 build:
-	$(GO) build ./cmd/controller-manager ./cmd/worker
+	$(GO) build ./cmd/controller-manager ./cmd/manager ./cmd/worker
 
 .PHONY: docker-build
 docker-build:

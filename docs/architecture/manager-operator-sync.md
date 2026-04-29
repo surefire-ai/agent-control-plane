@@ -211,6 +211,10 @@ enterprise audit history belongs in manager storage.
 
 ## Initial Implementation Recommendation
 
+The repository now includes a minimal manager HTTP scaffold in `cmd/manager`
+and `internal/manager`. It exposes `/healthz`, `/readyz`, and `/api/v1/info`
+before any database-backed product APIs are added.
+
 Start with a one-way manager-to-Kubernetes write path and a simple
 Kubernetes-to-manager status observer:
 

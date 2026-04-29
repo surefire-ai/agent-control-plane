@@ -375,7 +375,8 @@ The repository now includes the first manager process scaffold in
 database connection unless a database URL is supplied. The first embedded
 schema draft lives under `internal/manager/migrations/`, and
 `internal/manager` now includes a migration runner that can apply those
-migrations through `database/sql`.
+migrations through `database/sql`. PostgreSQL support is wired through the pgx
+stdlib driver using the `pgx` driver name.
 
 Start with the smallest useful manager schema:
 

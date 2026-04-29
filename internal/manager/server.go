@@ -19,10 +19,24 @@ type InfoResponse struct {
 	DatabaseConfigured bool   `json:"databaseConfigured"`
 	DatabaseDriver     string `json:"databaseDriver,omitempty"`
 	DatabaseStatus     string `json:"databaseStatus"`
+	MigrateOnStart     bool   `json:"migrateOnStart"`
 }
 
 func (s Server) Start(ctx context.Context) error {
 	config := s.Config.normalized()
+	database, err := OpenDatabase(ctx, config)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = database.Close()
+	}()
+	if database != nil && config.AutoMigrate {
+		if _, err := database.ApplyBuiltInMigrations(ctx); err != nil {
+			return err
+		}
+	}
+
 	server := &http.Server{
 		Addr:              config.Addr,
 		Handler:           s.Handler(),
@@ -99,6 +113,7 @@ func (s Server) handleInfo(w http.ResponseWriter, r *http.Request) {
 		DatabaseConfigured: config.DatabaseURL != "",
 		DatabaseDriver:     config.DatabaseDriver,
 		DatabaseStatus:     databaseStatus,
+		MigrateOnStart:     config.AutoMigrate,
 	})
 }
 

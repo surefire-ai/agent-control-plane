@@ -14,6 +14,7 @@ import (
 func main() {
 	config := manager.ConfigFromEnv()
 	flag.StringVar(&config.Addr, "bind-address", config.Addr, "The address the manager HTTP server binds to.")
+	flag.BoolVar(&config.AutoMigrate, "migrate-on-start", config.AutoMigrate, "Run built-in manager database migrations during startup when a database URL is configured.")
 	flag.StringVar(&config.DatabaseDriver, "database-driver", config.DatabaseDriver, "Manager database driver name.")
 	flag.StringVar(&config.DatabaseURL, "database-url", config.DatabaseURL, "Manager database URL. Optional for the current scaffold.")
 	flag.StringVar(&config.Mode, "mode", config.Mode, "Manager operating mode.")

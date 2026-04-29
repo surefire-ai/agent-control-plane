@@ -215,8 +215,9 @@ The repository now includes a minimal manager HTTP scaffold in `cmd/manager`
 and `internal/manager`. It exposes `/healthz`, `/readyz`, and `/api/v1/info`
 before any database-backed product APIs are added. It also includes optional
 database configuration and embedded migration files for the first manager-owned
-product tables. A migration runner exists, but startup wiring should wait
-until the PostgreSQL driver dependency is added.
+product tables. PostgreSQL support is wired through pgx, and built-in
+migrations run at startup only when the operator explicitly enables
+`--migrate-on-start` or `MANAGER_MIGRATE_ON_START=true`.
 
 Start with a one-way manager-to-Kubernetes write path and a simple
 Kubernetes-to-manager status observer:

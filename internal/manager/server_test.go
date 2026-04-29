@@ -28,7 +28,8 @@ func TestManagerInfo(t *testing.T) {
 	server := Server{
 		Config: Config{
 			Mode:           "managed",
-			DatabaseDriver: "postgres",
+			AutoMigrate:    true,
+			DatabaseDriver: "pgx",
 			DatabaseURL:    "postgres://manager@example/agent-control-plane",
 		},
 	}.Handler()
@@ -53,11 +54,14 @@ func TestManagerInfo(t *testing.T) {
 	if !response.DatabaseConfigured {
 		t.Fatalf("expected configured database, got %#v", response)
 	}
-	if response.DatabaseDriver != "postgres" {
-		t.Fatalf("expected postgres database driver, got %#v", response)
+	if response.DatabaseDriver != "pgx" {
+		t.Fatalf("expected pgx database driver, got %#v", response)
 	}
 	if response.DatabaseStatus != "configured" {
 		t.Fatalf("expected configured database status, got %#v", response)
+	}
+	if !response.MigrateOnStart {
+		t.Fatalf("expected migrate-on-start to be enabled, got %#v", response)
 	}
 }
 

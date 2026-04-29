@@ -24,6 +24,9 @@ func main() {
 	defer stop()
 
 	server := manager.Server{Config: config}
+	if config.Mode == "fake" {
+		server.Stores = manager.NewFakeStores()
+	}
 	if err := server.Start(ctx); err != nil {
 		log.Printf("manager exited: %v", err)
 		os.Exit(1)

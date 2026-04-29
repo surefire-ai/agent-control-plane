@@ -15,3 +15,10 @@ runtime/python/.pytest_cache/
 
 # Go build cache should stay outside the repo, but ignore it if a local path is used.
 .go-cache/
+
+# Web frontend artifacts
+web/node_modules/
+web/dist/
+web/playwright-report/
+web/test-results/
+web/tsconfig.tsbuildinfo

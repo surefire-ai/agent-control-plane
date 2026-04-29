@@ -1,0 +1,82 @@
+{
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "saveChanges": "保存更改",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "confirm": "确认",
+    "retry": "重试",
+    "noData": "—",
+    "saving": "保存中...",
+    "creating": "创建中...",
+    "deleting": "删除中...",
+    "previous": "上一页",
+    "next": "下一页",
+    "productEyebrow": "Agent Control Plane"
+  },
+  "nav": {
+    "tenants": "租户",
+    "controlPlane": "Control Plane",
+    "tenant": "租户",
+    "selectTenant": "选择租户...",
+    "newWorkspace": "创建工作区",
+    "language": "语言",
+    "consoleSubtitle": "企业控制台",
+    "evaluationGates": "评估门禁",
+    "releaseChecksWaiting": "4 项发布检查待处理"
+  },
+  "status": {
+    "active": "活跃",
+    "inactive": "停用",
+    "archived": "归档"
+  },
+  "table": {
+    "name": "名称",
+    "slug": "标识",
+    "status": "状态",
+    "region": "区域",
+    "namespace": "命名空间"
+  },
+  "tenant": {
+    "title": "租户",
+    "subtitle": "选择租户以管理其工作区",
+    "loadError": "加载租户失败",
+    "emptyTitle": "暂无租户",
+    "emptyDescription": "尚未配置任何租户。"
+  },
+  "workspace": {
+    "listTitle": "工作区",
+    "listSubtitle": "管理此租户下的工作区",
+    "createTitle": "创建工作区",
+    "createSubtitle": "为此租户添加新工作区",
+    "detailSubtitle": "工作区详情与设置",
+    "newButton": "新建工作区",
+    "createButton": "创建工作区",
+    "deleteButton": "删除工作区",
+    "loadError": "加载工作区失败",
+    "listLoadError": "加载工作区列表失败",
+    "createError": "创建工作区失败",
+    "updateError": "更新工作区失败",
+    "notFound": "未找到工作区",
+    "emptyTitle": "暂无工作区",
+    "emptyDescription": "创建您的第一个工作区以开始使用。",
+    "deleteTitle": "删除工作区",
+    "deleteConfirm": "确定要删除 \"{{name}}\"（{{id}}）吗？此操作不可撤消。",
+    "fields": {
+      "id": "ID",
+      "slug": "标识",
+      "displayName": "显示名称",
+      "description": "描述",
+      "tenantId": "租户 ID",
+      "status": "状态",
+      "kubernetesNamespace": "Kubernetes 命名空间",
+      "kubernetesWorkspaceName": "Kubernetes 工作区名称"
+    }
+  },
+  "pagination": {
+    "showing": "显示第 {{start}}–{{end}} 条，共 {{total}} 条",
+    "page": "第 {{page}} 页 / 共 {{lastPage}} 页"
+  }
+}

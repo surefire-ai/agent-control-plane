@@ -1,0 +1,82 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "saveChanges": "Save Changes",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "confirm": "Confirm",
+    "retry": "Try again",
+    "noData": "—",
+    "saving": "Saving...",
+    "creating": "Creating...",
+    "deleting": "Deleting...",
+    "previous": "Previous",
+    "next": "Next",
+    "productEyebrow": "Agent Control Plane"
+  },
+  "nav": {
+    "tenants": "Tenants",
+    "controlPlane": "Control Plane",
+    "tenant": "Tenant",
+    "selectTenant": "Select a tenant...",
+    "newWorkspace": "New Workspace",
+    "language": "Language",
+    "consoleSubtitle": "Enterprise Console",
+    "evaluationGates": "Evaluation gates",
+    "releaseChecksWaiting": "4 release checks waiting"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "archived": "Archived"
+  },
+  "table": {
+    "name": "Name",
+    "slug": "Slug",
+    "status": "Status",
+    "region": "Region",
+    "namespace": "Namespace"
+  },
+  "tenant": {
+    "title": "Tenants",
+    "subtitle": "Select a tenant to manage its workspaces",
+    "loadError": "Failed to load tenants",
+    "emptyTitle": "No tenants found",
+    "emptyDescription": "There are no tenants configured yet."
+  },
+  "workspace": {
+    "listTitle": "Workspaces",
+    "listSubtitle": "Manage workspaces within this tenant",
+    "createTitle": "Create Workspace",
+    "createSubtitle": "Add a new workspace to this tenant",
+    "detailSubtitle": "Workspace details and settings",
+    "newButton": "New Workspace",
+    "createButton": "Create Workspace",
+    "deleteButton": "Delete Workspace",
+    "loadError": "Failed to load workspace",
+    "listLoadError": "Failed to load workspaces",
+    "createError": "Failed to create workspace",
+    "updateError": "Failed to update workspace",
+    "notFound": "Workspace not found",
+    "emptyTitle": "No workspaces",
+    "emptyDescription": "Create your first workspace to get started.",
+    "deleteTitle": "Delete Workspace",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\" ({{id}})? This action cannot be undone.",
+    "fields": {
+      "id": "ID",
+      "slug": "Slug",
+      "displayName": "Display Name",
+      "description": "Description",
+      "tenantId": "Tenant ID",
+      "status": "Status",
+      "kubernetesNamespace": "Kubernetes Namespace",
+      "kubernetesWorkspaceName": "Kubernetes Workspace Name"
+    }
+  },
+  "pagination": {
+    "showing": "Showing {{start}}–{{end}} of {{total}}",
+    "page": "Page {{page}} of {{lastPage}}"
+  }
+}

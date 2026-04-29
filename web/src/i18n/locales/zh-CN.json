@@ -35,6 +35,9 @@
   "status": {
     "active": "活跃",
     "published": "已发布",
+    "passed": "通过",
+    "failed": "失败",
+    "running": "运行中",
     "draft": "草稿",
     "inactive": "停用",
     "archived": "归档"
@@ -48,7 +51,11 @@
     "pattern": "范式",
     "model": "模型",
     "runtime": "运行时",
-    "revision": "修订版本"
+    "revision": "修订版本",
+    "dataset": "评测集",
+    "score": "分数",
+    "gate": "门禁",
+    "samples": "样本"
   },
   "tenant": {
     "title": "租户",
@@ -92,6 +99,13 @@
     "loadError": "加载 Agents 失败",
     "emptyTitle": "暂无 Agent",
     "emptyDescription": "工作区中创建的 Agent 会显示在这里。"
+  },
+  "evaluation": {
+    "title": "评估",
+    "subtitle": "对比修订版本、执行门禁并监控回归",
+    "loadError": "加载评估失败",
+    "emptyTitle": "暂无评估",
+    "emptyDescription": "评估定义和运行记录会显示在这里。"
   },
   "productAreas": {
     "tenantScope": "租户范围：{{tenantId}}",

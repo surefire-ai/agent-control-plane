@@ -180,6 +180,60 @@ func paginateTestAgents(records []AgentRecord, page, limit int) []AgentRecord {
 	return records[start:end]
 }
 
+type fakeEvaluationStore struct {
+	records    map[string]EvaluationRecord
+	orderedIDs []string
+}
+
+func (s fakeEvaluationStore) GetEvaluation(ctx context.Context, id string) (*EvaluationRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s fakeEvaluationStore) ListEvaluations(ctx context.Context, page, limit int) ([]EvaluationRecord, int, error) {
+	return paginateTestEvaluationsFromIDs(s.records, s.orderedIDs, page, limit), len(s.records), nil
+}
+
+func (s fakeEvaluationStore) ListEvaluationsByTenant(ctx context.Context, tenantID string, page, limit int) ([]EvaluationRecord, int, error) {
+	filtered := make([]EvaluationRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestEvaluations(filtered, page, limit), len(filtered), nil
+}
+
+func (s fakeEvaluationStore) ListEvaluationsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]EvaluationRecord, int, error) {
+	filtered := make([]EvaluationRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestEvaluations(filtered, page, limit), len(filtered), nil
+}
+
+func paginateTestEvaluationsFromIDs(records map[string]EvaluationRecord, orderedIDs []string, page, limit int) []EvaluationRecord {
+	all := make([]EvaluationRecord, 0, len(orderedIDs))
+	for _, id := range orderedIDs {
+		all = append(all, records[id])
+	}
+	return paginateTestEvaluations(all, page, limit)
+}
+
+func paginateTestEvaluations(records []EvaluationRecord, page, limit int) []EvaluationRecord {
+	start := (page - 1) * limit
+	if start >= len(records) {
+		return []EvaluationRecord{}
+	}
+	end := min(start+limit, len(records))
+	return records[start:end]
+}
+
 func TestManagerHealthAndReadiness(t *testing.T) {
 	handler := Server{}.Handler()
 	for _, path := range []string{"/healthz", "/readyz"} {
@@ -811,6 +865,90 @@ func TestManagerAgentRejectsUnsupportedMethod(t *testing.T) {
 		},
 	}.Handler()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/agents/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", recorder.Code)
+	}
+}
+
+func TestManagerGetEvaluation(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Evaluations: &fakeEvaluationStore{
+				records: map[string]EvaluationRecord{
+					"eval_1": {
+						ID: "eval_1", TenantID: "t_1", WorkspaceID: "ws_1", AgentID: "agent_1",
+						Slug: "release-gate", DisplayName: "Release Gate", Status: "passed",
+						DatasetName: "golden-set", DatasetRevision: "dataset-rev-1",
+						BaselineRevision: "rev-0", Score: 0.93, GatePassed: true,
+						SamplesTotal: 10, SamplesEvaluated: 10, LatestRunID: "run_1",
+					},
+				},
+				orderedIDs: []string{"eval_1"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/evaluations/eval_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp EvaluationResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.ID != "eval_1" || !resp.GatePassed || resp.Score != 0.93 {
+		t.Fatalf("unexpected evaluation response: %#v", resp)
+	}
+}
+
+func TestManagerListEvaluationsByTenant(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Evaluations: &fakeEvaluationStore{
+				records: map[string]EvaluationRecord{
+					"eval_1": {ID: "eval_1", TenantID: "t_1", WorkspaceID: "ws_1", AgentID: "agent_1", Slug: "e1", DisplayName: "Eval 1", Status: "passed", DatasetName: "ds", Score: 0.9, GatePassed: true},
+					"eval_2": {ID: "eval_2", TenantID: "t_2", WorkspaceID: "ws_2", AgentID: "agent_2", Slug: "e2", DisplayName: "Eval 2", Status: "failed", DatasetName: "ds", Score: 0.6},
+					"eval_3": {ID: "eval_3", TenantID: "t_1", WorkspaceID: "ws_3", AgentID: "agent_3", Slug: "e3", DisplayName: "Eval 3", Status: "running", DatasetName: "ds", Score: 0.7},
+				},
+				orderedIDs: []string{"eval_1", "eval_2", "eval_3"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/evaluations/?tenantId=t_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp PaginatedEvaluationsResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Evaluations) != 2 || resp.Total != 2 {
+		t.Fatalf("expected 2 tenant evaluations, got len=%d total=%d", len(resp.Evaluations), resp.Total)
+	}
+}
+
+func TestManagerEvaluationRequiresStore(t *testing.T) {
+	handler := Server{}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/evaluations/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503, got %d", recorder.Code)
+	}
+}
+
+func TestManagerEvaluationRejectsUnsupportedMethod(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Evaluations: &fakeEvaluationStore{records: map[string]EvaluationRecord{}, orderedIDs: []string{}},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {

@@ -55,6 +55,33 @@ export interface PaginatedAgentsResponse {
   total: number;
 }
 
+export interface Evaluation {
+  id: string;
+  tenantId: string;
+  workspaceId: string;
+  agentId: string;
+  slug: string;
+  displayName: string;
+  description?: string;
+  status: string;
+  datasetName: string;
+  datasetRevision?: string;
+  baselineRevision?: string;
+  score: number;
+  gatePassed: boolean;
+  samplesTotal: number;
+  samplesEvaluated: number;
+  latestRunId?: string;
+  reportRef?: string;
+}
+
+export interface PaginatedEvaluationsResponse {
+  evaluations: Evaluation[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 export interface CreateWorkspaceRequest {
   id: string;
   tenantId: string;

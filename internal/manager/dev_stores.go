@@ -173,6 +173,63 @@ func paginateAgents(records []AgentRecord, page, limit int) ([]AgentRecord, int,
 	return records[start:end], total, nil
 }
 
+type devEvaluationStore struct {
+	records    map[string]EvaluationRecord
+	orderedIDs []string
+}
+
+func (s devEvaluationStore) GetEvaluation(_ context.Context, id string) (*EvaluationRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s devEvaluationStore) ListEvaluations(_ context.Context, page, limit int) ([]EvaluationRecord, int, error) {
+	total := len(s.records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []EvaluationRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	result := make([]EvaluationRecord, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, s.records[s.orderedIDs[i]])
+	}
+	return result, total, nil
+}
+
+func (s devEvaluationStore) ListEvaluationsByTenant(_ context.Context, tenantID string, page, limit int) ([]EvaluationRecord, int, error) {
+	filtered := make([]EvaluationRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateEvaluations(filtered, page, limit)
+}
+
+func (s devEvaluationStore) ListEvaluationsByWorkspace(_ context.Context, workspaceID string, page, limit int) ([]EvaluationRecord, int, error) {
+	filtered := make([]EvaluationRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateEvaluations(filtered, page, limit)
+}
+
+func paginateEvaluations(records []EvaluationRecord, page, limit int) ([]EvaluationRecord, int, error) {
+	total := len(records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []EvaluationRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	return records[start:end], total, nil
+}
+
 func NewFakeStores() Stores {
 	workspaces := &devWorkspaceStore{
 		records: map[string]WorkspaceRecord{
@@ -210,9 +267,33 @@ func NewFakeStores() Stores {
 		},
 		orderedIDs: []string{"agent_ehs_react", "agent_eval_guard", "agent_enterprise_ops"},
 	}
+	evaluations := &devEvaluationStore{
+		records: map[string]EvaluationRecord{
+			"eval_ehs_regression": {
+				ID: "eval_ehs_regression", TenantID: "t_demo", WorkspaceID: "ws_demo", AgentID: "agent_ehs_react",
+				Slug: "ehs-regression", DisplayName: "EHS Regression Gate", Description: "Pre-release regression suite for safety incident triage",
+				Status: "passed", DatasetName: "ehs-golden-set", DatasetRevision: "dataset-rev-12", BaselineRevision: "rev-20260420-007",
+				Score: 0.94, GatePassed: true, SamplesTotal: 128, SamplesEvaluated: 128, LatestRunID: "evalrun-20260429-001", ReportRef: "s3://reports/ehs-regression/latest.json",
+			},
+			"eval_guardrail_release": {
+				ID: "eval_guardrail_release", TenantID: "t_demo", WorkspaceID: "ws_staging", AgentID: "agent_eval_guard",
+				Slug: "guardrail-release", DisplayName: "Guardrail Release Check", Description: "Blocking gate for release candidate risk checks",
+				Status: "failed", DatasetName: "risk-gate-set", DatasetRevision: "dataset-rev-4", BaselineRevision: "rev-20260421-002",
+				Score: 0.72, GatePassed: false, SamplesTotal: 64, SamplesEvaluated: 64, LatestRunID: "evalrun-20260429-002", ReportRef: "s3://reports/guardrail-release/latest.json",
+			},
+			"eval_enterprise_ops": {
+				ID: "eval_enterprise_ops", TenantID: "t_enterprise", WorkspaceID: "ws_enterprise", AgentID: "agent_enterprise_ops",
+				Slug: "enterprise-ops-weekly", DisplayName: "Enterprise Ops Weekly", Description: "Weekly regression monitor for enterprise operations",
+				Status: "running", DatasetName: "enterprise-ops-set", DatasetRevision: "dataset-rev-9", BaselineRevision: "rev-20260422-001",
+				Score: 0.88, GatePassed: true, SamplesTotal: 240, SamplesEvaluated: 180, LatestRunID: "evalrun-20260429-003", ReportRef: "",
+			},
+		},
+		orderedIDs: []string{"eval_ehs_regression", "eval_guardrail_release", "eval_enterprise_ops"},
+	}
 	return Stores{
-		Workspaces: workspaces,
-		Tenants:    tenants,
-		Agents:     agents,
+		Workspaces:  workspaces,
+		Tenants:     tenants,
+		Agents:      agents,
+		Evaluations: evaluations,
 	}
 }

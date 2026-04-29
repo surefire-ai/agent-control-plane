@@ -62,6 +62,26 @@ type AgentResponse struct {
 	LatestRevision string `json:"latestRevision,omitempty"`
 }
 
+type EvaluationResponse struct {
+	ID               string  `json:"id"`
+	TenantID         string  `json:"tenantId"`
+	WorkspaceID      string  `json:"workspaceId"`
+	AgentID          string  `json:"agentId"`
+	Slug             string  `json:"slug"`
+	DisplayName      string  `json:"displayName"`
+	Description      string  `json:"description,omitempty"`
+	Status           string  `json:"status"`
+	DatasetName      string  `json:"datasetName"`
+	DatasetRevision  string  `json:"datasetRevision,omitempty"`
+	BaselineRevision string  `json:"baselineRevision,omitempty"`
+	Score            float64 `json:"score"`
+	GatePassed       bool    `json:"gatePassed"`
+	SamplesTotal     int     `json:"samplesTotal"`
+	SamplesEvaluated int     `json:"samplesEvaluated"`
+	LatestRunID      string  `json:"latestRunId,omitempty"`
+	ReportRef        string  `json:"reportRef,omitempty"`
+}
+
 type PaginatedWorkspacesResponse struct {
 	Workspaces []WorkspaceResponse `json:"workspaces"`
 	Page       int                 `json:"page"`
@@ -81,6 +101,13 @@ type PaginatedAgentsResponse struct {
 	Page   int             `json:"page"`
 	Limit  int             `json:"limit"`
 	Total  int             `json:"total"`
+}
+
+type PaginatedEvaluationsResponse struct {
+	Evaluations []EvaluationResponse `json:"evaluations"`
+	Page        int                  `json:"page"`
+	Limit       int                  `json:"limit"`
+	Total       int                  `json:"total"`
 }
 
 type CreateWorkspaceRequest struct {
@@ -164,6 +191,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/workspaces/", s.handleWorkspace)
 	mux.HandleFunc("/api/v1/tenants/", s.handleTenant)
 	mux.HandleFunc("/api/v1/agents/", s.handleAgent)
+	mux.HandleFunc("/api/v1/evaluations/", s.handleEvaluation)
 	return corsMiddleware(mux)
 }
 
@@ -432,6 +460,35 @@ func (s Server) handleAgent(w http.ResponseWriter, r *http.Request) {
 	s.handleGetAgent(w, r, agentID)
 }
 
+func (s Server) handleEvaluation(w http.ResponseWriter, r *http.Request) {
+	if s.Stores.Evaluations == nil {
+		writeError(w, http.StatusServiceUnavailable, "evaluation store is not configured")
+		return
+	}
+	evaluationID := strings.TrimPrefix(r.URL.Path, "/api/v1/evaluations/")
+	evaluationID = strings.TrimSpace(evaluationID)
+
+	if evaluationID == "" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+			return
+		}
+		s.handleListEvaluations(w, r)
+		return
+	}
+
+	if strings.Contains(evaluationID, "/") {
+		writeError(w, http.StatusNotFound, "evaluation not found")
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+		return
+	}
+	s.handleGetEvaluation(w, r, evaluationID)
+}
+
 func (s Server) handleGetAgent(w http.ResponseWriter, r *http.Request, agentID string) {
 	agent, err := s.Stores.Agents.GetAgent(r.Context(), agentID)
 	if errors.Is(err, ErrNotFound) {
@@ -473,6 +530,50 @@ func (s Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 		Page:   page,
 		Limit:  limit,
 		Total:  total,
+	})
+}
+
+func (s Server) handleGetEvaluation(w http.ResponseWriter, r *http.Request, evaluationID string) {
+	evaluation, err := s.Stores.Evaluations.GetEvaluation(r.Context(), evaluationID)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "evaluation not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read evaluation")
+		return
+	}
+	writeJSON(w, http.StatusOK, evaluationResponseFromRecord(*evaluation))
+}
+
+func (s Server) handleListEvaluations(w http.ResponseWriter, r *http.Request) {
+	page, limit := paginationFromQuery(r)
+	tenantID := r.URL.Query().Get("tenantId")
+	workspaceID := r.URL.Query().Get("workspaceId")
+	var records []EvaluationRecord
+	var total int
+	var err error
+	switch {
+	case workspaceID != "":
+		records, total, err = s.Stores.Evaluations.ListEvaluationsByWorkspace(r.Context(), workspaceID, page, limit)
+	case tenantID != "":
+		records, total, err = s.Stores.Evaluations.ListEvaluationsByTenant(r.Context(), tenantID, page, limit)
+	default:
+		records, total, err = s.Stores.Evaluations.ListEvaluations(r.Context(), page, limit)
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list evaluations")
+		return
+	}
+	evaluations := make([]EvaluationResponse, 0, len(records))
+	for _, rec := range records {
+		evaluations = append(evaluations, evaluationResponseFromRecord(rec))
+	}
+	writeJSON(w, http.StatusOK, PaginatedEvaluationsResponse{
+		Evaluations: evaluations,
+		Page:        page,
+		Limit:       limit,
+		Total:       total,
 	})
 }
 
@@ -550,6 +651,28 @@ func agentResponseFromRecord(rec AgentRecord) AgentResponse {
 		ModelProvider:  rec.ModelProvider,
 		ModelName:      rec.ModelName,
 		LatestRevision: rec.LatestRevision,
+	}
+}
+
+func evaluationResponseFromRecord(rec EvaluationRecord) EvaluationResponse {
+	return EvaluationResponse{
+		ID:               rec.ID,
+		TenantID:         rec.TenantID,
+		WorkspaceID:      rec.WorkspaceID,
+		AgentID:          rec.AgentID,
+		Slug:             rec.Slug,
+		DisplayName:      rec.DisplayName,
+		Description:      rec.Description,
+		Status:           rec.Status,
+		DatasetName:      rec.DatasetName,
+		DatasetRevision:  rec.DatasetRevision,
+		BaselineRevision: rec.BaselineRevision,
+		Score:            rec.Score,
+		GatePassed:       rec.GatePassed,
+		SamplesTotal:     rec.SamplesTotal,
+		SamplesEvaluated: rec.SamplesEvaluated,
+		LatestRunID:      rec.LatestRunID,
+		ReportRef:        rec.ReportRef,
 	}
 }
 

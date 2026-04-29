@@ -6,6 +6,7 @@ import { WorkspaceDetailPage } from "@/pages/WorkspaceDetailPage";
 import { WorkspaceCreatePage } from "@/pages/WorkspaceCreatePage";
 import { ProductAreaPage } from "@/pages/ProductAreaPage";
 import { AgentListPage } from "@/pages/AgentListPage";
+import { EvaluationListPage } from "@/pages/EvaluationListPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +19,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/workspaces/new", element: <WorkspaceCreatePage /> },
       { path: "tenants/:tenantId/workspaces/:workspaceId", element: <WorkspaceDetailPage /> },
       { path: "tenants/:tenantId/agents", element: <AgentListPage /> },
-      { path: "tenants/:tenantId/evaluations", element: <ProductAreaPage area="evaluations" /> },
+      { path: "tenants/:tenantId/evaluations", element: <EvaluationListPage /> },
       { path: "tenants/:tenantId/providers", element: <ProductAreaPage area="providers" /> },
       { path: "tenants/:tenantId/settings", element: <ProductAreaPage area="settings" /> },
     ],

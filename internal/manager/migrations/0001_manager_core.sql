@@ -62,6 +62,30 @@ CREATE TABLE IF NOT EXISTS agents (
     UNIQUE (workspace_id, slug)
 );
 
+CREATE TABLE IF NOT EXISTS evaluations (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    agent_id TEXT NOT NULL REFERENCES agents(id),
+    slug TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    dataset_name TEXT NOT NULL DEFAULT '',
+    dataset_revision TEXT NOT NULL DEFAULT '',
+    baseline_revision TEXT NOT NULL DEFAULT '',
+    score DOUBLE PRECISION NOT NULL DEFAULT 0,
+    gate_passed BOOLEAN NOT NULL DEFAULT false,
+    samples_total INTEGER NOT NULL DEFAULT 0,
+    samples_evaluated INTEGER NOT NULL DEFAULT 0,
+    latest_run_id TEXT NOT NULL DEFAULT '',
+    report_ref TEXT NOT NULL DEFAULT '',
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (workspace_id, slug)
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     external_subject TEXT NOT NULL UNIQUE,

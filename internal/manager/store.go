@@ -49,6 +49,26 @@ type AgentRecord struct {
 	LatestRevision string
 }
 
+type EvaluationRecord struct {
+	ID               string
+	TenantID         string
+	WorkspaceID      string
+	AgentID          string
+	Slug             string
+	DisplayName      string
+	Description      string
+	Status           string
+	DatasetName      string
+	DatasetRevision  string
+	BaselineRevision string
+	Score            float64
+	GatePassed       bool
+	SamplesTotal     int
+	SamplesEvaluated int
+	LatestRunID      string
+	ReportRef        string
+}
+
 type WorkspaceStore interface {
 	GetWorkspace(ctx context.Context, id string) (*WorkspaceRecord, error)
 	ListWorkspaces(ctx context.Context, page, limit int) ([]WorkspaceRecord, int, error)
@@ -70,10 +90,18 @@ type AgentStore interface {
 	ListAgentsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error)
 }
 
+type EvaluationStore interface {
+	GetEvaluation(ctx context.Context, id string) (*EvaluationRecord, error)
+	ListEvaluations(ctx context.Context, page, limit int) ([]EvaluationRecord, int, error)
+	ListEvaluationsByTenant(ctx context.Context, tenantID string, page, limit int) ([]EvaluationRecord, int, error)
+	ListEvaluationsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]EvaluationRecord, int, error)
+}
+
 type Stores struct {
-	Workspaces WorkspaceStore
-	Tenants    TenantStore
-	Agents     AgentStore
+	Workspaces  WorkspaceStore
+	Tenants     TenantStore
+	Agents      AgentStore
+	Evaluations EvaluationStore
 }
 
 type SQLWorkspaceStore struct {
@@ -88,11 +116,16 @@ type SQLAgentStore struct {
 	DB *sql.DB
 }
 
+type SQLEvaluationStore struct {
+	DB *sql.DB
+}
+
 func NewSQLStores(db *sql.DB) Stores {
 	return Stores{
-		Workspaces: SQLWorkspaceStore{DB: db},
-		Tenants:    SQLTenantStore{DB: db},
-		Agents:     SQLAgentStore{DB: db},
+		Workspaces:  SQLWorkspaceStore{DB: db},
+		Tenants:     SQLTenantStore{DB: db},
+		Agents:      SQLAgentStore{DB: db},
+		Evaluations: SQLEvaluationStore{DB: db},
 	}
 }
 
@@ -423,6 +456,102 @@ func (s SQLAgentStore) listAgents(ctx context.Context, query string, total, page
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("iterate manager agents: %w", err)
+	}
+	return records, total, nil
+}
+
+func (s SQLEvaluationStore) GetEvaluation(ctx context.Context, id string) (*EvaluationRecord, error) {
+	if s.DB == nil {
+		return nil, fmt.Errorf("manager database is required")
+	}
+	var evaluation EvaluationRecord
+	err := s.DB.QueryRowContext(ctx, `SELECT id, tenant_id, workspace_id, agent_id, slug, display_name, description, status, dataset_name, dataset_revision, baseline_revision, score, gate_passed, samples_total, samples_evaluated, latest_run_id, report_ref
+	FROM evaluations
+	WHERE id = $1`, id).Scan(
+		&evaluation.ID, &evaluation.TenantID, &evaluation.WorkspaceID, &evaluation.AgentID,
+		&evaluation.Slug, &evaluation.DisplayName, &evaluation.Description, &evaluation.Status,
+		&evaluation.DatasetName, &evaluation.DatasetRevision, &evaluation.BaselineRevision,
+		&evaluation.Score, &evaluation.GatePassed, &evaluation.SamplesTotal,
+		&evaluation.SamplesEvaluated, &evaluation.LatestRunID, &evaluation.ReportRef,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get manager evaluation %q: %w", id, err)
+	}
+	return &evaluation, nil
+}
+
+func (s SQLEvaluationStore) ListEvaluations(ctx context.Context, page, limit int) ([]EvaluationRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM evaluations").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager evaluations: %w", err)
+	}
+	return s.listEvaluations(ctx, `SELECT id, tenant_id, workspace_id, agent_id, slug, display_name, description, status, dataset_name, dataset_revision, baseline_revision, score, gate_passed, samples_total, samples_evaluated, latest_run_id, report_ref
+	FROM evaluations
+	ORDER BY created_at DESC
+	LIMIT $1 OFFSET $2`, total, page, limit)
+}
+
+func (s SQLEvaluationStore) ListEvaluationsByTenant(ctx context.Context, tenantID string, page, limit int) ([]EvaluationRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM evaluations WHERE tenant_id = $1", tenantID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager evaluations by tenant %q: %w", tenantID, err)
+	}
+	return s.listEvaluations(ctx, `SELECT id, tenant_id, workspace_id, agent_id, slug, display_name, description, status, dataset_name, dataset_revision, baseline_revision, score, gate_passed, samples_total, samples_evaluated, latest_run_id, report_ref
+	FROM evaluations
+	WHERE tenant_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, tenantID)
+}
+
+func (s SQLEvaluationStore) ListEvaluationsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]EvaluationRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM evaluations WHERE workspace_id = $1", workspaceID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager evaluations by workspace %q: %w", workspaceID, err)
+	}
+	return s.listEvaluations(ctx, `SELECT id, tenant_id, workspace_id, agent_id, slug, display_name, description, status, dataset_name, dataset_revision, baseline_revision, score, gate_passed, samples_total, samples_evaluated, latest_run_id, report_ref
+	FROM evaluations
+	WHERE workspace_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, workspaceID)
+}
+
+func (s SQLEvaluationStore) listEvaluations(ctx context.Context, query string, total, page, limit int, filters ...any) ([]EvaluationRecord, int, error) {
+	offset := (page - 1) * limit
+	args := append([]any{}, filters...)
+	args = append(args, limit, offset)
+	rows, err := s.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list manager evaluations: %w", err)
+	}
+	defer rows.Close()
+
+	records := make([]EvaluationRecord, 0, limit)
+	for rows.Next() {
+		var rec EvaluationRecord
+		if err := rows.Scan(
+			&rec.ID, &rec.TenantID, &rec.WorkspaceID, &rec.AgentID, &rec.Slug,
+			&rec.DisplayName, &rec.Description, &rec.Status, &rec.DatasetName,
+			&rec.DatasetRevision, &rec.BaselineRevision, &rec.Score, &rec.GatePassed,
+			&rec.SamplesTotal, &rec.SamplesEvaluated, &rec.LatestRunID, &rec.ReportRef,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan manager evaluation: %w", err)
+		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate manager evaluations: %w", err)
 	}
 	return records, total, nil
 }

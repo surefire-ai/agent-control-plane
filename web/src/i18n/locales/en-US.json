@@ -35,6 +35,9 @@
   "status": {
     "active": "Active",
     "published": "Published",
+    "passed": "Passed",
+    "failed": "Failed",
+    "running": "Running",
     "draft": "Draft",
     "inactive": "Inactive",
     "archived": "Archived"
@@ -48,7 +51,11 @@
     "pattern": "Pattern",
     "model": "Model",
     "runtime": "Runtime",
-    "revision": "Revision"
+    "revision": "Revision",
+    "dataset": "Dataset",
+    "score": "Score",
+    "gate": "Gate",
+    "samples": "Samples"
   },
   "tenant": {
     "title": "Tenants",
@@ -92,6 +99,13 @@
     "loadError": "Failed to load agents",
     "emptyTitle": "No agents",
     "emptyDescription": "Agents created in workspaces will appear here."
+  },
+  "evaluation": {
+    "title": "Evaluations",
+    "subtitle": "Compare revisions, enforce gates, and monitor regressions",
+    "loadError": "Failed to load evaluations",
+    "emptyTitle": "No evaluations",
+    "emptyDescription": "Evaluation definitions and runs will appear here."
   },
   "productAreas": {
     "tenantScope": "Tenant scope: {{tenantId}}",

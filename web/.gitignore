@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+tsconfig.tsbuildinfo
+
+# Playwright artifacts
+playwright-report/
+test-results/

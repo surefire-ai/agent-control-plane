@@ -2,537 +2,328 @@
   <img src="./docs/assets/korus-logo.svg" alt="Korus" width="520" />
 </p>
 
-# Korus
-
 <p align="center">
-  <a href="./README.md">English</a> | 中文
+  <strong>基于 Kubernetes 的企业级多租户 Agent Control Plane。</strong>
 </p>
 
-Korus 是一个 Kubernetes 原生 Agent Control Plane，用于声明、发布、运行、治理和评估 AI Agent。
+<p align="center">
+  <a href="./README.md">English</a>
+  ·
+  <a href="./docs/architecture/component-boundaries.md">架构</a>
+  ·
+  <a href="./docs/phase2/eino-runtime-design.md">Runtime 设计</a>
+  ·
+  <a href="./web/README.md">Web Console</a>
+</p>
 
-源码仓库是 `github.com/surefire-ai/agent-control-plane`，Kubernetes API Group 使用
-`windosx.com/v1alpha1`。
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha-orange" />
+  <img alt="Kubernetes" src="https://img.shields.io/badge/kubernetes-native-326ce5" />
+  <img alt="Runtime" src="https://img.shields.io/badge/runtime-Eino-111827" />
+</p>
 
-当前实现以 `config/samples/ehs` 中的 EHS 危害识别样例为起点。
+# Korus
 
-## 项目定位
+Korus 是一个 Kubernetes 原生平台，用于声明、评测、发布、治理和运行 AI
+Agent。
 
-Korus 应该被理解为一个 **面向企业级、多租户场景的 Agent 编排、评测与发布平台**，
-底座建立在 Kubernetes 之上，而不是一个独立 SDK、一个薄薄的集群管理台，也不是只跑一次的工作流脚本。
+它的定位是 **企业级 Agent Control Plane**，而不仅仅是一个 Agent runtime。
+长期产品形态会组合 Kubernetes operator、可选的数据库型 manager 服务、
+worker 执行层、可插拔 runner，以及用于 Agent 可视化编排、评测、发布和治理的
+Web Console。
 
-- **operator 层** 负责持续 reconcile `Agent`、`AgentRun`、
-  `PromptTemplate`、`ToolProvider`、`KnowledgeBase`、`AgentPolicy`
-  等 CRD。
-- **manager 层** 是未来 Console 使用的可选产品后台，负责用数据库保存
-  organization、workspace、用户、团队、成员关系、发布流程、持久审计和
-  UI draft 等产品态数据。
-- **控制面 controller** 负责把期望状态编译成确定性的 runtime artifact，
-  发布 status，执行平台契约，并把运行请求分发给执行 backend。
-- **执行层** 位于 worker 和 runtime backend 后面，负责模型调用、tool
-  调用、retrieval、checkpoint，以及未来的图执行。
-- **console 层** 是一等产品入口，负责承载可视化的 Agent 编排、Evaluation
-  查看、revision 对比和发布体验，而不是仅仅展示 Kubernetes 资源。
+> Korus 当前处于 alpha 阶段。Kubernetes API group 暂为
+> `windosx.com/v1alpha1`；源码仓库为 `github.com/surefire-ai/korus`。
 
-换句话说，这个项目并不是要把所有 Agent 逻辑或所有产品态数据都塞进 operator
-进程里。operator 负责声明、reconcile、调度和 runtime 治理；可选 manager
-负责数据库中的企业产品状态；worker 负责执行；runner 负责具体 Agent 执行语义；
-console 负责团队每天真正会使用的编排、评测、发布和协作体验。项目方向也明确是
-企业产品优先：多租户、evaluation、provider 广度、治理和日常使用体验，和
-runtime 能力本身同等重要。
+## 为什么需要 Korus
 
-## 项目能力
+很多 Agent 系统一开始都是 SDK 代码、工作流脚本，或者藏在业务应用里的内部逻辑。
+这对原型足够，但企业团队很快会需要更强的产品和平台契约：
 
-- `Agent` 声明 runtime、模型、prompt、知识库、工具、MCP Server、策略、图结构、接口、记忆和可观测性配置。
-- `AgentRun` 记录一次不可变的执行请求及其执行状态。
-- `PromptTemplate`、`KnowledgeBase`、`ToolProvider`、`Dataset`、`MCPServer`、`AgentPolicy` 和 `AgentEvaluation` 提供控制平面所需的配套资源。
-- `Tenant` 和 `Workspace` 当前是轻量 Kubernetes runtime scope 资源；在
-  managed enterprise 模式下，canonical tenant/workspace 产品记录应存放在
-  manager 数据库中。
-- controller-manager 负责编译 `Agent` 资源、发布确定性的状态，并将 `AgentRun` 分发到 runtime backend。
-- worker runtime backend 可以将每次运行分发为 Kubernetes Job。当前 worker 仍是占位实现，用于支撑 Eino runtime 成熟前的控制平面验证。
+- 多租户 workspace 边界
+- 模型 provider 与凭据治理
+- 可审计的 Agent revision 和运行记录
+- 发布前 evaluation gate
+- 面向产品团队的可视化编排
+- Kubernetes 原生部署和运维
 
-## 使用场景
+Korus 把这些能力变成平台契约的一部分。
 
-Korus 面向需要把 AI Agent 当作生产平台资源来运营的团队，而不是把
-Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
+## 核心能力
 
-- **企业级 Agent 发布**：平台团队可以用 Kubernetes 原生 spec、status、revision 和
-  RBAC 边界来定义、评审、发布和回滚 Agent。
-- **可视化 Agent 编排**：应用团队可以直接在 Web Console 里组合 prompt、tool、
-  knowledge、skill 和 graph flow，并把结果发布为统一的控制平面资源，而不是手写全部 YAML。
-- **业务流程自动化**：产品团队可以暴露可重复运行的 Agent 工作流，例如文档审核、工单分诊、事件响应、巡检分析和知识辅助决策。
-- **受监管、可审计的 AI 运行**：风控、合规和运营团队可以为每次 Agent 调用关联策略、trace reference、评估计划和不可变运行记录。
-- **垂直领域 Agent 系统**：领域团队可以打包 EHS 危害识别、质量巡检、维修计划、客户支持、财务运营等知识密集型场景的专用 Agent。
-- **多租户 Agent 平台**：组织可以将团队或租户映射到 namespace，执行 runtime 边界，并集中观测同一集群中的多个 Agent。
-- **Agent Marketplace 与复用**：共享 prompts、tools、knowledge bases、MCP servers、policies 和 evaluations 可以沉淀为未来 Agent package 的可复用构件。
+| 能力 | Korus 提供什么 |
+| --- | --- |
+| 声明式 Agent | `Agent`、`AgentRun`、`PromptTemplate`、`ToolProvider`、`KnowledgeBase`、`MCPServer`、`Skill`、`Dataset`、`AgentPolicy` 和 `AgentEvaluation` 等 CRD。 |
+| 确定性编译 | compiler 会校验引用、展开已支持的 pattern，并在 status 中记录 compiled artifact 与 revision。 |
+| Runtime 分发 | `AgentRun` 可以通过 mock backend 或 Kubernetes Job worker backend 执行。 |
+| 模型凭据 | Agent 通过 Kubernetes Secret 引用凭据；secret 明文不会写入 status、artifact 或日志。 |
+| Provider 策略 | compiler 会基于 provider catalog 校验模型 provider，并把 OpenAI-compatible provider 路由到共享 chat path。 |
+| Evaluation 优先 | `AgentEvaluation` 和 `Dataset` 支持可复用样本、expected value、baseline 对比、metric 和 threshold gate。 |
+| 企业级范围 | `Tenant` 和 `Workspace` CRD 当前是轻量 runtime-scope bridge，未来 canonical 产品状态由 manager 数据库持有。 |
+| Web Console 方向 | `web/` 是 UX-first console 的起点，面向可视化编排、evaluation、release、provider 和治理体验。 |
 
-## 架构方向
+## 架构
 
-- 本仓库正在朝四组件系统演进：**operator**、**manager**、**worker** 和
-  **runner**。
-- operator 仍然是 Kubernetes-native 控制面。
-- manager 是可选的数据库后台，为未来 Web Console 提供企业产品能力。
-- worker 在运行环境中执行单次 run。
-- runner 是可插拔 Agent 执行引擎边界，第一版以 Eino 为主。
-- 产品方向是 **Enterprise Multi-Tenant Agent Control Plane**，并将
-  evaluation 作为一等能力，而不是附属功能。
-- Go 承载 Kubernetes API 类型、CRD controller、compiler、admission check、runtime dispatch，以及未来的 gateway。
-- Go 预计承载 operator、worker、初始 manager 服务，以及基于 Eino 的 runner
-  集成。
-- 默认 runner 方向是 `runtime.engine: eino` 与 `runtime.runnerClass: adk`；LangGraph 保留为未来兼容 adapter。
-- PostgreSQL、pgvector、S3 兼容存储和队列预计用于 manager 状态、检索、产物和异步执行。
-- TypeScript 应承载未来的企业级控制台、可视化编排工作台、Marketplace UI 和生成式 SDK。
+Korus 正在朝四个明确组件演进：
 
-组件边界说明见 `docs/architecture/component-boundaries.md`。初始 manager 数据模型和
-manager 到 operator 的同步契约见 `docs/architecture/manager-data-model.md` 与
-`docs/architecture/manager-operator-sync.md`。
-
-### 控制面边界
-
-- `controller-manager` 是 operator 控制面，负责监听 CRD、reconcile 期望状态、编译 artifact，并管理 run lifecycle。
-- `manager` 是可选产品后台，应在数据库中保存 product workspace、用户、团队、
-  成员关系、发布流程、持久审计和 UI draft，再通过面向 operator 的 API 创建或同步 Kubernetes 资源。
-- `worker` 是执行侧 runtime 入口，负责消费 compiled artifact 和 run input，并执行模型调用以及未来的 tool/retrieval 工作。
-- `runner` 是 worker 使用的可插拔 Agent 执行引擎边界。
-- CRD 仍然是平台用户、manager 与 operator 之间的声明式 API 边界。
-- 产品态 workspace 不应该主要建模为 CRD。当前 `Workspace` CRD 是
-  Kubernetes-native 模式和 manager 到 operator 同步时使用的轻量 runtime-scope bridge。
-
-### 产品优先级
-
-项目后续设计应明确围绕以下主线展开：
-
-- **企业级与多租户默认前提**：tenancy、隔离、RBAC、quota、审计、workspace
-  边界都应被视为产品基本要求，而不是后期补丁。
-- **Evaluation 作为核心卖点**：评测集管理、revision 对比、阈值门禁、
-  上线前评估、线上回归监控和多模型横向比较，应成为产品辨识度的一部分。
-- **模型厂商支持作为平台能力矩阵**：模型支持应从“有一条 OpenAI-compatible
-  路径”升级为 provider capability matrix，兼顾国际厂商与中国本土模型提供商。
-- **UX-first Web Console**：Phase 3 的目标不是做一个薄管理台，而是做一个用户
-  会高频使用的产品界面。它应该成为可视化 Agent 编排、Evaluation、发布和治理的主入口。
-
-### Build / Buy / Integrate 原则
-
-本仓库不应该尝试把整个 Agent 技术栈从头重写一遍。这个项目最有价值的地方，
-是在保持 Kubernetes-native 控制面模型自主性的同时，务实地复用成熟底层能力。
-
-- **应该自研的**：CRD API 设计、compiler 行为、确定性 artifact、run lifecycle、
-  policy 挂载、Kubernetes runtime dispatch，以及带有项目取向的 `Skill` 和
-  `Pattern` 模型。
-- **应该借鉴的**：tenancy、多租户产品边界、package / marketplace 设计、
-  SubAgent 边界，以及 A2A 兼容的资源建模方式。
-- **应该集成而不是重写的**：模型 provider SDK、图执行引擎、向量检索底座、
-  对象存储、队列、tracing、metrics，以及其他并非本项目核心差异的基础设施层。
-
-一句话说，Korus 应该掌握的是 **API、compiler 和 runtime
-contract**，而不是把 contract 之下的所有执行和平台基础设施都重做一遍。
-
-## 当前进度
-
-状态日期：2026-04-20。
-
-| 模块 | 状态 | 证据 |
-| --- | --- | --- |
-| YAML Agent Spec | 进行中 | `api/v1alpha1` 和 `config/crd/bases` 下已有 Go API 类型和 CRD；`config/samples/ehs` 下已有 EHS YAML 样例。 |
-| 编译成 Eino | 部分完成 | `internal/compiler` 已能校验跨资源引用、产出面向 runtime 的 compiled artifact，并生成确定性 revision；尚未产出可执行的 Eino runner artifact。 |
-| 发布 endpoint | Bootstrap | Agent controller 已发布 `Agent.status.endpoint.invoke`；invoke gateway 可接收 POST 请求并创建 `AgentRun` 资源。 |
-| trace | 部分完成 | 已有 `AgentRun.status.traceRef`，mock/worker backend 会写入该字段；完整分布式 tracing 和 trace 存储尚未实现。 |
-| version | 部分完成 | 已有 `Agent.status.compiledRevision` 与 `AgentRun.status.agentRevision`；语义化版本、发布通道和 revision history 仍待实现。 |
-| runtime execution | Bootstrap | `mock` runtime 可确定性完成运行；`worker` runtime 可创建 Kubernetes Job、接收 compiled artifact，并返回占位输出。 |
-| Policy | 仅有 Spec | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`；runtime dispatch 前的策略执行仍待实现。 |
-| Evaluation | 部分完成 | `AgentEvaluation` 现在已有 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析引用并创建一条或多条受管 `AgentRun`，再把聚合后的运行状态、基础规则型指标，以及 `risk_level_match`、`hazard_coverage` 这类早期 structured metric 回写到 status，同时给出 current/baseline 的对比分数差值；丰富结果上报仍待实现。 |
-
-## 里程碑
-
-### Phase 1：Kubernetes-Native MVP
-
-目标：让一个通过 Kubernetes 声明的 Agent 能够完成编译、发布状态、通过
-Kubernetes Job 运行，并端到端记录 output、trace reference 和 revision identity。
-
-| 里程碑 | 当前状态 | 下一步 |
-| --- | --- | --- |
-| YAML Agent Spec | 已有初始 CRD 和 EHS YAML 样例。 | 强化 schema 校验、默认值、必填字段和 admission check。 |
-| Agent compiler | 已有静态引用 compiler，可写入 `Agent.status.compiledArtifact`、基于 artifact 生成 revision，并将 artifact 传递给 worker。 | 逐步演进为兼容 Eino 的 runner artifact。 |
-| AgentRun lifecycle | 已实现 `Pending`、`Running`、`Succeeded` 和 `Failed` 状态流转。 | 增加取消、超时、重试和幂等语义。 |
-| Kubernetes Job runtime | `worker` backend 已能创建 Job，并在完成后更新 `AgentRun` 状态。 | 持久化更丰富的 worker output，并暴露 Job/Pod 失败详情。 |
-| Invoke gateway | `Agent.status.endpoint.invoke` 已发布调用路径，gateway 可通过 POST 请求创建 `AgentRun` 资源。 | 增加认证、鉴权、限流和幂等控制。 |
-| Packaging and deployment | 已有 Dockerfile、RBAC、`config/default` 部署清单、CI、GHCR 镜像发布 workflow、release tag 说明和 Helm chart skeleton。 | v0.1.0 前将 chart 从 dev/E2E 安装路径提升为正式安装 artifact。 |
-
-Phase 1 退出标准：
-
-- 应用 EHS 样例资源后可以得到 Ready 状态的 `Agent`。
-- 通过 gateway 调用 Agent 后可以创建 `AgentRun`。
-- 运行通过 Kubernetes Job runtime backend 执行。
-- 运行结果记录 output、trace reference 和准确的 agent revision。
-- controller-manager 和 worker 镜像可构建、可部署、可发布。
-
-详细 release checklist 见 `docs/releases/v0.1.0-readiness.md`。
-
-Release notes 见 `docs/releases/v0.1.0.md`。
-
-当前阶段已知限制：
-
-- runtime execution 仍是结构化占位实现，还不是真实 Eino 执行。
-- gateway 认证、鉴权、限流和幂等尚未实现。
-- AgentRun 取消、超时、重试和幂等语义尚未实现。
-- durable run artifacts 和 trace storage 尚未实现。
-- Helm chart 仍是开发和 E2E 安装路径。
-
-### Phase 2：真实 Agent Runtime
-
-目标：用真正基于 Eino 的 runtime 替换占位 worker，同时保持 Kubernetes
-原生控制平面契约不变。
-
-Phase 2 runtime 设计见 `docs/phase2/eino-runtime-design.md`。
-Agent pattern、SubAgent 和 A2A TODO 见
-`docs/phase2/agent-patterns-and-a2a-todo.md`。
-Phase 3 console 规划见
-`docs/phase3/console-information-architecture.md`。
-Tenancy 与 workspace 设计说明见
-`docs/phase3/tenancy-workspace-model.md`。
-operator / manager / worker / runner 的组件边界见
-`docs/architecture/component-boundaries.md`。
-manager 数据模型和同步契约见
-`docs/architecture/manager-data-model.md` 与
-`docs/architecture/manager-operator-sync.md`。
-未来 Web Console 的实现目录是 `web/`。
-
-| 里程碑 | 当前状态 | 下一步 |
-| --- | --- | --- |
-| Eino compile artifact | 已有静态引用 compiler、typed compiled artifact decoder 和 v1 runner artifact 输出。 | 继续把 prompt/tool/knowledge 内容解析进 runner artifact。 |
-| Eino runtime worker | Go placeholder worker 已能校验注入的运行上下文和 compiled artifact 元数据。 | 使用 Eino 执行已编译 artifact，并返回结构化结果。 |
-| Model credentials | 进行中。 | Sample Agent 已可通过同 namespace 的 Kubernetes Secret 引用模型凭据，worker Job 会注入密钥但不会把明文写入 status 或 artifacts。 |
-| Tenancy 与 workspace 模型 | 已重新定向 | `Tenant` 与 `Workspace` CRD 现在被定位为轻量 Kubernetes runtime-scope 资源，而不是 canonical enterprise product database。未来 manager 应在数据库中管理 product tenant、workspace、成员关系、发布流程、持久审计和 UI draft。当前 controller 仍会解析 `tenantRef`、发布 workspace scope hint、统计 tenant 下的 workspace 数量、校验 `Agent` / `AgentEvaluation` 的 workspace ref，并在编译前应用 workspace policy/provider 默认值。 | 设计可选 manager 的数据库模型，并让 CRD 表面聚焦 runtime scope、policy reference、provider restriction 和 Secret reference。 |
-| Model provider strategy | 已有早期基础。 | compiler 现在会按 provider catalog 校验 `ModelSpec.provider`，并把 provider family 元数据写入 compiled artifact。OpenAI-compatible 一族目前已可统一覆盖 OpenAI、Azure OpenAI、DeepSeek、Qwen、Moonshot、Doubao、GLM、Baichuan、MiniMax、SiliconFlow。 | 继续扩展 capability matrix，并在需要时增加 provider-specific runtime adapter，同时为未来 UI 和 policy 暴露这份 catalog。 |
-| Runtime contract | `AgentRun` 已携带 input、output、trace reference、agent revision 和 workspace identity。gateway 创建的运行和 evaluation 托管运行都会把 agent 或 evaluation 的 workspace 写入 run 记录。 | 定义 artifacts、logs、errors、取消、重试和更完整的审计元数据。 |
-| Policy checks | 已有 `AgentPolicy` CRD 和 `Agent.spec.policyRef`；当 Agent 未显式设置 policy 时，workspace-scoped 默认 policy 已可进入 compiled artifact。 | 在 dispatch 前执行模型/工具预算、guardrails 和审批门禁。 |
-| Agent patterns | 部分完成。 | 已支持 `spec.pattern`，compiler 会保留 pattern 元数据，并在 `spec.graph` 为空时把 `react` 展开成会消费 Agent 已选 tools 与 knowledge 的 runner graph；更多 runtime 语义仍待实现。 |
-| Durable run records | 当前状态存储在 `AgentRun` 上。 | 增加持久化 trace、artifact 和 result storage。 |
-| Evaluation | `AgentEvaluation` 已具备 typed dataset、baseline、evaluator、threshold gate 和 reporting 字段；`Dataset` CRD 可提供带 `expected` 的可复用评测样本，controller 会解析 readiness、分别为 current/baseline 创建受管 `AgentRun`，并把 baseline revision、聚合后的 run state、基础规则型指标、早期 structured metric、gate 结果和 comparison delta 写入 status。 | 在此基础上继续扩展 richer result reporting、revision 对比和发布门禁行为。 |
-
-Phase 2 退出标准：
-
-- EHS AgentRun 通过真实 Eino worker 执行。
-- Policy 可以在不安全运行开始前阻断或要求审批。
-- worker Pod 消失后仍可查看 run artifacts 和 traces。
-- Evaluation 资源可以针对某个 agent revision 执行并发布结果。
-
-### Phase 3：产品界面与治理
-
-目标：让平台不仅能被集群 operator 使用，也能被团队直接使用。
-
-| 里程碑 | 当前状态 | 下一步 |
-| --- | --- | --- |
-| UX-first Web Console | 本仓库尚未开始。 | 构建围绕 tenant/workspace 导航、可视化 Agent 编排、Agent 构建与发布、Run 调试、Evaluation 对比、provider 管理、协作与发布体验的控制台。 |
-| Manager backend | 已 scaffold：`cmd/manager` 和 `internal/manager` 提供最小可选 HTTP 后台，包含 health、readiness、info endpoints、基于 pgx 的 PostgreSQL driver、数据库配置、内嵌 migration 文件、启动时 migration wiring、第一版 repository interface，以及 `GET /api/v1/workspaces/{id}`。 | 增加 workspace list/create 和最小 agent-project API。 |
-| Marketplace | 尚未开始。 | 定义可复用 agents/tools 的包元数据、发布流程、信任信号和安装流程。 |
-| SubAgent composition | 尚未开始。 | 增加一等公民 `subAgentRefs`、graph `kind: agent`、revision pinning 和父子 trace 关联。 |
-| Tenant 与 workspace 体验 | 方向已明确。 | 在 manager 数据库中建模 tenant/workspace 产品状态，将其映射到 Kubernetes runtime scope 资源，并补齐 RBAC 边界、quota、审计轨迹和用户可感知的隔离体验。 |
-| Evaluation-first workflows | 尚未开始。 | 将评测集管理、revision 对比、阈值门禁、上线检查和回归视图纳入产品主界面。 |
-| Provider management UX | 尚未开始。 | 提供 provider 选择、能力差异、credential 引用和模型切换的用户工作流。 |
-| Governance workflows | 已有 Policy CRD。 | 增加 review、approval、human-in-the-loop 和 exception 工作流。 |
-
-Phase 3 退出标准：
-
-- 用户可以在 UI 中可视化编排、发布、查看、调用、评测和调试 agents。
-- Marketplace package 可以被列出、安装、版本化和审查。
-- API、runtime、storage 和 observability 中的租户隔离都有明确边界。
-- 治理工作流可审计、可执行。
-
-### Phase 4：分布式 Agent Fabric
-
-目标：从单 Agent 执行扩展到多 runtime、多 Agent 的协作网络。
-
-| 里程碑 | 当前状态 | 下一步 |
-| --- | --- | --- |
-| Multi-runtime | runtime interface 已支持在 `mock` 和 `worker` backend 之间选择。 | 增加 Eino、LangGraph 兼容层和远程 runtime adapter。 |
-| Agent autoscaling | 尚未开始。 | 增加基于队列深度、延迟和成本的 runtime worker 扩缩容信号。 |
-| Agent mesh | 尚未开始。 | 定义 Agent 间发现、调用、策略传播、身份、trace 关联和 A2A 协议互操作。 |
-
-Phase 4 退出标准：
-
-- 多个 runtime backend 可以运行兼容的 agent revision。
-- Agent 可以基于需求和策略限制自动扩缩容。
-- Agent 到 Agent 的调用能保留 identity、policy、version 和 trace context。
-- A2A-compatible endpoint 可以暴露 Agent Card，并将 task、message 和 artifact 映射到 AgentRun 记录。
-
-## 本地开发
-
-运行 Go 测试套件：
-
-```bash
-go test ./...
+```mermaid
+flowchart LR
+  User["用户 / CI / Web Console"] --> Manager["manager\n可选产品后台"]
+  User --> Operator["operator\nKubernetes 控制面"]
+  Manager --> Operator
+  Operator --> CRDs["Kubernetes CRD"]
+  Operator --> Worker["worker\n运行执行器"]
+  Worker --> Runner["runner\nEino 与未来引擎"]
+  Runner --> Providers["模型 provider\ntool / knowledge / MCP"]
 ```
 
-生成 deepcopy 代码：
+- **operator** 负责 reconcile CRD、编译 Agent、发布 status、执行 runtime
+  contract，并分发运行。
+- **manager** 是可选产品后台，负责租户、workspace、用户、团队、发布流程、
+  持久审计和 UI draft。
+- **worker** 基于 compiled artifact 和 runtime input 执行单次运行。
+- **runner** 是可插拔 Agent 执行边界。默认方向是 `runtime.engine=eino`
+  与 `runtime.runnerClass=adk`。
+
+更多设计见
+[component-boundaries.md](./docs/architecture/component-boundaries.md)、
+[manager-data-model.md](./docs/architecture/manager-data-model.md) 和
+[manager-operator-sync.md](./docs/architecture/manager-operator-sync.md)。
+
+## 快速开始
+
+### 前置要求
+
+- Go
+- Docker 或兼容容器运行时
+- Kubernetes 集群或本地 Kubernetes，例如 OrbStack
+- `kubectl`
+- `make`
+
+可选：
+
+- Helm，用于 chart 校验和安装
+- Node.js，用于 Web Console scaffold
+
+### 运行测试
 
 ```bash
-make generate
+make test
 ```
 
-生成 CRD manifests：
-
-```bash
-make manifests
-```
-
-本地运行 controller manager：
-
-```bash
-make run
-```
-
-构建 controller-manager 和 worker 二进制：
+### 构建二进制
 
 ```bash
 make build
 ```
 
-本地运行可选 manager backend scaffold：
+### 生成 Kubernetes 清单
 
 ```bash
-go run ./cmd/manager --bind-address=:8090
+make generate manifests
 ```
 
-当前 scaffold 暴露 `/healthz`、`/readyz` 和 `/api/v1/info`。
-配置 workspace store 后，也会暴露 `GET /api/v1/workspaces/{id}`。
-数据库配置目前仍是可选项，可以通过 `--database-driver`、`--database-url`
-或对应的 `MANAGER_*` 环境变量传入。
-默认 database driver 是 `pgx`。只有显式设置 `--migrate-on-start` 或
-`MANAGER_MIGRATE_ON_START=true` 时才会运行内置 migrations。
-
-构建容器镜像：
-
-```bash
-make docker-build
-```
-
-CI 和镜像发布：
-
-- `.github/workflows/ci.yml` 会在 pull request 和 `main` 上运行格式检查、测试、二进制构建和 Docker 镜像构建。
-- `.github/workflows/publish-images.yml` 会在 `main`、`v*` tag 和手动触发时发布 controller-manager 与 worker 镜像到 GHCR。
-
-Release tag：
-
-- 使用 `v0.1.0` 这样的语义化版本 tag。
-- 推送 `v*` tag 时会发布两个镜像，并同时生成同名版本 tag 和 `sha-*` 可追踪 tag。
-- 准备 release branch 或 release archive 时，应将 Kubernetes manifests 固定到对应 release 镜像 tag。
-
-将 CRDs、RBAC 和 controller-manager 部署到当前 Kubernetes context：
+### 部署控制面
 
 ```bash
 make deploy
 ```
 
-使用开发版 Helm chart 安装：
+### 使用 Helm 安装
 
 ```bash
-helm upgrade --install agent-control-plane charts/agent-control-plane \
-  --namespace agent-control-plane-system \
+helm upgrade --install korus charts/agent-control-plane \
+  --namespace korus-system \
   --create-namespace
 ```
 
-本地检查 chart：
+当前 chart 仍是开发安装路径，后续会随着稳定版本推进为正式安装 artifact。
 
-```bash
-make helm-lint
-make helm-template
-```
+## 体验 EHS 样例
 
-本地镜像测试时，可以覆盖 controller-manager 和 worker 镜像 tag：
+标准样例是 [`config/samples/ehs`](./config/samples/ehs) 下的 EHS 危害识别
+Agent。
 
-```bash
-helm upgrade --install agent-control-plane charts/agent-control-plane \
-  --namespace agent-control-plane-system \
-  --create-namespace \
-  --set controllerManager.image.tag=latest \
-  --set controllerManager.worker.image.tag=latest
-```
-
-移除已部署的控制平面：
-
-```bash
-make undeploy
-```
-
-用于本地 OrbStack 验证时，可以构建本地 controller 和 worker 镜像：
-
-```bash
-make docker-build-controller-local
-make docker-build-worker-local
-```
-
-如果你的本地环境需要自定义的 kubectl 包装命令或 context helper，也可以
-通过 `KUBECTL` 传入，例如 `make KUBECTL="kubectl"`。
-
-## EHS 模型执行验证
-
-EHS 样例现在已经可以验证 Phase 2 的第一条文本执行路径，并对接
-OpenAI-compatible endpoint。
-
-1. 应用 EHS 样例资源：
-
-```bash
-kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -k config/samples/ehs
-```
-
-2. 基于示例清单创建模型凭据 Secret：
-
-```bash
-cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.yaml
-# 编辑 /tmp/openai-credentials.yaml，将 REPLACE_WITH_REAL_API_KEY 替换为真实值
-kubectl apply -f /tmp/openai-credentials.yaml
-```
-
-在示例 Secret 模板存在的情况下，不要再用 `kubectl apply -f config/samples/ehs`；
-请改用 `-k`，这样默认样例安装不会把占位凭据清单一起 apply 进去。
-
-3. 以 `--runtime-backend=worker` 运行 controller-manager，然后调用样例
-   Agent 或直接 apply 样例 `AgentRun`。
-
-4. 查看结构化输出：
-
-```bash
-kubectl -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.output}'
-```
-
-当前行为说明：
-
-- 当声明多个模型槽位时，worker 当前优先选择 `planner` 模型。
-- 第一条文本执行路径要求目标 endpoint 兼容 OpenAI `/chat/completions`
-  协议，并返回满足 `spec.interfaces.output.schema` 的结构化 JSON。
-- `status.output.result` 保留 worker 原始 payload，而 `summary`、
-  `overallRiskLevel` 等顶层字段会提升到 `AgentRun.status.output`，
-  便于直接消费。
-
-如果只是想在本地快速验证控制面到 worker 的完整闭环，而不依赖真实
-OpenAI 凭据，可以直接使用 OrbStack smoke overlay：
+如果只想在本地快速验证，不需要真实模型凭据，可以使用 OrbStack smoke overlay：
 
 ```bash
 make k8s-smoke-ehs
 ```
 
-这个目标会：
+这个 target 会应用样例资源、创建 dummy 模型凭据、部署一个 mock
+OpenAI-compatible 服务、运行固定的 `AgentRun`，并打印最终
+`AgentRun.status.output`。
 
-- 确保 `ehs` namespace 存在；
-- apply `config/samples/ehs-orbstack-smoke`；
-- 注入一个 dummy `openai-credentials` Secret；
-- 部署 `mock-openai` 服务，并把 sample Agent 的 `baseURL` 改写到它；
-- 重建固定样例 `AgentRun`；
-- 打印最终的 `AgentRun.status.output`。
+如果要接入真实 OpenAI-compatible endpoint：
 
-对应 overlay 位于 `config/samples/ehs-orbstack-smoke`。
-
-## Runtime Backends
-
-controller manager 接受 `--runtime-backend` 参数。
-
-- `mock`：默认 backend。它会确定性地完成 `AgentRun` 对象，用于控制平面验证。
-- `worker`：在 `AgentRun` 所在 namespace 中创建 Kubernetes Job。它通过 `--worker-job-image` 和 `--worker-job-command` 指向 worker 镜像和命令。Job 会从 `Agent.status.compiledArtifact` 接收 `AGENT_COMPILED_ARTIFACT`，校验后在 worker 结果中输出 artifact 摘要。Job 完成后，controller 会读取 worker Pod 日志、解析结构化 worker 结果，并将结果摘要写回 `AgentRun.status.output`。
-
-本仓库包含两个镜像入口：
-
-- `cmd/controller-manager`：协调控制平面资源。
-- `cmd/worker`：校验注入的运行环境和 compiled artifact 元数据，并输出结构化占位结果。
-
-Worker result contract v0：
-
-规范 Go 类型和解析器位于 `internal/contract`。
-
-成功：
-
-```json
-{
-  "status": "succeeded",
-  "message": "agent control plane worker placeholder completed",
-  "compiledArtifact": {
-    "apiVersion": "windosx.com/v1alpha1",
-    "kind": "AgentCompiledArtifact",
-    "runtimeEngine": "eino",
-    "runnerClass": "adk",
-    "policyRef": "ehs-default-safety-policy"
-  }
-}
+```bash
+kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -k config/samples/ehs
+cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.yaml
 ```
 
-失败：
+编辑 `/tmp/openai-credentials.yaml`，替换占位 API key，然后应用：
 
-```json
-{
-  "status": "failed",
-  "reason": "WorkerFailed",
-  "message": "AGENT_COMPILED_ARTIFACT kind is required"
-}
+```bash
+kubectl apply -f /tmp/openai-credentials.yaml
 ```
 
-发生结构化失败时，controller 会将 `AgentRun` 标记为 `Failed`，并在 status 中保留 worker summary 和 trace reference。
+不要用 `-f` 直接应用 `config/samples/ehs`；请使用 `-k`，这样 example Secret
+模板不会进入默认样例安装。
 
-当前 placeholder worker 只接受默认 Eino runtime identity：`runtime.engine=eino`
-和 `runtime.runnerClass=adk`。缺省值会按默认值处理；显式填写不支持的值会让本次运行以结构化 worker failure 失败。
+## 调用 Agent
 
-worker 内部已经通过 runner 边界分发执行。第一版实现是
-`EinoADKPlaceholderRunner`，它会保持当前占位行为，同时为后续接入真实 Eino
-runner 留出明确的集成点。
-
-## Invoke Gateway
-
-controller-manager 会在 `--gateway-bind-address` 上启动 invoke gateway，默认地址为
-`:8082`。它接受：
+controller-manager 暴露 invoke gateway：
 
 ```text
 POST /apis/windosx.com/v1alpha1/namespaces/{namespace}/agents/{agent}:invoke
 ```
 
-请求体：
-
-```json
-{
-  "input": {
-    "task": "identify_hazard",
-    "payload": {
-      "text": "inspection text"
-    }
-  },
-  "execution": {
-    "mode": "sync"
-  }
-}
-```
-
-本地部署控制平面后，可以 port-forward gateway service 并调用 EHS 样例 Agent：
+请求示例：
 
 ```bash
-kubectl -n agent-control-plane-system port-forward svc/agent-control-plane-gateway 8082:8082
-curl -sS -X POST http://127.0.0.1:8082/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke \
+curl -sS -X POST \
+  http://127.0.0.1:8082/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke \
   -H 'Content-Type: application/json' \
   -d '{"input":{"task":"identify_hazard","payload":{"text":"巡检发现配电箱门打开，现场地面有积水。"}},"execution":{"mode":"sync"}}'
 ```
 
-gateway 会返回已接受的 `AgentRun` 名称，随后 `AgentRun` controller 会通过当前配置的
-runtime backend 分发执行。
+gateway 会返回已接收的 `AgentRun` 名称，随后 controller 会通过配置的 runtime
+backend 分发运行。
 
-## 仓库结构
+## Runtime Backends
 
-```text
-api/v1alpha1/                 Kubernetes API types
-cmd/controller-manager/        controller-manager entrypoint
-cmd/worker/                    worker entrypoint
-config/crd/                    generated CRD manifests
-config/default/                installable Kustomize entrypoint
-config/manager/                controller-manager and gateway service manifests
-config/samples/ehs/            sample custom resources
-internal/compiler/             Agent compiler and reference validation
-internal/controller/           Agent and AgentRun reconcilers
-internal/gateway/              invoke gateway
-internal/runtime/              runtime backend abstraction and implementations
-internal/worker/               placeholder worker implementation
+controller-manager 接受 `--runtime-backend`：
+
+- `mock`：用于控制面验证的确定性 backend。
+- `worker`：创建 Kubernetes Job，并运行带 compiled artifact、run input 和
+  Secret-backed 模型配置的 `cmd/worker`。
+
+worker 当前支持第一条面向 OpenAI-compatible chat completion endpoint 的
+model-backed text execution path。真实 Eino runner 正在现有 runner boundary
+后面逐步接入。
+
+## Web Console
+
+Web Console scaffold 位于 [`web/`](./web)。
+
+它会成为 Korus 的企业产品主入口，用于：
+
+- tenant 和 workspace 导航
+- 可视化 Agent 编排
+- run debugging
+- evaluation 对比
+- release gate
+- provider 管理
+- policy 和治理流程
+
+使用 fake manager API 启动 console：
+
+```bash
+cd web
+npm install
+npm run dev:fake
 ```
 
-## 开源协议
+当前范围和开发说明见 [`web/README.md`](./web/README.md)。
 
-Korus 使用 Apache License, Version 2.0 授权。详见 `LICENSE`。
+## 路线图
 
-本项目依赖的第三方 Go modules 使用各自的开源协议。当前直接 runtime 依赖为 Kubernetes 和 controller-runtime 相关模块，协议为 Apache-2.0。传递依赖包含 Apache-2.0、BSD-style、MIT-style 和 ISC 等宽松开源协议。
+| 阶段 | 重点 | 状态 |
+| --- | --- | --- |
+| Phase 1 | Kubernetes-native MVP，包括 CRD、编译、gateway invoke、worker Job、GHCR 镜像和 Helm skeleton。 | 第一个公开开发基线已具备。 |
+| Phase 2 | 真实 Eino runtime、provider catalog、模型凭据流、policy check、pattern、持久 run artifact 和更强的 evaluation contract。 | 进行中。 |
+| Phase 3 | 基于 manager 的企业产品界面，包括 Web Console、tenant、workspace、可视化编排、发布流程、evaluation UX 和 provider 管理。 | 已有 scaffold。 |
+| Phase 4 | 分布式 Agent Fabric，包括 multi-runtime execution、autoscaling、SubAgent composition 和 A2A 互操作。 | 规划中。 |
 
-分发源码包、二进制或容器镜像前，请保留项目 `LICENSE`，保留 `NOTICE`，并按照 `THIRD_PARTY_NOTICES.md` 中的说明包含第三方依赖许可证声明。
+详细设计：
+
+- [Phase 2 Eino Runtime Design](./docs/phase2/eino-runtime-design.md)
+- [Agent Patterns, SubAgent, and A2A TODOs](./docs/phase2/agent-patterns-and-a2a-todo.md)
+- [Console Information Architecture](./docs/phase3/console-information-architecture.md)
+- [Tenancy and Workspace Model](./docs/phase3/tenancy-workspace-model.md)
+- [v0.1.0 Release Notes](./docs/releases/v0.1.0.md)
+- [v0.1.0 Readiness Checklist](./docs/releases/v0.1.0-readiness.md)
+
+## 目录结构
+
+```text
+api/v1alpha1/                  Kubernetes API types
+cmd/controller-manager/         operator entrypoint
+cmd/manager/                    optional product backend entrypoint
+cmd/worker/                     worker entrypoint
+config/crd/                     generated CRD manifests
+config/default/                 Kustomize deployment entrypoint
+config/samples/ehs/             canonical EHS sample
+docs/architecture/              architecture and component boundaries
+docs/phase2/                    runtime and agent semantics design
+docs/phase3/                    console, tenancy, and product UX design
+internal/compiler/              agent compiler and validation
+internal/controller/            Kubernetes reconcilers
+internal/gateway/               invoke gateway
+internal/manager/               manager backend scaffold
+internal/runtime/               runtime backend abstraction
+internal/worker/                worker and runner boundary
+web/                            future Web Console
+```
+
+## 开发命令
+
+```bash
+make test              # 运行 Go 测试
+make build             # 构建 controller-manager 和 worker
+make generate          # 生成 deepcopy 代码
+make manifests         # 生成 CRD manifests
+make docker-build      # 构建容器镜像
+make helm-lint         # lint 开发 chart
+make helm-template     # 渲染开发 chart
+make k8s-smoke-ehs     # 运行本地 EHS Kubernetes smoke test
+```
+
+## 项目状态
+
+Korus 当前适合平台设计、本地实验、CRD contract 工作、compiler/runtime 开发和早期
+Kubernetes smoke test。它还不是稳定生产版本。
+
+当前 alpha 限制：
+
+- Eino runner 仍在实现中；
+- gateway 认证、鉴权、限流和幂等尚未完成；
+- 取消、重试、超时和持久 run artifact storage 尚未完成；
+- Web Console 和 manager backend 仍是 scaffold；
+- Helm 仍是开发安装路径。
+
+## 贡献
+
+Korus 还很早期，最有价值的贡献是边界清晰、契约明确的改动：
+
+- CRD 和 compiler 改进
+- runtime 与 worker 测试
+- provider capability 建模
+- evaluation 语义
+- 本地 Kubernetes smoke 覆盖
+- 保持 operator/manager 边界的 Web Console 产品流
+
+提交改动前请运行：
+
+```bash
+make test
+git diff --check
+```
+
+如果修改 API 类型，还需要运行：
+
+```bash
+make generate manifests
+```
+
+AI 协作者应先阅读 [`AGENTS.md`](./AGENTS.md)。
+
+## License
+
+Korus 使用 Apache License, Version 2.0。见 [`LICENSE`](./LICENSE)。
+
+本项目依赖的第三方 Go modules 使用各自的开源许可证。分发源码归档、二进制或容器镜像时，
+请保留 [`NOTICE`](./NOTICE)，并遵循
+[`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)。

@@ -2,622 +2,339 @@
   <img src="./docs/assets/korus-logo.svg" alt="Korus" width="520" />
 </p>
 
-# Korus
-
 <p align="center">
-  English | <a href="./README.zh-CN.md">中文</a>
+  <strong>Enterprise multi-tenant Agent Control Plane on Kubernetes.</strong>
 </p>
 
-Korus is a Kubernetes-native Agent Control Plane for declaring, publishing,
-running, governing, and evaluating AI agents.
+<p align="center">
+  <a href="./README.zh-CN.md">中文</a>
+  ·
+  <a href="./docs/architecture/component-boundaries.md">Architecture</a>
+  ·
+  <a href="./docs/phase2/eino-runtime-design.md">Runtime Design</a>
+  ·
+  <a href="./web/README.md">Web Console</a>
+</p>
 
-The source repository is `github.com/surefire-ai/agent-control-plane`, and the
-Kubernetes API group uses `windosx.com/v1alpha1`.
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha-orange" />
+  <img alt="Kubernetes" src="https://img.shields.io/badge/kubernetes-native-326ce5" />
+  <img alt="Runtime" src="https://img.shields.io/badge/runtime-Eino-111827" />
+</p>
 
-The current implementation is driven by the EHS hazard-identification examples
-in `config/samples/ehs`.
+# Korus
 
-## Project Positioning
+Korus is a Kubernetes-native platform for declaring, evaluating, publishing,
+governing, and running AI agents.
 
-Korus should be understood as an **enterprise, multi-tenant Agent
-orchestration, evaluation, and release platform** built on top of Kubernetes,
-not as a standalone SDK, a thin cluster admin UI, or a one-shot workflow
-runner.
+It is designed as an **enterprise Agent Control Plane**, not just an agent
+runtime. The long-term product shape combines a Kubernetes operator, an
+optional database-backed manager service, worker-based execution, pluggable
+runners, and a visual Web Console for agent orchestration, evaluation, release,
+and governance.
 
-- The **operator layer** is responsible for reconciling CRDs such as `Agent`,
-  `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`, and
-  `AgentPolicy`.
-- The **manager layer** is an optional product backend for the future console.
-  It owns database-backed product state such as organizations, workspaces,
-  users, teams, membership, release workflows, durable audits, and UI drafts.
-- The **control-plane controllers** compile desired state into deterministic
-  runtime artifacts, publish status, enforce platform contracts, and dispatch
-  runs to execution backends.
-- The **execution layer** lives behind worker and runtime backends. It is where
-  model calls, tool calls, retrieval, checkpoints, and future graph execution
-  happen.
-- The **console layer** is intended to be a first-class product surface where
-  users visually compose agents, inspect evaluations, compare revisions, and
-  promote releases without hand-authoring every workflow detail in YAML.
+> Korus is in active alpha development. The Kubernetes API group is currently
+> `windosx.com/v1alpha1`; the source repository is
+> `github.com/surefire-ai/korus`.
 
-In other words, the project is not trying to put all agent logic or all product
-state inside the operator process. The operator owns declaration,
-reconciliation, scheduling, and runtime governance; the optional manager owns
-database-backed enterprise product state; workers own execution; runners own
-agent execution semantics; the console owns the day-to-day product experience
-for building, evaluating, and releasing agents. The product direction is
-explicitly enterprise-first: multi-tenancy, evaluation, provider breadth,
-governance, and day-to-day usability matter as much as raw runtime capability.
+## Why Korus
 
-## What It Provides
+Most agent systems start as SDK code, workflow scripts, or hidden application
+logic. That works for prototypes, but enterprise teams quickly need stronger
+contracts:
 
-- `Agent` declares runtime, models, prompts, knowledge, tools, MCP servers,
-  policies, graph shape, interfaces, memory, and observability settings.
-- `AgentRun` records an immutable execution request and its execution status.
-- `PromptTemplate`, `KnowledgeBase`, `ToolProvider`, `Dataset`, `MCPServer`,
-  `AgentPolicy`, and `AgentEvaluation` provide supporting control-plane
-  resources.
-- `Tenant` and `Workspace` currently exist as lightweight Kubernetes runtime
-  scope resources. In managed enterprise mode, the canonical tenant and
-  workspace product records should live in the manager database.
-- A controller-manager compiles `Agent` resources, publishes deterministic
-  status, and dispatches `AgentRun` resources to a runtime backend.
-- A worker runtime backend can dispatch each run as a Kubernetes Job. The
-  current worker is intentionally a placeholder while the Eino runtime is
-  being built.
+- multi-tenant workspace boundaries
+- provider and credential governance
+- auditable agent revisions and run records
+- evaluation gates before release
+- visual composition for product teams
+- Kubernetes-native deployment and operations
 
-## Use Cases
+Korus makes those concerns part of the platform contract.
 
-Korus is intended for teams that need to operate AI agents as
-production platform resources instead of one-off scripts or hidden application
-code.
+## Core Capabilities
 
-- **Enterprise agent publishing**: platform teams can define, review, publish,
-  and roll back agents with Kubernetes-native specs, status, revisions, and
-  RBAC boundaries.
-- **Visual agent orchestration**: application teams can use the web console to
-  compose prompts, tools, knowledge, skills, and graph flows visually, then
-  publish the resulting agent configuration through the same control-plane
-  contract.
-- **Business workflow automation**: product teams can expose repeatable agent
-  workflows such as document review, ticket triage, incident response,
-  inspection analysis, and knowledge-assisted decision support.
-- **Regulated and auditable AI operations**: risk, compliance, and operations
-  teams can attach policies, trace references, evaluation plans, and immutable
-  run records to every agent invocation.
-- **Vertical agent systems**: domain teams can package specialized agents for
-  EHS hazard identification, quality inspection, maintenance planning, customer
-  support, finance operations, or similar knowledge-heavy workflows.
-- **Multi-tenant agent platforms**: organizations can map teams or tenants to
-  namespaces, enforce runtime boundaries, and centralize observability for many
-  agents running in the same cluster.
-- **Agent marketplace and reuse**: shared prompts, tools, knowledge bases, MCP
-  servers, policies, and evaluations can become reusable building blocks for
-  future agent packages.
+| Capability | What Korus provides |
+| --- | --- |
+| Declarative agents | CRDs for `Agent`, `AgentRun`, `PromptTemplate`, `ToolProvider`, `KnowledgeBase`, `MCPServer`, `Skill`, `Dataset`, `AgentPolicy`, and `AgentEvaluation`. |
+| Deterministic compilation | A compiler validates references, expands supported patterns, and records compiled artifacts and revisions on status. |
+| Runtime dispatch | `AgentRun` resources can execute through a mock backend or a Kubernetes Job worker backend. |
+| Model credentials | Agents reference Kubernetes Secrets; secret values are not written into status, artifacts, or logs. |
+| Provider strategy | The compiler validates model providers against a catalog and currently routes OpenAI-compatible providers through the shared chat path. |
+| Evaluation first | `AgentEvaluation` and `Dataset` support reusable samples, expected values, baseline comparison, metrics, and threshold gates. |
+| Enterprise scope | `Tenant` and `Workspace` CRDs act as lightweight runtime-scope bridge resources while the future manager owns product state in a database. |
+| Web Console direction | The `web/` scaffold is the start of a UX-first console for visual orchestration, evaluations, releases, providers, and governance. |
 
-## Architecture Direction
+## Architecture
 
-- The repository is building toward a four-component system:
-  **operator**, **manager**, **worker**, and **runner**.
-- The operator remains the Kubernetes-native control plane.
-- The manager is optional and provides the database-backed enterprise product
-  backend used by the future Web Console.
-- The worker executes individual runs inside the runtime environment.
-- The runner is the pluggable agent execution engine boundary, starting with
-  Eino.
-- The product direction is an **Enterprise Multi-Tenant Agent Control Plane**
-  with evaluation as a first-class capability, not a sidecar feature.
-- Go hosts the Kubernetes API types, CRD controllers, compiler, admission
-  checks, runtime dispatch, and future gateway.
-- Go is expected to host the operator, worker, initial manager services, and
-  Eino-based runner integration.
-- `runtime.engine: eino` with `runtime.runnerClass: adk` is the default
-  runner direction; LangGraph remains a future compatibility adapter.
-- PostgreSQL, pgvector, S3-compatible storage, and a queue are expected to
-  provide manager state, retrieval, artifacts, and async execution as the
-  system matures.
-- TypeScript should host the future enterprise console, visual orchestration
-  studio, marketplace UI, and generated SDKs.
+Korus is moving toward four explicit components:
 
-Component boundary details live in
-`docs/architecture/component-boundaries.md`. The initial manager data model and
-manager-to-operator sync contract live in
-`docs/architecture/manager-data-model.md` and
-`docs/architecture/manager-operator-sync.md`.
-
-### Control Plane Boundary
-
-- `controller-manager` is the operator control plane. It watches CRDs,
-  reconciles desired state, compiles artifacts, and manages run lifecycle.
-- `manager` is the optional product backend. It should store product
-  workspaces, users, teams, memberships, release workflows, durable audit logs,
-  and UI drafts in a database, then create or sync Kubernetes resources through
-  the operator-facing API.
-- `worker` is the execution-side runtime entrypoint. It consumes compiled
-  artifacts and run input, then performs model execution and future tool or
-  retrieval work.
-- `runner` is the pluggable agent execution engine boundary used by workers.
-- CRDs remain the declarative API surface between platform users, the manager,
-  and the operator.
-- Product workspaces should not be modeled primarily as CRDs. The current
-  `Workspace` CRD is a lightweight runtime-scope bridge for Kubernetes-native
-  mode and manager-to-operator synchronization.
-
-### Product Priorities
-
-The project should be designed around these priorities:
-
-- **Enterprise and multi-tenant by default**: tenancy, isolation, RBAC,
-  quotas, auditability, and workspace boundaries should be treated as product
-  requirements, not as optional future add-ons.
-- **Evaluation as a differentiator**: dataset management, revision comparison,
-  threshold gates, pre-release evaluation, regression monitoring, and
-  multi-model comparison should become a recognizable product strength.
-- **Provider breadth as a platform capability**: model support should evolve
-  from "one OpenAI-compatible path" into a provider capability matrix that
-  works well across global and Chinese domestic model providers.
-- **UX-first console direction**: Phase 3 should optimize for the daily user
-  experience of tenants, operators, evaluators, and application teams rather
-  than shipping a thin admin panel. The console is expected to be the primary
-  product entrypoint for visual agent orchestration, evaluation, release, and
-  governance workflows.
-
-### Build, Buy, Integrate
-
-This repository should not try to re-implement every layer of the agent stack.
-The project is most valuable when it keeps ownership of the Kubernetes-native
-control-plane model while integrating mature lower-level building blocks.
-
-- **Build here**: CRD API design, compiler behavior, deterministic artifacts,
-  run lifecycle, policy attachment, Kubernetes runtime dispatch, and the
-  opinionated `Skill` and `Pattern` model.
-- **Borrow and study**: tenancy, package and marketplace ideas, agent product
-  surface, SubAgent boundaries, and A2A-compatible resource modeling.
-- **Integrate instead of rewrite**: model provider SDKs, graph execution
-  engines, vector retrieval backends, object storage, queues, tracing, metrics,
-  and other infrastructure layers that are not the control plane's unique
-  differentiator.
-
-In short, Korus should own the **API, compiler, and runtime
-contract**, while remaining pragmatic about execution engines and platform
-infrastructure below that contract.
-
-## Current Progress
-
-Status date: 2026-04-20.
-
-| Area | Status | Evidence |
-| --- | --- | --- |
-| YAML Agent Spec | In progress | Go API types and CRDs exist under `api/v1alpha1` and `config/crd/bases`; EHS YAML examples exist under `config/samples/ehs`. |
-| Compile to Eino | Partial | `internal/compiler` validates cross-resource references, emits a runtime-oriented compiled artifact, and produces a deterministic revision. It does not yet emit an executable Eino runner artifact. |
-| Publish endpoint | Bootstrap | `Agent.status.endpoint.invoke` is published by the Agent controller, and the invoke gateway can create `AgentRun` resources from POST requests. |
-| Trace | Partial | `AgentRun.status.traceRef` exists, and mock/worker backends populate it. Full distributed tracing and trace storage are not implemented yet. |
-| Version | Partial | `Agent.status.compiledRevision` and `AgentRun.status.agentRevision` exist. Semantic versioning, release channels, and revision history are still pending. |
-| Runtime execution | Partial | `mock` runtime completes runs deterministically. `worker` runtime creates Kubernetes Jobs, resolves prompt templates, validates model bindings, can call an OpenAI-compatible Chat Completions endpoint, and writes structured output back to `AgentRun`. |
-| Policy | Spec only | `AgentPolicy` CRD and `Agent.spec.policyRef` exist. Enforcement before runtime dispatch is pending. |
-| Evaluation | Partial | `AgentEvaluation` now has typed dataset, baseline, evaluator, threshold gate, and reporting fields; a `Dataset` CRD can supply reusable evaluation samples with `expected` values, and the controller can create one or more managed `AgentRun` resources, compute both rule metrics and early structured metrics such as `risk_level_match` and `hazard_coverage`, and publish baseline-versus-current score deltas in status. Rich result reporting is still pending. |
-
-## Milestones
-
-### Phase 1: Kubernetes-Native MVP
-
-Goal: make one Kubernetes-declared agent compile, publish status, run through a
-Kubernetes Job, and report output, trace reference, and revision identity end to
-end.
-
-| Milestone | Current state | Next work |
-| --- | --- | --- |
-| YAML Agent Spec | Initial CRDs and EHS sample YAML are present. | Harden schema validation, defaults, required fields, and admission checks. |
-| Agent compiler | Static reference compiler exists, writes `Agent.status.compiledArtifact`, produces artifact-based revisions, and passes the artifact to workers. | Evolve the artifact toward an Eino-compatible runner artifact. |
-| AgentRun lifecycle | `Pending`, `Running`, `Succeeded`, and `Failed` transitions are implemented. | Add cancellation, timeout, retry, and idempotency semantics. |
-| Kubernetes Job runtime | `worker` backend creates Jobs and updates `AgentRun` status after completion. | Persist richer worker output and surface Job/Pod failure details. |
-| Invoke gateway | `Agent.status.endpoint.invoke` publishes the invoke path, and the gateway creates `AgentRun` resources from POST requests. | Add authentication, authorization, rate limiting, and idempotency controls. |
-| Packaging and deployment | Dockerfiles, RBAC, `config/default` deployment manifests, CI, GHCR image publishing workflows, release tag notes, and a Helm chart skeleton exist. | Promote the chart from dev/E2E install path to the official install artifact before v0.1.0. |
-
-Phase 1 exit criteria:
-
-- Applying the EHS sample resources produces a Ready `Agent`.
-- Invoking an Agent through the gateway creates an `AgentRun`.
-- The run executes through the Kubernetes Job runtime backend.
-- The run records output, trace reference, and the exact agent revision.
-- The controller-manager and worker images are buildable, deployable, and
-  releasable.
-
-The detailed release checklist lives in
-`docs/releases/v0.1.0-readiness.md`.
-
-Release notes live in `docs/releases/v0.1.0.md`.
-
-Known limits for this phase:
-
-- Runtime execution is still a structured placeholder, not real Eino execution.
-- Gateway authn/authz, rate limiting, and idempotency are not implemented.
-- AgentRun cancellation, timeout, retry, and idempotency are not implemented.
-- Durable run artifacts and trace storage are not implemented.
-- The Helm chart is still a development and E2E install path.
-
-### Phase 2: Real Agent Runtime
-
-Goal: replace the placeholder worker with a real Eino-based runtime
-while preserving the Kubernetes-native control-plane contract.
-
-The Phase 2 runtime design lives in
-`docs/phase2/eino-runtime-design.md`.
-Agent pattern, SubAgent, and A2A TODOs live in
-`docs/phase2/agent-patterns-and-a2a-todo.md`.
-Phase 3 console planning lives in
-`docs/phase3/console-information-architecture.md`.
-Tenancy and workspace design notes live in
-`docs/phase3/tenancy-workspace-model.md`.
-The operator/manager/worker/runner boundary is documented in
-`docs/architecture/component-boundaries.md`.
-The manager data model and sync contract are documented in
-`docs/architecture/manager-data-model.md` and
-`docs/architecture/manager-operator-sync.md`.
-The future web console implementation root is `web/`.
-
-| Milestone | Current state | Next work |
-| --- | --- | --- |
-| Eino compile artifact | Static reference compiler, typed compiled artifact decoder, and v1 runner artifact emission exist. | Enrich the runner artifact with fully resolved prompt/tool/knowledge content. |
-| Eino runtime worker | Go placeholder worker validates injected run context and compiled artifact metadata. | Execute compiled artifacts with Eino and return structured results. |
-| Model credentials | In progress. | Sample Agents can reference same-namespace Kubernetes Secrets, and worker Jobs receive secret-backed model credentials without writing secret values into status or artifacts. |
-| Tenancy and workspace model | Reframed | `Tenant` and `Workspace` CRDs now act as lightweight Kubernetes runtime-scope resources, not the canonical enterprise product database. The future manager should own product tenants, workspaces, membership, release workflows, durable audits, and UI drafts in its database. Current controllers still resolve `tenantRef`, publish workspace scope hints, count tenant workspaces, validate `Agent` / `AgentEvaluation` workspace refs, and apply workspace policy/provider defaults before compilation. | Design the optional manager database model and keep the CRD surface focused on runtime scope, policy references, provider restrictions, and Secret references. |
-| Model provider strategy | Early foundation | The compiler now validates `ModelSpec.provider` against a provider catalog and emits provider family metadata into the compiled artifact. OpenAI-compatible providers such as OpenAI, Azure OpenAI, DeepSeek, Qwen, Moonshot, Doubao, GLM, Baichuan, MiniMax, and SiliconFlow can share the current runtime path. | Expand the capability matrix, add provider-specific runtime adapters where needed, and expose the catalog through future UI and policy surfaces. |
-| Runtime contract | `AgentRun` carries input, output, trace reference, agent revision, and workspace identity. Gateway-created and evaluation-managed runs propagate the agent or evaluation workspace into the run record. | Define artifacts, logs, errors, cancellation, retry behavior, and richer audit metadata. |
-| Policy checks | `AgentPolicy` CRD and `Agent.spec.policyRef` exist; workspace-scoped default policy inheritance now feeds the compiled agent artifact when an agent does not set its own policy. | Enforce pre-dispatch model/tool budgets, guardrails, and approval gates. |
-| Agent patterns | Partial | `spec.pattern` exists, the compiler preserves pattern metadata, and `react` can expand into a runner graph that consumes the agent's selected tools and knowledge when `spec.graph` is empty. More runtime semantics are still pending. |
-| Durable run records | Status is stored on `AgentRun`. | Add durable trace, artifact, and result storage. |
-| Evaluation | `AgentEvaluation` now includes typed dataset, baseline, evaluator, threshold gate, and reporting fields; a `Dataset` CRD can provide reusable samples and `expected` values, and the controller resolves readiness, creates managed `AgentRun` resources for both current and baseline agents, and writes baseline revision, aggregated run state, basic rule metrics, early structured metrics, gate results, and comparison deltas into status. | Expand from rule/structured dataset evaluation to richer result reporting, revision comparison, and release-gate behavior. |
-
-Phase 2 exit criteria:
-
-- An EHS AgentRun executes through a real Eino worker.
-- Policy can block or require approval before unsafe runs start.
-- Run artifacts and traces can be inspected after worker Pods are gone.
-- Evaluation resources can execute against an agent revision and publish results.
-
-### Phase 3: Product Surface and Governance
-
-Goal: make the platform usable by teams, not only by cluster operators.
-
-| Milestone | Current state | Next work |
-| --- | --- | --- |
-| UX-first Web Console | Not started in this repository. | Build a console centered on tenant/workspace navigation, visual agent orchestration, agent build and publish flows, run debugging, evaluation comparison, provider management, collaboration, and release workflows. |
-| Manager backend | Scaffolded: `cmd/manager` and `internal/manager` provide a minimal optional HTTP backend with health, readiness, info endpoints, PostgreSQL driver support through pgx, database configuration, embedded migration files, startup migration wiring, first repository interfaces, and `GET /api/v1/workspaces/{id}`. | Add workspace list/create and the smallest agent-project API. |
-| Marketplace | Not started. | Define package metadata, publishing workflow, trust signals, and install flow for reusable agents/tools. |
-| SubAgent composition | Not started. | Add first-class `subAgentRefs`, graph `kind: agent`, revision pinning, and parent/child trace correlation. |
-| Tenant and workspace experience | Direction clarified. | Model tenant/workspace product state in the manager database, map it to Kubernetes runtime scope resources, and add RBAC boundaries, quotas, audit trails, and user-facing isolation semantics. |
-| Evaluation-first workflows | Not started. | Build dataset management, revision comparison, threshold gates, release readiness checks, and regression views into the product surface. |
-| Provider management UX | Not started. | Expose provider selection, capability differences, credential references, and model switching in a user-facing workflow. |
-| Governance workflows | Policy CRD exists. | Add review, approval, human-in-the-loop, and exception workflows. |
-
-Phase 3 exit criteria:
-
-- Users can visually compose, publish, inspect, invoke, evaluate, release, and debug agents from the UI.
-- Marketplace packages can be listed, installed, versioned, and reviewed.
-- Tenant isolation is explicit across API, runtime, storage, and observability.
-- Governance workflows are auditable and enforceable.
-
-### Phase 4: Distributed Agent Fabric
-
-Goal: scale from single-agent execution to a multi-runtime, multi-agent fabric.
-
-| Milestone | Current state | Next work |
-| --- | --- | --- |
-| Multi-runtime | Runtime interface supports backend selection between `mock` and `worker`. | Add adapters for Eino, LangGraph compatibility, and remote runtimes. |
-| Agent autoscaling | Not started. | Add queue-depth, latency, and cost-aware scaling signals for runtime workers. |
-| Agent mesh | Not started. | Define agent-to-agent discovery, invocation, policy propagation, identity, trace correlation, and A2A protocol interoperability. |
-
-Phase 4 exit criteria:
-
-- Multiple runtime backends can run compatible agent revisions.
-- Agents scale automatically based on demand and policy limits.
-- Agent-to-agent calls preserve identity, policy, version, and trace context.
-- A2A-compatible endpoints can expose Agent Cards and map tasks, messages, and artifacts to AgentRun records.
-
-## Local Development
-
-Run the Go test suite:
-
-```bash
-go test ./...
+```mermaid
+flowchart LR
+  User["Users / CI / Web Console"] --> Manager["manager\noptional product backend"]
+  User --> Operator["operator\nKubernetes control plane"]
+  Manager --> Operator
+  Operator --> CRDs["Kubernetes CRDs"]
+  Operator --> Worker["worker\nrun executor"]
+  Worker --> Runner["runner\nEino and future engines"]
+  Runner --> Providers["model providers\ntools / knowledge / MCP"]
 ```
 
-Generate deepcopy code:
+- **operator** reconciles CRDs, compiles agents, publishes status, enforces
+  runtime contracts, and dispatches runs.
+- **manager** is an optional product backend for tenants, workspaces, users,
+  teams, release workflows, durable audits, and UI drafts.
+- **worker** executes individual runs from compiled artifacts and runtime input.
+- **runner** is the pluggable agent execution boundary. The default direction is
+  `runtime.engine=eino` with `runtime.runnerClass=adk`.
+
+Read more in
+[component-boundaries.md](./docs/architecture/component-boundaries.md),
+[manager-data-model.md](./docs/architecture/manager-data-model.md), and
+[manager-operator-sync.md](./docs/architecture/manager-operator-sync.md).
+
+## Quick Start
+
+### Prerequisites
+
+- Go
+- Docker or a compatible container runtime
+- Kubernetes cluster or local Kubernetes, such as OrbStack
+- `kubectl`
+- `make`
+
+Optional:
+
+- Helm, for chart validation and installs
+- Node.js, for the Web Console scaffold
+
+### Run Tests
 
 ```bash
-make generate
+make test
 ```
 
-Generate CRD manifests:
-
-```bash
-make manifests
-```
-
-Run the controller manager locally:
-
-```bash
-make run
-```
-
-Build controller-manager and worker binaries:
+### Build Binaries
 
 ```bash
 make build
 ```
 
-Run the optional manager backend scaffold locally:
+### Generate Kubernetes Manifests
 
 ```bash
-go run ./cmd/manager --bind-address=:8090
+make generate manifests
 ```
 
-The scaffold currently exposes `/healthz`, `/readyz`, and `/api/v1/info`.
-It also exposes `GET /api/v1/workspaces/{id}` when a workspace store is
-configured.
-Database configuration is optional for now and can be supplied with
-`--database-driver` and `--database-url` or the matching `MANAGER_*`
-environment variables.
-The default database driver is `pgx`. Built-in migrations run only when
-`--migrate-on-start` or `MANAGER_MIGRATE_ON_START=true` is set.
-
-Build container images:
-
-```bash
-make docker-build
-```
-
-CI and image publishing:
-
-- `.github/workflows/ci.yml` runs formatting checks, tests, binary builds, and
-  Docker image builds for pull requests and `main`.
-- `.github/workflows/publish-images.yml` publishes controller-manager and worker
-  images to GHCR on `main`, `v*` tags, and manual dispatch.
-
-Release tags:
-
-- Use semantic version tags such as `v0.1.0`.
-- Pushing a `v*` tag publishes both images with the same tag and a `sha-*`
-  traceability tag.
-- Keep the Kubernetes manifests pinned to the release image tag when preparing a
-  release branch or release archive.
-
-Deploy the CRDs, RBAC, and controller-manager to the current Kubernetes
-context:
+### Deploy the Control Plane
 
 ```bash
 make deploy
 ```
 
-Install with the development Helm chart:
+### Install with Helm
 
 ```bash
-helm upgrade --install agent-control-plane charts/agent-control-plane \
-  --namespace agent-control-plane-system \
+helm upgrade --install korus charts/agent-control-plane \
+  --namespace korus-system \
   --create-namespace
 ```
 
-Check the chart locally:
+The chart is currently a development install path and will be promoted into the
+official installation artifact as the project approaches a stable release.
 
-```bash
-make helm-lint
-make helm-template
-```
+## Try the EHS Sample
 
-For local image testing, override the controller-manager and worker image tags:
+The canonical sample is an EHS hazard-identification agent under
+[`config/samples/ehs`](./config/samples/ehs).
 
-```bash
-helm upgrade --install agent-control-plane charts/agent-control-plane \
-  --namespace agent-control-plane-system \
-  --create-namespace \
-  --set controllerManager.image.tag=latest \
-  --set controllerManager.worker.image.tag=latest
-```
-
-Remove the deployed control plane:
-
-```bash
-make undeploy
-```
-
-For local OrbStack validation, build the local controller and worker images with:
-
-```bash
-make docker-build-controller-local
-make docker-build-worker-local
-```
-
-If your local setup needs a custom kubectl wrapper or context helper, pass it in
-through `KUBECTL`, for example `make KUBECTL="kubectl"` or another compatible command.
-
-## EHS Model-Backed Validation
-
-The EHS sample can now exercise the first Phase 2 text execution path against an
-OpenAI-compatible endpoint.
-
-1. Apply the EHS sample resources:
-
-```bash
-kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -k config/samples/ehs
-```
-
-2. Create the model credential Secret from the example manifest:
-
-```bash
-cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.yaml
-# edit /tmp/openai-credentials.yaml and replace REPLACE_WITH_REAL_API_KEY
-kubectl apply -f /tmp/openai-credentials.yaml
-```
-
-Do not apply `config/samples/ehs` with `-f` once the example Secret template is present;
-use `-k` so the placeholder credential manifest stays out of the default sample install.
-
-3. Run the controller-manager with `--runtime-backend=worker`, then invoke the
-   sample Agent or apply the sample `AgentRun`.
-
-4. Inspect the structured output:
-
-```bash
-kubectl -n ehs get agentrun ehs-hazard-run-20260416-0001 -o jsonpath='{.status.output}'
-```
-
-Current behavior notes:
-
-- The worker currently prefers the `planner` model when multiple model slots are declared.
-- The first text execution path expects an OpenAI-compatible `/chat/completions`
-  endpoint and structured JSON output that satisfies `spec.interfaces.output.schema`.
-- `status.output.result` keeps the raw worker payload, while top-level fields
-  such as `summary` and `overallRiskLevel` are promoted to
-  `AgentRun.status.output` for easier consumption.
-
-For a fast local smoke test without a real OpenAI credential, use the OrbStack
-smoke overlay:
+For a fast local validation path without a real model credential, use the
+OrbStack smoke overlay:
 
 ```bash
 make k8s-smoke-ehs
 ```
 
-This target:
+This target applies the sample resources, creates a dummy model credential,
+deploys a mock OpenAI-compatible service, runs a fixed `AgentRun`, and prints
+the final `AgentRun.status.output`.
 
-- ensures the `ehs` namespace exists;
-- applies `config/samples/ehs-orbstack-smoke`;
-- injects a dummy `openai-credentials` Secret;
-- deploys a `mock-openai` service and rewrites the sample Agent `baseURL` to it;
-- recreates the fixed sample `AgentRun`;
-- prints the final `AgentRun.status.output`.
+To test against a real OpenAI-compatible endpoint:
 
-The overlay lives at `config/samples/ehs-orbstack-smoke`.
-
-## Runtime Backends
-
-The controller manager accepts `--runtime-backend`.
-
-- `mock`: default backend. It completes `AgentRun` objects deterministically for
-  control-plane validation.
-- `worker`: creates a Kubernetes Job in the `AgentRun` namespace. It uses
-  `--worker-job-image` and `--worker-job-command` to point at a worker image and
-  command. The Job receives `AGENT_COMPILED_ARTIFACT` from
-  `Agent.status.compiledArtifact`, validates it, and includes an artifact
-  summary in the worker result. After the Job completes, the controller reads
-  the worker Pod logs, parses the structured worker result, and writes the
-  result summary back to `AgentRun.status.output`.
-
-The repository includes two image entrypoints:
-
-- `cmd/controller-manager`: reconciles control-plane resources.
-- `cmd/worker`: validates injected run environment and compiled artifact
-  metadata, then emits a structured placeholder result.
-
-Worker result contract v0:
-
-The canonical Go types and parser live under `internal/contract`.
-
-Succeeded:
-
-```json
-{
-  "status": "succeeded",
-  "message": "agent control plane worker placeholder completed",
-  "compiledArtifact": {
-    "apiVersion": "windosx.com/v1alpha1",
-    "kind": "AgentCompiledArtifact",
-    "runtimeEngine": "eino",
-    "runnerClass": "adk",
-    "policyRef": "ehs-default-safety-policy"
-  }
-}
+```bash
+kubectl create namespace ehs --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -k config/samples/ehs
+cp config/samples/ehs/openai-credentials.example.yaml /tmp/openai-credentials.yaml
 ```
 
-Failed:
+Edit `/tmp/openai-credentials.yaml`, replace the placeholder API key, and then
+apply it:
 
-```json
-{
-  "status": "failed",
-  "reason": "WorkerFailed",
-  "message": "AGENT_COMPILED_ARTIFACT kind is required"
-}
+```bash
+kubectl apply -f /tmp/openai-credentials.yaml
 ```
 
-On structured failure, the controller marks the `AgentRun` as `Failed` and
-preserves the worker summary and trace reference in status.
+Do not apply `config/samples/ehs` with `-f`; use `-k` so the example Secret
+template stays out of the default sample install.
 
-The placeholder worker currently accepts only the default Eino runtime identity:
-`runtime.engine=eino` and `runtime.runnerClass=adk`. Missing values are treated
-as those defaults; explicit unsupported values fail the run with a structured
-worker failure.
+## Invoke an Agent
 
-Internally, the worker now dispatches through a runner boundary. The first
-implementation is an `EinoADKPlaceholderRunner`, which keeps the current
-placeholder behavior while leaving a narrow integration point for the real Eino
-runner.
-
-## Invoke Gateway
-
-The controller-manager starts an invoke gateway on `--gateway-bind-address`
-(`:8082` by default). It accepts:
+The controller-manager exposes an invoke gateway at:
 
 ```text
 POST /apis/windosx.com/v1alpha1/namespaces/{namespace}/agents/{agent}:invoke
 ```
 
-Request body:
-
-```json
-{
-  "input": {
-    "task": "identify_hazard",
-    "payload": {
-      "text": "inspection text"
-    }
-  },
-  "execution": {
-    "mode": "sync"
-  }
-}
-```
-
-For a deployed local control plane, port-forward the gateway service and invoke
-the EHS sample agent:
+Example request:
 
 ```bash
-kubectl -n agent-control-plane-system port-forward svc/agent-control-plane-gateway 8082:8082
-curl -sS -X POST http://127.0.0.1:8082/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke \
+curl -sS -X POST \
+  http://127.0.0.1:8082/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-hazard-identification-agent:invoke \
   -H 'Content-Type: application/json' \
   -d '{"input":{"task":"identify_hazard","payload":{"text":"巡检发现配电箱门打开，现场地面有积水。"}},"execution":{"mode":"sync"}}'
 ```
 
-The gateway returns the accepted `AgentRun` name. The `AgentRun` controller then
-dispatches it through the configured runtime backend.
+The gateway returns an accepted `AgentRun` name. The controller then dispatches
+the run through the configured runtime backend.
+
+## Runtime Backends
+
+The controller-manager accepts `--runtime-backend`:
+
+- `mock`: deterministic backend for control-plane validation.
+- `worker`: creates a Kubernetes Job and runs `cmd/worker` with the compiled
+  artifact, run input, and secret-backed model configuration.
+
+The worker currently supports the first model-backed text execution path for
+OpenAI-compatible chat completion endpoints. A real Eino runner is being built
+behind the existing runner boundary.
+
+## Web Console
+
+The Web Console scaffold lives in [`web/`](./web).
+
+It is intended to become the primary enterprise product surface for:
+
+- tenant and workspace navigation
+- visual agent orchestration
+- run debugging
+- evaluation comparison
+- release gates
+- provider management
+- policy and governance workflows
+
+Run the console against the fake manager API:
+
+```bash
+cd web
+npm install
+npm run dev:fake
+```
+
+See [`web/README.md`](./web/README.md) for current scope and development notes.
+
+## Roadmap
+
+| Phase | Focus | Status |
+| --- | --- | --- |
+| Phase 1 | Kubernetes-native MVP with CRDs, compilation, gateway invocation, worker Jobs, GHCR images, and Helm skeleton. | First public development baseline is in place. |
+| Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | In progress. |
+| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | Scaffolded. |
+| Phase 4 | Distributed agent fabric with multi-runtime execution, autoscaling, SubAgent composition, and A2A interoperability. | Planned. |
+
+Detailed design notes:
+
+- [Phase 2 Eino Runtime Design](./docs/phase2/eino-runtime-design.md)
+- [Agent Patterns, SubAgent, and A2A TODOs](./docs/phase2/agent-patterns-and-a2a-todo.md)
+- [Console Information Architecture](./docs/phase3/console-information-architecture.md)
+- [Tenancy and Workspace Model](./docs/phase3/tenancy-workspace-model.md)
+- [v0.1.0 Release Notes](./docs/releases/v0.1.0.md)
+- [v0.1.0 Readiness Checklist](./docs/releases/v0.1.0-readiness.md)
 
 ## Repository Layout
 
 ```text
-api/v1alpha1/                 Kubernetes API types
-cmd/controller-manager/        controller-manager entrypoint
-cmd/worker/                    worker entrypoint
-config/crd/                    generated CRD manifests
-config/default/                installable Kustomize entrypoint
-config/manager/                controller-manager and gateway service manifests
-config/samples/ehs/            sample custom resources
-internal/compiler/             Agent compiler and reference validation
-internal/controller/           Agent and AgentRun reconcilers
-internal/gateway/              invoke gateway
-internal/runtime/              runtime backend abstraction and implementations
-internal/worker/               placeholder worker implementation
+api/v1alpha1/                  Kubernetes API types
+cmd/controller-manager/         operator entrypoint
+cmd/manager/                    optional product backend entrypoint
+cmd/worker/                     worker entrypoint
+config/crd/                     generated CRD manifests
+config/default/                 Kustomize deployment entrypoint
+config/samples/ehs/             canonical EHS sample
+docs/architecture/              architecture and component boundaries
+docs/phase2/                    runtime and agent semantics design
+docs/phase3/                    console, tenancy, and product UX design
+internal/compiler/              agent compiler and validation
+internal/controller/            Kubernetes reconcilers
+internal/gateway/               invoke gateway
+internal/manager/               manager backend scaffold
+internal/runtime/               runtime backend abstraction
+internal/worker/                worker and runner boundary
+web/                            future Web Console
 ```
+
+## Development Commands
+
+```bash
+make test              # run Go tests
+make build             # build controller-manager and worker
+make generate          # generate deepcopy code
+make manifests         # generate CRD manifests
+make docker-build      # build container images
+make helm-lint         # lint the development chart
+make helm-template     # render the development chart
+make k8s-smoke-ehs     # run the local EHS Kubernetes smoke test
+```
+
+## Project Status
+
+Korus is currently suitable for platform design, local experimentation, CRD
+contract work, compiler/runtime development, and early Kubernetes smoke tests.
+It is not yet a stable production release.
+
+Known alpha limits:
+
+- the Eino runner is still under active implementation;
+- gateway authentication, authorization, rate limiting, and idempotency are not
+  complete;
+- cancellation, retry, timeout, and durable run artifact storage are not
+  complete;
+- the Web Console and manager backend are scaffolds;
+- Helm is still a development install path.
+
+## Contributing
+
+Korus is early, so the most useful contributions are focused and contract-aware:
+
+- CRD and compiler improvements
+- runtime and worker tests
+- provider capability modeling
+- evaluation semantics
+- local Kubernetes smoke coverage
+- Web Console product flows that preserve the operator/manager boundary
+
+Before opening a change, run:
+
+```bash
+make test
+git diff --check
+```
+
+If you change API types, also run:
+
+```bash
+make generate manifests
+```
+
+AI collaborators should read [`AGENTS.md`](./AGENTS.md) before making changes.
 
 ## License
 
 Korus is licensed under the Apache License, Version 2.0. See
-`LICENSE`.
+[`LICENSE`](./LICENSE).
 
 This project depends on third-party Go modules under their own open source
-licenses. The current direct runtime dependencies are Kubernetes and
-controller-runtime modules licensed under Apache-2.0. Transitive dependencies
-include permissive licenses such as Apache-2.0, BSD-style, MIT-style, and ISC.
-
-Before distributing source archives, binaries, or container images, preserve the
-project `LICENSE`, preserve `NOTICE`, and include third-party license notices as
-described in `THIRD_PARTY_NOTICES.md`.
+licenses. Preserve [`NOTICE`](./NOTICE) and follow
+[`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) when distributing source
+archives, binaries, or container images.

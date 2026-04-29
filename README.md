@@ -1,11 +1,15 @@
-# Agent Control Plane
+<p align="center">
+  <img src="./docs/assets/korus-logo.svg" alt="Korus" width="520" />
+</p>
+
+# Korus
 
 <p align="center">
   English | <a href="./README.zh-CN.md">中文</a>
 </p>
 
-Agent Control Plane is a Kubernetes-native control plane for declaring,
-publishing, running, governing, and evaluating AI agents.
+Korus is a Kubernetes-native Agent Control Plane for declaring, publishing,
+running, governing, and evaluating AI agents.
 
 The source repository is `github.com/surefire-ai/agent-control-plane`, and the
 Kubernetes API group uses `windosx.com/v1alpha1`.
@@ -15,7 +19,7 @@ in `config/samples/ehs`.
 
 ## Project Positioning
 
-Agent Control Plane should be understood as an **enterprise, multi-tenant Agent
+Korus should be understood as an **enterprise, multi-tenant Agent
 orchestration, evaluation, and release platform** built on top of Kubernetes,
 not as a standalone SDK, a thin cluster admin UI, or a one-shot workflow
 runner.
@@ -64,7 +68,7 @@ governance, and day-to-day usability matter as much as raw runtime capability.
 
 ## Use Cases
 
-Agent Control Plane is intended for teams that need to operate AI agents as
+Korus is intended for teams that need to operate AI agents as
 production platform resources instead of one-off scripts or hidden application
 code.
 
@@ -174,7 +178,7 @@ control-plane model while integrating mature lower-level building blocks.
   and other infrastructure layers that are not the control plane's unique
   differentiator.
 
-In short, Agent Control Plane should own the **API, compiler, and runtime
+In short, Korus should own the **API, compiler, and runtime
 contract**, while remaining pragmatic about execution engines and platform
 infrastructure below that contract.
 
@@ -606,7 +610,7 @@ internal/worker/               placeholder worker implementation
 
 ## License
 
-Agent Control Plane is licensed under the Apache License, Version 2.0. See
+Korus is licensed under the Apache License, Version 2.0. See
 `LICENSE`.
 
 This project depends on third-party Go modules under their own open source

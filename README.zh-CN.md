@@ -1,10 +1,14 @@
-# Agent Control Plane
+<p align="center">
+  <img src="./docs/assets/korus-logo.svg" alt="Korus" width="520" />
+</p>
+
+# Korus
 
 <p align="center">
   <a href="./README.md">English</a> | 中文
 </p>
 
-Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发布、运行、治理和评估 AI Agent。
+Korus 是一个 Kubernetes 原生 Agent Control Plane，用于声明、发布、运行、治理和评估 AI Agent。
 
 源码仓库是 `github.com/surefire-ai/agent-control-plane`，Kubernetes API Group 使用
 `windosx.com/v1alpha1`。
@@ -13,7 +17,7 @@ Agent Control Plane 是一个 Kubernetes 原生控制平面，用于声明、发
 
 ## 项目定位
 
-Agent Control Plane 应该被理解为一个 **面向企业级、多租户场景的 Agent 编排、评测与发布平台**，
+Korus 应该被理解为一个 **面向企业级、多租户场景的 Agent 编排、评测与发布平台**，
 底座建立在 Kubernetes 之上，而不是一个独立 SDK、一个薄薄的集群管理台，也不是只跑一次的工作流脚本。
 
 - **operator 层** 负责持续 reconcile `Agent`、`AgentRun`、
@@ -49,7 +53,7 @@ runtime 能力本身同等重要。
 
 ## 使用场景
 
-Agent Control Plane 面向需要把 AI Agent 当作生产平台资源来运营的团队，而不是把
+Korus 面向需要把 AI Agent 当作生产平台资源来运营的团队，而不是把
 Agent 做成一次性脚本或隐藏在业务应用里的内部逻辑。
 
 - **企业级 Agent 发布**：平台团队可以用 Kubernetes 原生 spec、status、revision 和
@@ -120,7 +124,7 @@ manager 到 operator 的同步契约见 `docs/architecture/manager-data-model.md
 - **应该集成而不是重写的**：模型 provider SDK、图执行引擎、向量检索底座、
   对象存储、队列、tracing、metrics，以及其他并非本项目核心差异的基础设施层。
 
-一句话说，Agent Control Plane 应该掌握的是 **API、compiler 和 runtime
+一句话说，Korus 应该掌握的是 **API、compiler 和 runtime
 contract**，而不是把 contract 之下的所有执行和平台基础设施都重做一遍。
 
 ## 当前进度
@@ -527,7 +531,7 @@ internal/worker/               placeholder worker implementation
 
 ## 开源协议
 
-Agent Control Plane 使用 Apache License, Version 2.0 授权。详见 `LICENSE`。
+Korus 使用 Apache License, Version 2.0 授权。详见 `LICENSE`。
 
 本项目依赖的第三方 Go modules 使用各自的开源协议。当前直接 runtime 依赖为 Kubernetes 和 controller-runtime 相关模块，协议为 Apache-2.0。传递依赖包含 Apache-2.0、BSD-style、MIT-style 和 ISC 等宽松开源协议。
 

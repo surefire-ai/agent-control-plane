@@ -1,6 +1,6 @@
-# Web Console
+# Korus Web Console
 
-This directory contains the Agent Control Plane Web Console scaffold.
+This directory contains the Korus Web Console scaffold.
 
 Relevant product backend design docs:
 

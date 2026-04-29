@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Bot, Building2, FlaskConical, KeyRound, LayoutGrid, Settings } from "lucide-react";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { useNavigationStore } from "@/stores/navigation";
+import korusMark from "@/assets/korus-mark.svg";
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -14,12 +15,10 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950 text-zinc-300">
       <div className="flex h-16 items-center gap-3 border-b border-zinc-800 px-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-teal-500 text-sm font-bold text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.18)]">
-          A
-        </div>
+        <img src={korusMark} alt="" className="h-9 w-9 rounded-md shadow-[0_0_0_1px_rgba(255,255,255,0.18)]" />
         <div className="min-w-0">
           <span className="block text-sm font-semibold text-white">
-            {t("nav.controlPlane")}
+            {t("nav.productName")}
           </span>
           <span className="block truncate text-xs text-teal-200/80">{t("nav.consoleSubtitle")}</span>
         </div>

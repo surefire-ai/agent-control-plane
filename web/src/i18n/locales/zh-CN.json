@@ -14,11 +14,12 @@
     "deleting": "删除中...",
     "previous": "上一页",
     "next": "下一页",
-    "productEyebrow": "Agent Control Plane"
+    "productEyebrow": "Korus"
   },
   "nav": {
     "tenants": "租户",
-    "controlPlane": "Control Plane",
+    "productName": "Korus",
+    "controlPlane": "Korus",
     "tenant": "租户",
     "selectTenant": "选择租户...",
     "workspaces": "工作区",
@@ -28,7 +29,7 @@
     "settings": "设置",
     "newWorkspace": "创建工作区",
     "language": "语言",
-    "consoleSubtitle": "企业控制台",
+    "consoleSubtitle": "Agent Control Plane",
     "evaluationGates": "评估门禁",
     "releaseChecksWaiting": "4 项发布检查待处理"
   },

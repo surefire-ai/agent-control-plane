@@ -14,11 +14,12 @@
     "deleting": "Deleting...",
     "previous": "Previous",
     "next": "Next",
-    "productEyebrow": "Agent Control Plane"
+    "productEyebrow": "Korus"
   },
   "nav": {
     "tenants": "Tenants",
-    "controlPlane": "Control Plane",
+    "productName": "Korus",
+    "controlPlane": "Korus",
     "tenant": "Tenant",
     "selectTenant": "Select a tenant...",
     "workspaces": "Workspaces",
@@ -28,7 +29,7 @@
     "settings": "Settings",
     "newWorkspace": "New Workspace",
     "language": "Language",
-    "consoleSubtitle": "Enterprise Console",
+    "consoleSubtitle": "Agent Control Plane",
     "evaluationGates": "Evaluation gates",
     "releaseChecksWaiting": "4 release checks waiting"
   },

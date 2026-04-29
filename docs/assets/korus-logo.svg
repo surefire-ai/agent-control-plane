@@ -1,0 +1,36 @@
+<svg width="820" height="260" viewBox="0 0 820 260" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Korus logo</title>
+  <desc id="desc">A simplified black and white orca inside a blue Kubernetes pod frame with the Korus wordmark.</desc>
+  <rect width="820" height="260" rx="8" fill="#FAFBFF"/>
+  <g transform="translate(58 28)">
+    <path d="M142 15L224 62V156L142 203L60 156V62L142 15Z" fill="#DBEAFE"/>
+    <path d="M142 35L207 72V147L142 184L77 147V72L142 35Z" fill="#EFF6FF" stroke="#60A5FA" stroke-width="6"/>
+    <path d="M72 114C79 77 112 52 153 56C190 60 214 87 216 121C200 148 169 164 132 164C96 164 77 146 72 114Z" fill="#0F172A"/>
+    <path d="M96 122C114 139 140 147 167 144C187 142 204 132 216 118C208 146 172 167 132 164C104 162 83 148 75 128C82 131 90 128 96 122Z" fill="#FFFFFF"/>
+    <path d="M149 59C162 42 185 37 205 45C188 53 176 68 171 84L149 59Z" fill="#0F172A"/>
+    <path d="M109 96C119 87 134 86 145 94C133 97 125 106 120 118L109 96Z" fill="#FFFFFF"/>
+    <circle cx="145" cy="94" r="5.2" fill="#0F172A"/>
+    <path d="M76 114C61 111 51 102 48 90C62 93 74 100 85 113L76 114Z" fill="#0F172A"/>
+    <path d="M215 118C231 115 243 105 249 91C254 108 249 128 235 143C231 132 224 124 215 118Z" fill="#0F172A"/>
+    <g stroke="#2563EB" stroke-width="5" stroke-linecap="round">
+      <path d="M142 35V15"/>
+      <path d="M207 72L224 62"/>
+      <path d="M207 147L224 156"/>
+      <path d="M142 184V203"/>
+      <path d="M77 147L60 156"/>
+      <path d="M77 72L60 62"/>
+    </g>
+    <g fill="#1D4ED8">
+      <circle cx="142" cy="15" r="6"/>
+      <circle cx="224" cy="62" r="6"/>
+      <circle cx="224" cy="156" r="6"/>
+      <circle cx="142" cy="203" r="6"/>
+      <circle cx="60" cy="156" r="6"/>
+      <circle cx="60" cy="62" r="6"/>
+    </g>
+  </g>
+  <g transform="translate(430 82)">
+    <text x="0" y="62" fill="#111827" font-family="IBM Plex Sans, Inter, Arial, sans-serif" font-size="68" font-weight="760">Korus</text>
+    <text x="2" y="101" fill="#1D4ED8" font-family="IBM Plex Sans, Inter, Arial, sans-serif" font-size="21" font-weight="650">The agent pod for enterprise AI</text>
+  </g>
+</svg>

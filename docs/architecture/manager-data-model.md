@@ -377,6 +377,8 @@ schema draft lives under `internal/manager/migrations/`, and
 `internal/manager` now includes a migration runner that can apply those
 migrations through `database/sql`. PostgreSQL support is wired through the pgx
 stdlib driver using the `pgx` driver name.
+The first read API is `GET /api/v1/workspaces/{id}`, backed by the workspace
+repository interface.
 
 Start with the smallest useful manager schema:
 

@@ -21,6 +21,11 @@
     "controlPlane": "Control Plane",
     "tenant": "Tenant",
     "selectTenant": "Select a tenant...",
+    "workspaces": "Workspaces",
+    "agents": "Agents",
+    "evaluations": "Evaluations",
+    "providers": "Providers",
+    "settings": "Settings",
     "newWorkspace": "New Workspace",
     "language": "Language",
     "consoleSubtitle": "Enterprise Console",
@@ -73,6 +78,54 @@
       "status": "Status",
       "kubernetesNamespace": "Kubernetes Namespace",
       "kubernetesWorkspaceName": "Kubernetes Workspace Name"
+    }
+  },
+  "productAreas": {
+    "tenantScope": "Tenant scope: {{tenantId}}",
+    "nextCapabilities": "Next capabilities",
+    "agents": {
+      "title": "Agents",
+      "subtitle": "Design, version, and publish tenant-scoped agents",
+      "panelTitle": "Agent lifecycle",
+      "description": "This area will become the workspace for visual orchestration, runtime configuration, release management, and run debugging.",
+      "items": [
+        "Agent list, revisions, and release channels",
+        "Visual orchestration studio backed by deterministic artifacts",
+        "Run debugging with inputs, outputs, traces, and worker results"
+      ]
+    },
+    "evaluations": {
+      "title": "Evaluations",
+      "subtitle": "Compare revisions, enforce gates, and monitor regressions",
+      "panelTitle": "Evaluation center",
+      "description": "This area will make evaluation a first-class product loop rather than a secondary resource view.",
+      "items": [
+        "Dataset selection and evaluator configuration",
+        "Baseline comparison with score and gate deltas",
+        "Release gates and online regression monitoring"
+      ]
+    },
+    "providers": {
+      "title": "Providers",
+      "subtitle": "Manage model providers, credentials, and capability policy",
+      "panelTitle": "Provider management",
+      "description": "This area will expose provider capability matrices, credential references, and tenant policy for domestic and global model providers.",
+      "items": [
+        "Provider catalog with capability metadata",
+        "Secret-backed credential references",
+        "Tenant and workspace provider allowlists"
+      ]
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Control tenant governance, collaboration, and audit posture",
+      "panelTitle": "Tenant governance",
+      "description": "This area will collect product-level settings that belong in the manager database rather than Kubernetes CRDs.",
+      "items": [
+        "Users, teams, roles, and workspace membership",
+        "Approval policy and release governance",
+        "Audit retention and product integration settings"
+      ]
     }
   },
   "pagination": {

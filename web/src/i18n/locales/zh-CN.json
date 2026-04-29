@@ -21,6 +21,11 @@
     "controlPlane": "Control Plane",
     "tenant": "租户",
     "selectTenant": "选择租户...",
+    "workspaces": "工作区",
+    "agents": "Agents",
+    "evaluations": "评估",
+    "providers": "模型供应商",
+    "settings": "设置",
     "newWorkspace": "创建工作区",
     "language": "语言",
     "consoleSubtitle": "企业控制台",
@@ -73,6 +78,54 @@
       "status": "状态",
       "kubernetesNamespace": "Kubernetes 命名空间",
       "kubernetesWorkspaceName": "Kubernetes 工作区名称"
+    }
+  },
+  "productAreas": {
+    "tenantScope": "租户范围：{{tenantId}}",
+    "nextCapabilities": "下一步能力",
+    "agents": {
+      "title": "Agents",
+      "subtitle": "设计、版本化并发布租户级 Agent",
+      "panelTitle": "Agent 生命周期",
+      "description": "这里会成为可视化编排、运行时配置、发布管理和运行调试的工作区。",
+      "items": [
+        "Agent 列表、修订版本与发布通道",
+        "由确定性 artifact 支撑的可视化编排工作台",
+        "包含输入、输出、trace 和 worker 结果的运行调试"
+      ]
+    },
+    "evaluations": {
+      "title": "评估",
+      "subtitle": "对比修订版本、执行门禁并监控回归",
+      "panelTitle": "评估中心",
+      "description": "这里会把 Evaluation 做成一等产品闭环，而不是附属资源列表。",
+      "items": [
+        "评测集选择与 evaluator 配置",
+        "基线对比、分数差异和门禁差异",
+        "发布门禁与线上回归监控"
+      ]
+    },
+    "providers": {
+      "title": "模型供应商",
+      "subtitle": "管理模型供应商、凭据和能力策略",
+      "panelTitle": "供应商管理",
+      "description": "这里会呈现国内外模型供应商的能力矩阵、凭据引用和租户策略。",
+      "items": [
+        "带 capability metadata 的供应商目录",
+        "基于 Secret 引用的凭据管理",
+        "租户和工作区级 provider allowlist"
+      ]
+    },
+    "settings": {
+      "title": "设置",
+      "subtitle": "管理租户治理、协作和审计策略",
+      "panelTitle": "租户治理",
+      "description": "这里会收拢属于 manager 数据库的产品级设置，而不是把这些状态塞进 Kubernetes CRD。",
+      "items": [
+        "用户、团队、角色与工作区成员关系",
+        "审批策略和发布治理",
+        "审计保留与产品集成设置"
+      ]
     }
   },
   "pagination": {

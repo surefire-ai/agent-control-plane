@@ -30,6 +30,14 @@ export function Breadcrumb() {
       crumbs.push({ label: workspace.displayName });
     } else if (pathname.includes("/workspaces/new")) {
       crumbs.push({ label: t("nav.newWorkspace") });
+    } else if (pathname.includes("/agents")) {
+      crumbs.push({ label: t("nav.agents") });
+    } else if (pathname.includes("/evaluations")) {
+      crumbs.push({ label: t("nav.evaluations") });
+    } else if (pathname.includes("/providers")) {
+      crumbs.push({ label: t("nav.providers") });
+    } else if (pathname.includes("/settings")) {
+      crumbs.push({ label: t("nav.settings") });
     }
   }
 

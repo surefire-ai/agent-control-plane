@@ -1,9 +1,15 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Bot, Building2, FlaskConical, KeyRound, LayoutGrid, Settings } from "lucide-react";
 import { TenantSwitcher } from "./TenantSwitcher";
+import { useNavigationStore } from "@/stores/navigation";
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const { tenantId } = useParams<{ tenantId?: string }>();
+  const selectedTenantId = useNavigationStore((s) => s.selectedTenantId);
+  const currentTenantId = tenantId ?? selectedTenantId;
+  const tenantBase = currentTenantId ? `/tenants/${currentTenantId}` : null;
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950 text-zinc-300">
@@ -22,7 +28,39 @@ export function Sidebar() {
       <TenantSwitcher />
 
       <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Main navigation">
-        <SidebarLink to="/tenants">{t("nav.tenants")}</SidebarLink>
+        <SidebarLink to="/tenants" icon={<Building2 className="h-4 w-4" aria-hidden="true" />}>
+          {t("nav.tenants")}
+        </SidebarLink>
+        <SidebarLink
+          to={tenantBase ? `${tenantBase}/workspaces` : undefined}
+          icon={<LayoutGrid className="h-4 w-4" aria-hidden="true" />}
+        >
+          {t("nav.workspaces")}
+        </SidebarLink>
+        <SidebarLink
+          to={tenantBase ? `${tenantBase}/agents` : undefined}
+          icon={<Bot className="h-4 w-4" aria-hidden="true" />}
+        >
+          {t("nav.agents")}
+        </SidebarLink>
+        <SidebarLink
+          to={tenantBase ? `${tenantBase}/evaluations` : undefined}
+          icon={<FlaskConical className="h-4 w-4" aria-hidden="true" />}
+        >
+          {t("nav.evaluations")}
+        </SidebarLink>
+        <SidebarLink
+          to={tenantBase ? `${tenantBase}/providers` : undefined}
+          icon={<KeyRound className="h-4 w-4" aria-hidden="true" />}
+        >
+          {t("nav.providers")}
+        </SidebarLink>
+        <SidebarLink
+          to={tenantBase ? `${tenantBase}/settings` : undefined}
+          icon={<Settings className="h-4 w-4" aria-hidden="true" />}
+        >
+          {t("nav.settings")}
+        </SidebarLink>
       </nav>
 
       <div className="border-t border-zinc-800 p-4">
@@ -35,18 +73,36 @@ export function Sidebar() {
   );
 }
 
-function SidebarLink({ to, children }: { to: string; children: React.ReactNode }) {
+function SidebarLink({
+  to,
+  icon,
+  children,
+}: {
+  to?: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  if (!to) {
+    return (
+      <span className="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-600">
+        {icon}
+        {children}
+      </span>
+    );
+  }
+
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+        `flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
           isActive
             ? "bg-white text-zinc-950"
             : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
         }`
       }
     >
+      {icon}
       {children}
     </NavLink>
   );

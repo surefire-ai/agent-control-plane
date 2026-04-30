@@ -1,8 +1,9 @@
 * @windosx
 
 /api/ @windosx
+/charts/ @windosx
 /cmd/ @windosx
 /internal/ @windosx
 /config/ @windosx
-/examples/ @windosx
-/runtime/ @windosx
+/docs/ @windosx
+/web/ @windosx

@@ -1,7 +1,7 @@
 # Manager Data Model
 
 Status: draft  
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ## Purpose
 
@@ -205,6 +205,32 @@ Suggested fields:
 - `status`
 - `created_by`
 - `created_at`
+
+#### Agent Run
+
+Stores tenant-scoped execution history for run inspection, release debugging,
+and trace handoff. The manager records durable product metadata and runtime
+references; Kubernetes `AgentRun` remains the operator/runtime lifecycle
+surface.
+
+Initial scaffold fields:
+
+- `id`
+- `tenant_id`
+- `workspace_id`
+- `agent_id`
+- `evaluation_id`
+- `agent_revision`
+- `status`
+- `runtime_engine`
+- `runner_class`
+- `started_at`
+- `completed_at`
+- `summary`
+- `trace_ref`
+- `metadata`
+- `created_at`
+- `updated_at`
 
 ### Visual Orchestration
 

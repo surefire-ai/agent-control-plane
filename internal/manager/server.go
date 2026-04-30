@@ -97,6 +97,22 @@ type ProviderResponse struct {
 	SupportsToolCalling bool   `json:"supportsToolCalling"`
 }
 
+type RunResponse struct {
+	ID            string `json:"id"`
+	TenantID      string `json:"tenantId"`
+	WorkspaceID   string `json:"workspaceId"`
+	AgentID       string `json:"agentId"`
+	EvaluationID  string `json:"evaluationId,omitempty"`
+	AgentRevision string `json:"agentRevision,omitempty"`
+	Status        string `json:"status"`
+	RuntimeEngine string `json:"runtimeEngine"`
+	RunnerClass   string `json:"runnerClass"`
+	StartedAt     string `json:"startedAt,omitempty"`
+	CompletedAt   string `json:"completedAt,omitempty"`
+	Summary       string `json:"summary,omitempty"`
+	TraceRef      string `json:"traceRef,omitempty"`
+}
+
 type PaginatedWorkspacesResponse struct {
 	Workspaces []WorkspaceResponse `json:"workspaces"`
 	Page       int                 `json:"page"`
@@ -130,6 +146,13 @@ type PaginatedProvidersResponse struct {
 	Page      int                `json:"page"`
 	Limit     int                `json:"limit"`
 	Total     int                `json:"total"`
+}
+
+type PaginatedRunsResponse struct {
+	Runs  []RunResponse `json:"runs"`
+	Page  int           `json:"page"`
+	Limit int           `json:"limit"`
+	Total int           `json:"total"`
 }
 
 type CreateWorkspaceRequest struct {
@@ -215,6 +238,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/agents/", s.handleAgent)
 	mux.HandleFunc("/api/v1/evaluations/", s.handleEvaluation)
 	mux.HandleFunc("/api/v1/providers/", s.handleProvider)
+	mux.HandleFunc("/api/v1/runs/", s.handleRun)
 	return corsMiddleware(mux)
 }
 
@@ -541,6 +565,35 @@ func (s Server) handleProvider(w http.ResponseWriter, r *http.Request) {
 	s.handleGetProvider(w, r, providerID)
 }
 
+func (s Server) handleRun(w http.ResponseWriter, r *http.Request) {
+	if s.Stores.Runs == nil {
+		writeError(w, http.StatusServiceUnavailable, "run store is not configured")
+		return
+	}
+	runID := strings.TrimPrefix(r.URL.Path, "/api/v1/runs/")
+	runID = strings.TrimSpace(runID)
+
+	if runID == "" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+			return
+		}
+		s.handleListRuns(w, r)
+		return
+	}
+
+	if strings.Contains(runID, "/") {
+		writeError(w, http.StatusNotFound, "run not found")
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+		return
+	}
+	s.handleGetRun(w, r, runID)
+}
+
 func (s Server) handleGetAgent(w http.ResponseWriter, r *http.Request, agentID string) {
 	agent, err := s.Stores.Agents.GetAgent(r.Context(), agentID)
 	if errors.Is(err, ErrNotFound) {
@@ -673,6 +726,50 @@ func (s Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID string) {
+	run, err := s.Stores.Runs.GetRun(r.Context(), runID)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "run not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read run")
+		return
+	}
+	writeJSON(w, http.StatusOK, runResponseFromRecord(*run))
+}
+
+func (s Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
+	page, limit := paginationFromQuery(r)
+	tenantID := r.URL.Query().Get("tenantId")
+	workspaceID := r.URL.Query().Get("workspaceId")
+	var records []RunRecord
+	var total int
+	var err error
+	switch {
+	case workspaceID != "":
+		records, total, err = s.Stores.Runs.ListRunsByWorkspace(r.Context(), workspaceID, page, limit)
+	case tenantID != "":
+		records, total, err = s.Stores.Runs.ListRunsByTenant(r.Context(), tenantID, page, limit)
+	default:
+		records, total, err = s.Stores.Runs.ListRuns(r.Context(), page, limit)
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list runs")
+		return
+	}
+	runs := make([]RunResponse, 0, len(records))
+	for _, rec := range records {
+		runs = append(runs, runResponseFromRecord(rec))
+	}
+	writeJSON(w, http.StatusOK, PaginatedRunsResponse{
+		Runs:  runs,
+		Page:  page,
+		Limit: limit,
+		Total: total,
+	})
+}
+
 func (s Server) handleGetTenant(w http.ResponseWriter, r *http.Request, tenantID string) {
 	tenant, err := s.Stores.Tenants.GetTenant(r.Context(), tenantID)
 	if errors.Is(err, ErrNotFound) {
@@ -786,6 +883,24 @@ func providerResponseFromRecord(rec ProviderRecord) ProviderResponse {
 		Domestic:            rec.Domestic,
 		SupportsJSONSchema:  rec.SupportsJSONSchema,
 		SupportsToolCalling: rec.SupportsToolCalling,
+	}
+}
+
+func runResponseFromRecord(rec RunRecord) RunResponse {
+	return RunResponse{
+		ID:            rec.ID,
+		TenantID:      rec.TenantID,
+		WorkspaceID:   rec.WorkspaceID,
+		AgentID:       rec.AgentID,
+		EvaluationID:  rec.EvaluationID,
+		AgentRevision: rec.AgentRevision,
+		Status:        rec.Status,
+		RuntimeEngine: rec.RuntimeEngine,
+		RunnerClass:   rec.RunnerClass,
+		StartedAt:     rec.StartedAt,
+		CompletedAt:   rec.CompletedAt,
+		Summary:       rec.Summary,
+		TraceRef:      rec.TraceRef,
 	}
 }
 

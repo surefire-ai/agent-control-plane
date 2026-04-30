@@ -104,6 +104,29 @@ export interface PaginatedProvidersResponse {
   total: number;
 }
 
+export interface Run {
+  id: string;
+  tenantId: string;
+  workspaceId: string;
+  agentId: string;
+  evaluationId?: string;
+  agentRevision?: string;
+  status: string;
+  runtimeEngine: string;
+  runnerClass: string;
+  startedAt?: string;
+  completedAt?: string;
+  summary?: string;
+  traceRef?: string;
+}
+
+export interface PaginatedRunsResponse {
+  runs: Run[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 export interface CreateWorkspaceRequest {
   id: string;
   tenantId: string;

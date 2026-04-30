@@ -1,6 +1,6 @@
 import { NavLink, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Bot, Building2, FlaskConical, KeyRound, LayoutGrid, Settings } from "lucide-react";
+import { Activity, Bot, Building2, FlaskConical, KeyRound, LayoutGrid, Settings } from "lucide-react";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { useNavigationStore } from "@/stores/navigation";
 import korusMark from "@/assets/korus-mark.svg";
@@ -47,6 +47,12 @@ export function Sidebar() {
           icon={<FlaskConical className="h-4 w-4" aria-hidden="true" />}
         >
           {t("nav.evaluations")}
+        </SidebarLink>
+        <SidebarLink
+          to={tenantBase ? `${tenantBase}/runs` : undefined}
+          icon={<Activity className="h-4 w-4" aria-hidden="true" />}
+        >
+          {t("nav.runs")}
         </SidebarLink>
         <SidebarLink
           to={tenantBase ? `${tenantBase}/providers` : undefined}

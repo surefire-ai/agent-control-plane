@@ -288,6 +288,60 @@ func paginateTestProviders(records []ProviderRecord, page, limit int) []Provider
 	return records[start:end]
 }
 
+type fakeRunStore struct {
+	records    map[string]RunRecord
+	orderedIDs []string
+}
+
+func (s fakeRunStore) GetRun(ctx context.Context, id string) (*RunRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s fakeRunStore) ListRuns(ctx context.Context, page, limit int) ([]RunRecord, int, error) {
+	return paginateTestRunsFromIDs(s.records, s.orderedIDs, page, limit), len(s.records), nil
+}
+
+func (s fakeRunStore) ListRunsByTenant(ctx context.Context, tenantID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestRuns(filtered, page, limit), len(filtered), nil
+}
+
+func (s fakeRunStore) ListRunsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestRuns(filtered, page, limit), len(filtered), nil
+}
+
+func paginateTestRunsFromIDs(records map[string]RunRecord, orderedIDs []string, page, limit int) []RunRecord {
+	all := make([]RunRecord, 0, len(orderedIDs))
+	for _, id := range orderedIDs {
+		all = append(all, records[id])
+	}
+	return paginateTestRuns(all, page, limit)
+}
+
+func paginateTestRuns(records []RunRecord, page, limit int) []RunRecord {
+	start := (page - 1) * limit
+	if start >= len(records) {
+		return []RunRecord{}
+	}
+	end := min(start+limit, len(records))
+	return records[start:end]
+}
+
 func TestManagerHealthAndReadiness(t *testing.T) {
 	handler := Server{}.Handler()
 	for _, path := range []string{"/healthz", "/readyz"} {
@@ -1086,6 +1140,88 @@ func TestManagerProviderRejectsUnsupportedMethod(t *testing.T) {
 		},
 	}.Handler()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/providers/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", recorder.Code)
+	}
+}
+
+func TestManagerGetRun(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Runs: &fakeRunStore{
+				records: map[string]RunRecord{
+					"run_1": {
+						ID: "run_1", TenantID: "t_1", WorkspaceID: "ws_1", AgentID: "agent_1",
+						AgentRevision: "rev-1", Status: "succeeded", RuntimeEngine: "eino", RunnerClass: "adk",
+						Summary: "inspection complete", TraceRef: "pod/run-1",
+					},
+				},
+				orderedIDs: []string{"run_1"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/runs/run_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp RunResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.ID != "run_1" || resp.Status != "succeeded" || resp.TraceRef != "pod/run-1" {
+		t.Fatalf("unexpected run response: %#v", resp)
+	}
+}
+
+func TestManagerListRunsByTenant(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Runs: &fakeRunStore{
+				records: map[string]RunRecord{
+					"run_1": {ID: "run_1", TenantID: "t_1", WorkspaceID: "ws_1", AgentID: "agent_1", Status: "succeeded"},
+					"run_2": {ID: "run_2", TenantID: "t_2", WorkspaceID: "ws_2", AgentID: "agent_2", Status: "running"},
+					"run_3": {ID: "run_3", TenantID: "t_1", WorkspaceID: "ws_3", AgentID: "agent_3", Status: "failed"},
+				},
+				orderedIDs: []string{"run_1", "run_2", "run_3"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/runs/?tenantId=t_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp PaginatedRunsResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Runs) != 2 || resp.Total != 2 {
+		t.Fatalf("expected 2 tenant runs, got len=%d total=%d", len(resp.Runs), resp.Total)
+	}
+}
+
+func TestManagerRunRequiresStore(t *testing.T) {
+	handler := Server{}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/runs/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503, got %d", recorder.Code)
+	}
+}
+
+func TestManagerRunRejectsUnsupportedMethod(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Runs: &fakeRunStore{records: map[string]RunRecord{}, orderedIDs: []string{}},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {

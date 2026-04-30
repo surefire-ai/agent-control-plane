@@ -287,6 +287,63 @@ func paginateProviders(records []ProviderRecord, page, limit int) ([]ProviderRec
 	return records[start:end], total, nil
 }
 
+type devRunStore struct {
+	records    map[string]RunRecord
+	orderedIDs []string
+}
+
+func (s devRunStore) GetRun(_ context.Context, id string) (*RunRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s devRunStore) ListRuns(_ context.Context, page, limit int) ([]RunRecord, int, error) {
+	total := len(s.records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []RunRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	result := make([]RunRecord, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, s.records[s.orderedIDs[i]])
+	}
+	return result, total, nil
+}
+
+func (s devRunStore) ListRunsByTenant(_ context.Context, tenantID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateRuns(filtered, page, limit)
+}
+
+func (s devRunStore) ListRunsByWorkspace(_ context.Context, workspaceID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateRuns(filtered, page, limit)
+}
+
+func paginateRuns(records []RunRecord, page, limit int) ([]RunRecord, int, error) {
+	total := len(records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []RunRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	return records[start:end], total, nil
+}
+
 func NewFakeStores() Stores {
 	workspaces := &devWorkspaceStore{
 		records: map[string]WorkspaceRecord{
@@ -370,11 +427,35 @@ func NewFakeStores() Stores {
 		},
 		orderedIDs: []string{"provider_qwen_prod", "provider_deepseek_gate", "provider_openai_fallback"},
 	}
+	runs := &devRunStore{
+		records: map[string]RunRecord{
+			"run_ehs_20260429_001": {
+				ID: "run_ehs_20260429_001", TenantID: "t_demo", WorkspaceID: "ws_demo", AgentID: "agent_ehs_react",
+				AgentRevision: "rev-20260429-001", Status: "succeeded", RuntimeEngine: "eino", RunnerClass: "adk",
+				StartedAt: "2026-04-29T09:10:00Z", CompletedAt: "2026-04-29T09:10:14Z",
+				Summary: "inspection complete", TraceRef: "pod/run-ehs-20260429-001",
+			},
+			"run_guardrail_20260429_002": {
+				ID: "run_guardrail_20260429_002", TenantID: "t_demo", WorkspaceID: "ws_staging", AgentID: "agent_eval_guard",
+				EvaluationID: "eval_guardrail_release", AgentRevision: "rev-20260429-002", Status: "failed",
+				RuntimeEngine: "eino", RunnerClass: "adk", StartedAt: "2026-04-29T10:25:00Z",
+				CompletedAt: "2026-04-29T10:25:31Z", Summary: "release gate failed", TraceRef: "pod/run-guardrail-20260429-002",
+			},
+			"run_enterprise_20260429_003": {
+				ID: "run_enterprise_20260429_003", TenantID: "t_enterprise", WorkspaceID: "ws_enterprise", AgentID: "agent_enterprise_ops",
+				EvaluationID: "eval_enterprise_ops", AgentRevision: "rev-20260429-003", Status: "running",
+				RuntimeEngine: "eino", RunnerClass: "adk", StartedAt: "2026-04-29T11:40:00Z",
+				Summary: "weekly regression in progress", TraceRef: "pod/run-enterprise-20260429-003",
+			},
+		},
+		orderedIDs: []string{"run_ehs_20260429_001", "run_guardrail_20260429_002", "run_enterprise_20260429_003"},
+	}
 	return Stores{
 		Workspaces:  workspaces,
 		Tenants:     tenants,
 		Agents:      agents,
 		Evaluations: evaluations,
 		Providers:   providers,
+		Runs:        runs,
 	}
 }

@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 const areas = [
   { label: "Agents", path: "/agents", heading: "Agents" },
   { label: "Evaluations", path: "/evaluations", heading: "Evaluations" },
+  { label: "Runs", path: "/runs", heading: "Runs" },
   { label: "Providers", path: "/providers", heading: "Providers" },
   { label: "Settings", path: "/settings", heading: "Settings" },
 ];

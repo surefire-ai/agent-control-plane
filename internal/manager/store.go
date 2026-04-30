@@ -84,6 +84,22 @@ type ProviderRecord struct {
 	SupportsToolCalling bool
 }
 
+type RunRecord struct {
+	ID            string
+	TenantID      string
+	WorkspaceID   string
+	AgentID       string
+	EvaluationID  string
+	AgentRevision string
+	Status        string
+	RuntimeEngine string
+	RunnerClass   string
+	StartedAt     string
+	CompletedAt   string
+	Summary       string
+	TraceRef      string
+}
+
 type WorkspaceStore interface {
 	GetWorkspace(ctx context.Context, id string) (*WorkspaceRecord, error)
 	ListWorkspaces(ctx context.Context, page, limit int) ([]WorkspaceRecord, int, error)
@@ -119,12 +135,20 @@ type ProviderStore interface {
 	ListProvidersByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]ProviderRecord, int, error)
 }
 
+type RunStore interface {
+	GetRun(ctx context.Context, id string) (*RunRecord, error)
+	ListRuns(ctx context.Context, page, limit int) ([]RunRecord, int, error)
+	ListRunsByTenant(ctx context.Context, tenantID string, page, limit int) ([]RunRecord, int, error)
+	ListRunsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]RunRecord, int, error)
+}
+
 type Stores struct {
 	Workspaces  WorkspaceStore
 	Tenants     TenantStore
 	Agents      AgentStore
 	Evaluations EvaluationStore
 	Providers   ProviderStore
+	Runs        RunStore
 }
 
 type SQLWorkspaceStore struct {
@@ -147,6 +171,10 @@ type SQLProviderStore struct {
 	DB *sql.DB
 }
 
+type SQLRunStore struct {
+	DB *sql.DB
+}
+
 func NewSQLStores(db *sql.DB) Stores {
 	return Stores{
 		Workspaces:  SQLWorkspaceStore{DB: db},
@@ -154,6 +182,7 @@ func NewSQLStores(db *sql.DB) Stores {
 		Agents:      SQLAgentStore{DB: db},
 		Evaluations: SQLEvaluationStore{DB: db},
 		Providers:   SQLProviderStore{DB: db},
+		Runs:        SQLRunStore{DB: db},
 	}
 }
 
@@ -691,6 +720,119 @@ func (s SQLProviderStore) listProviders(ctx context.Context, query string, total
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("iterate manager providers: %w", err)
+	}
+	return records, total, nil
+}
+
+func (s SQLRunStore) GetRun(ctx context.Context, id string) (*RunRecord, error) {
+	if s.DB == nil {
+		return nil, fmt.Errorf("manager database is required")
+	}
+	var run RunRecord
+	err := s.DB.QueryRowContext(ctx, `SELECT id, tenant_id, workspace_id, agent_id, evaluation_id, agent_revision, status, runtime_engine, runner_class, started_at, completed_at, summary, trace_ref
+	FROM runs
+	WHERE id = $1`, id).Scan(
+		&run.ID,
+		&run.TenantID,
+		&run.WorkspaceID,
+		&run.AgentID,
+		&run.EvaluationID,
+		&run.AgentRevision,
+		&run.Status,
+		&run.RuntimeEngine,
+		&run.RunnerClass,
+		&run.StartedAt,
+		&run.CompletedAt,
+		&run.Summary,
+		&run.TraceRef,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get manager run %q: %w", id, err)
+	}
+	return &run, nil
+}
+
+func (s SQLRunStore) ListRuns(ctx context.Context, page, limit int) ([]RunRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM runs").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager runs: %w", err)
+	}
+	return s.listRuns(ctx, `SELECT id, tenant_id, workspace_id, agent_id, evaluation_id, agent_revision, status, runtime_engine, runner_class, started_at, completed_at, summary, trace_ref
+	FROM runs
+	ORDER BY created_at DESC
+	LIMIT $1 OFFSET $2`, total, page, limit)
+}
+
+func (s SQLRunStore) ListRunsByTenant(ctx context.Context, tenantID string, page, limit int) ([]RunRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM runs WHERE tenant_id = $1", tenantID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager runs by tenant %q: %w", tenantID, err)
+	}
+	return s.listRuns(ctx, `SELECT id, tenant_id, workspace_id, agent_id, evaluation_id, agent_revision, status, runtime_engine, runner_class, started_at, completed_at, summary, trace_ref
+	FROM runs
+	WHERE tenant_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, tenantID)
+}
+
+func (s SQLRunStore) ListRunsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]RunRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM runs WHERE workspace_id = $1", workspaceID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager runs by workspace %q: %w", workspaceID, err)
+	}
+	return s.listRuns(ctx, `SELECT id, tenant_id, workspace_id, agent_id, evaluation_id, agent_revision, status, runtime_engine, runner_class, started_at, completed_at, summary, trace_ref
+	FROM runs
+	WHERE workspace_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, workspaceID)
+}
+
+func (s SQLRunStore) listRuns(ctx context.Context, query string, total, page, limit int, filters ...any) ([]RunRecord, int, error) {
+	offset := (page - 1) * limit
+	args := append([]any{}, filters...)
+	args = append(args, limit, offset)
+	rows, err := s.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list manager runs: %w", err)
+	}
+	defer rows.Close()
+
+	records := make([]RunRecord, 0, limit)
+	for rows.Next() {
+		var rec RunRecord
+		if err := rows.Scan(
+			&rec.ID,
+			&rec.TenantID,
+			&rec.WorkspaceID,
+			&rec.AgentID,
+			&rec.EvaluationID,
+			&rec.AgentRevision,
+			&rec.Status,
+			&rec.RuntimeEngine,
+			&rec.RunnerClass,
+			&rec.StartedAt,
+			&rec.CompletedAt,
+			&rec.Summary,
+			&rec.TraceRef,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan manager run: %w", err)
+		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate manager runs: %w", err)
 	}
 	return records, total, nil
 }

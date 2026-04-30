@@ -34,6 +34,8 @@ export function Breadcrumb() {
       crumbs.push({ label: t("nav.agents") });
     } else if (pathname.includes("/evaluations")) {
       crumbs.push({ label: t("nav.evaluations") });
+    } else if (pathname.includes("/runs")) {
+      crumbs.push({ label: t("nav.runs") });
     } else if (pathname.includes("/providers")) {
       crumbs.push({ label: t("nav.providers") });
     } else if (pathname.includes("/settings")) {

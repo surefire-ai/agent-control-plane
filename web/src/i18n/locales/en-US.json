@@ -25,6 +25,7 @@
     "workspaces": "Workspaces",
     "agents": "Agents",
     "evaluations": "Evaluations",
+    "runs": "Runs",
     "providers": "Providers",
     "settings": "Settings",
     "newWorkspace": "New Workspace",
@@ -37,6 +38,8 @@
     "active": "Active",
     "published": "Published",
     "passed": "Passed",
+    "succeeded": "Succeeded",
+    "pending": "Pending",
     "failed": "Failed",
     "running": "Running",
     "draft": "Draft",
@@ -52,6 +55,9 @@
     "pattern": "Pattern",
     "model": "Model",
     "runtime": "Runtime",
+    "agent": "Agent",
+    "started": "Started",
+    "summary": "Summary",
     "revision": "Revision",
     "dataset": "Dataset",
     "score": "Score",
@@ -110,6 +116,13 @@
     "loadError": "Failed to load evaluations",
     "emptyTitle": "No evaluations",
     "emptyDescription": "Evaluation definitions and runs will appear here."
+  },
+  "run": {
+    "title": "Runs",
+    "subtitle": "Inspect tenant-scoped execution history, status, and trace references",
+    "loadError": "Failed to load runs",
+    "emptyTitle": "No runs",
+    "emptyDescription": "Agent and evaluation executions will appear here."
   },
   "provider": {
     "title": "Providers",

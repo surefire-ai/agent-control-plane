@@ -37,9 +37,10 @@ The current UI is intentionally a product console shell rather than a landing
 page. The first implemented surface covers tenant navigation, workspace lists,
 workspace detail, workspace creation, workspace editing, and workspace deletion
 confirmation. Agents, Evaluations, and Providers now have tenant-scoped list
-views backed by manager API contracts. The sidebar also reserves Settings so
-the console information architecture stays aligned with the enterprise roadmap
-while that backend is implemented.
+views backed by manager API contracts. Runs now expose a tenant-scoped execution
+history list with status, runtime, and trace references. The sidebar also
+reserves Settings so the console information architecture stays aligned with
+the enterprise roadmap while that backend is implemented.
 
 Generated frontend artifacts are ignored by git:
 

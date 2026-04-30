@@ -25,6 +25,7 @@
     "workspaces": "工作区",
     "agents": "Agents",
     "evaluations": "评估",
+    "runs": "运行记录",
     "providers": "模型供应商",
     "settings": "设置",
     "newWorkspace": "创建工作区",
@@ -37,6 +38,8 @@
     "active": "活跃",
     "published": "已发布",
     "passed": "通过",
+    "succeeded": "成功",
+    "pending": "待处理",
     "failed": "失败",
     "running": "运行中",
     "draft": "草稿",
@@ -52,6 +55,9 @@
     "pattern": "范式",
     "model": "模型",
     "runtime": "运行时",
+    "agent": "Agent",
+    "started": "开始时间",
+    "summary": "摘要",
     "revision": "修订版本",
     "dataset": "评测集",
     "score": "分数",
@@ -110,6 +116,13 @@
     "loadError": "加载评估失败",
     "emptyTitle": "暂无评估",
     "emptyDescription": "评估定义和运行记录会显示在这里。"
+  },
+  "run": {
+    "title": "运行记录",
+    "subtitle": "查看租户级执行历史、状态和 trace 引用",
+    "loadError": "加载运行记录失败",
+    "emptyTitle": "暂无运行记录",
+    "emptyDescription": "Agent 和评估执行记录会显示在这里。"
   },
   "provider": {
     "title": "模型供应商",

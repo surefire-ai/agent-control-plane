@@ -314,6 +314,8 @@ Korus is early, so the most useful contributions are focused and contract-aware:
 - local Kubernetes smoke coverage
 - Web Console product flows that preserve the operator/manager boundary
 
+Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full contribution guide.
+
 Before opening a change, run:
 
 ```bash

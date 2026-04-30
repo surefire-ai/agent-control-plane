@@ -1,8 +1,8 @@
-namespace: agent-control-plane-system
+namespace: korus-system
 
 labels:
 - pairs:
-    app.kubernetes.io/part-of: agent-control-plane
+    app.kubernetes.io/part-of: korus
 
 resources:
 - namespace.yaml
@@ -11,7 +11,7 @@ resources:
 - ../manager
 
 images:
-- name: ghcr.io/surefire-ai/agent-control-plane-controller-manager
+- name: ghcr.io/surefire-ai/korus-controller-manager
   newTag: latest
-- name: ghcr.io/surefire-ai/agent-control-plane-worker
+- name: ghcr.io/surefire-ai/korus-worker
   newTag: latest

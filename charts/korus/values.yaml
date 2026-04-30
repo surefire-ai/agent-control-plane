@@ -8,7 +8,7 @@ controllerManager:
   # being hardened.
   replicas: 1
   image:
-    repository: ghcr.io/surefire-ai/agent-control-plane-controller-manager
+    repository: ghcr.io/surefire-ai/korus-controller-manager
     # For release installs, set this to the release tag, for example v0.1.0.
     tag: latest
     pullPolicy: IfNotPresent
@@ -16,7 +16,7 @@ controllerManager:
   runtimeBackend: worker
   worker:
     image:
-      repository: ghcr.io/surefire-ai/agent-control-plane-worker
+      repository: ghcr.io/surefire-ai/korus-worker
       # Keep this aligned with controllerManager.image.tag for release installs.
       tag: latest
     # Optional shell command for overriding the worker container entrypoint.

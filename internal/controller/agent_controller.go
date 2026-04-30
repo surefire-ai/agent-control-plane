@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
-	"github.com/surefire-ai/agent-control-plane/internal/compiler"
-	"github.com/surefire-ai/agent-control-plane/internal/providers"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	"github.com/surefire-ai/korus/internal/compiler"
+	"github.com/surefire-ai/korus/internal/providers"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

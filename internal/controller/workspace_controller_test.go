@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"

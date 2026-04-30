@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
-	"github.com/surefire-ai/agent-control-plane/internal/contract"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	"github.com/surefire-ai/korus/internal/contract"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	defaultWorkerImage = "ghcr.io/surefire-ai/agent-control-plane-worker:latest"
+	defaultWorkerImage = "ghcr.io/surefire-ai/korus-worker:latest"
 )
 
-var defaultWorkerCommand = []string{"/agent-control-plane-worker"}
+var defaultWorkerCommand = []string{"/korus-worker"}
 
 type WorkerOptions struct {
 	Client    client.Client
@@ -123,8 +123,8 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 			Name:      name,
 			Namespace: request.Run.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":       "agent-control-plane-worker",
-				"app.kubernetes.io/managed-by": "agent-control-plane",
+				"app.kubernetes.io/name":       "korus-worker",
+				"app.kubernetes.io/managed-by": "korus",
 				"windosx.com/agent":            request.Agent.Name,
 				"windosx.com/agentrun":         request.Run.Name,
 			},
@@ -143,8 +143,8 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       "agent-control-plane-worker",
-						"app.kubernetes.io/managed-by": "agent-control-plane",
+						"app.kubernetes.io/name":       "korus-worker",
+						"app.kubernetes.io/managed-by": "korus",
 						"windosx.com/agentrun":         request.Run.Name,
 					},
 				},

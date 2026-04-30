@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Agent Control Plane is licensed under Apache-2.0. It also depends on
+Korus is licensed under Apache-2.0. It also depends on
 third-party Go modules that remain under their own licenses.
 
 This file records the current dependency notice policy for source, binary, and

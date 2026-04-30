@@ -4,10 +4,10 @@ import (
 	"flag"
 	"os"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
-	"github.com/surefire-ai/agent-control-plane/internal/controller"
-	"github.com/surefire-ai/agent-control-plane/internal/gateway"
-	agentruntime "github.com/surefire-ai/agent-control-plane/internal/runtime"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	"github.com/surefire-ai/korus/internal/controller"
+	"github.com/surefire-ai/korus/internal/gateway"
+	agentruntime "github.com/surefire-ai/korus/internal/runtime"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -53,7 +53,7 @@ func main() {
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "agent-control-plane.windosx.com",
+		LeaderElectionID:       "korus.windosx.com",
 	})
 	if err != nil {
 		ctrl.Log.Error(err, "unable to start manager")

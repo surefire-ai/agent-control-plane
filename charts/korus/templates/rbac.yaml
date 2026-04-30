@@ -2,9 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ printf "%s-manager-role" (include "agent-control-plane.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+  name: {{ printf "%s-manager-role" (include "korus.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
   labels:
-    {{- include "agent-control-plane.labels" . | nindent 4 }}
+    {{- include "korus.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -41,16 +41,32 @@ rules:
 - apiGroups:
   - windosx.com
   resources:
+  - agentevaluations
   - agentpolicies
   - agents
+  - datasets
   - knowledgebases
   - mcpservers
   - prompttemplates
+  - tenants
   - toolproviders
+  - workspaces
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - windosx.com
+  resources:
+  - agentevaluations/status
+  - agentruns/status
+  - agents/status
+  - tenants/status
+  - workspaces/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - windosx.com
   resources:
@@ -60,38 +76,29 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - windosx.com
-  resources:
-  - agentruns/status
-  - agents/status
-  verbs:
-  - get
-  - patch
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ printf "%s-manager-rolebinding" (include "agent-control-plane.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+  name: {{ printf "%s-manager-rolebinding" (include "korus.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
   labels:
-    {{- include "agent-control-plane.labels" . | nindent 4 }}
+    {{- include "korus.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ printf "%s-manager-role" (include "agent-control-plane.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+  name: {{ printf "%s-manager-role" (include "korus.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "agent-control-plane.serviceAccountName" . | quote }}
+  name: {{ include "korus.serviceAccountName" . | quote }}
   namespace: {{ .Release.Namespace | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ printf "%s-leader-election-role" (include "agent-control-plane.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+  name: {{ printf "%s-leader-election-role" (include "korus.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "agent-control-plane.labels" . | nindent 4 }}
+    {{- include "korus.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - coordination.k8s.io
@@ -107,16 +114,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ printf "%s-leader-election-rolebinding" (include "agent-control-plane.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+  name: {{ printf "%s-leader-election-rolebinding" (include "korus.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "agent-control-plane.labels" . | nindent 4 }}
+    {{- include "korus.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ printf "%s-leader-election-role" (include "agent-control-plane.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
+  name: {{ printf "%s-leader-election-role" (include "korus.fullname" .) | trunc 63 | trimSuffix "-" | quote }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "agent-control-plane.serviceAccountName" . | quote }}
+  name: {{ include "korus.serviceAccountName" . | quote }}
   namespace: {{ .Release.Namespace | quote }}
 {{- end }}

@@ -136,7 +136,7 @@ make deploy
 ### Install with Helm
 
 ```bash
-helm upgrade --install korus charts/agent-control-plane \
+helm upgrade --install korus charts/korus \
   --namespace korus-system \
   --create-namespace
 ```

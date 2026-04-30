@@ -1,8 +1,8 @@
 domain: windosx.com
 layout:
 - go.kubebuilder.io/v4
-projectName: agent-control-plane
-repo: github.com/surefire-ai/agent-control-plane
+projectName: korus
+repo: github.com/surefire-ai/korus
 resources:
 - api:
     crdVersion: v1
@@ -11,7 +11,7 @@ resources:
   domain: windosx.com
   group: windosx.com
   kind: Agent
-  path: github.com/surefire-ai/agent-control-plane/api/v1alpha1
+  path: github.com/surefire-ai/korus/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
@@ -20,5 +20,5 @@ resources:
   domain: windosx.com
   group: windosx.com
   kind: AgentRun
-  path: github.com/surefire-ai/agent-control-plane/api/v1alpha1
+  path: github.com/surefire-ai/korus/api/v1alpha1
   version: v1alpha1

@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/surefire-ai/agent-control-plane/internal/contract"
+	"github.com/surefire-ai/korus/internal/contract"
 )
 
 type HTTPDoer interface {

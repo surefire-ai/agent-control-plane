@@ -14,7 +14,7 @@ import (
 	einotool "github.com/cloudwego/eino/components/tool"
 	einoschema "github.com/cloudwego/eino/schema"
 
-	"github.com/surefire-ai/agent-control-plane/internal/contract"
+	"github.com/surefire-ai/korus/internal/contract"
 )
 
 type HTTPToolInvoker struct {

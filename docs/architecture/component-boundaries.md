@@ -5,7 +5,7 @@ Last updated: 2026-04-29
 
 ## Purpose
 
-Agent Control Plane is moving toward four explicit components:
+Korus is moving toward four explicit components:
 
 - `operator`
 - `manager`

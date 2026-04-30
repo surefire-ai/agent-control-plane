@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: agentevaluations.windosx.com
+  name: agentruns.windosx.com
 spec:
   group: windosx.com
   names:
-    kind: AgentEvaluation
-    listKind: AgentEvaluationList
-    plural: agentevaluations
-    singular: agentevaluation
+    kind: AgentRun
+    listKind: AgentRunList
+    plural: agentruns
+    singular: agentrun
   scope: Namespaced
   versions:
   - name: v1alpha1
@@ -44,25 +44,28 @@ spec:
                 required:
                 - name
                 type: object
-              datasetRef:
+              execution:
                 additionalProperties:
-                  type: string
+                  x-kubernetes-preserve-unknown-fields: true
                 type: object
-              evaluators:
-                items:
-                  additionalProperties:
-                    type: string
-                  type: object
-                type: array
-              thresholds:
+              input:
                 additionalProperties:
-                  type: number
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
+              workspaceRef:
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
                 type: object
             required:
             - agentRef
             type: object
           status:
             properties:
+              agentRevision:
+                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -119,7 +122,27 @@ spec:
                   - type
                   type: object
                 type: array
+              finishedAt:
+                format: date-time
+                type: string
+              output:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
               phase:
+                type: string
+              startedAt:
+                format: date-time
+                type: string
+              ticket:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
+              traceRef:
+                additionalProperties:
+                  x-kubernetes-preserve-unknown-fields: true
+                type: object
+              workspaceRef:
                 type: string
             type: object
         type: object

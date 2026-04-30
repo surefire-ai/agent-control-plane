@@ -230,6 +230,63 @@ func paginateEvaluations(records []EvaluationRecord, page, limit int) ([]Evaluat
 	return records[start:end], total, nil
 }
 
+type devProviderStore struct {
+	records    map[string]ProviderRecord
+	orderedIDs []string
+}
+
+func (s devProviderStore) GetProvider(_ context.Context, id string) (*ProviderRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s devProviderStore) ListProviders(_ context.Context, page, limit int) ([]ProviderRecord, int, error) {
+	total := len(s.records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []ProviderRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	result := make([]ProviderRecord, 0, end-start)
+	for i := start; i < end; i++ {
+		result = append(result, s.records[s.orderedIDs[i]])
+	}
+	return result, total, nil
+}
+
+func (s devProviderStore) ListProvidersByTenant(_ context.Context, tenantID string, page, limit int) ([]ProviderRecord, int, error) {
+	filtered := make([]ProviderRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateProviders(filtered, page, limit)
+}
+
+func (s devProviderStore) ListProvidersByWorkspace(_ context.Context, workspaceID string, page, limit int) ([]ProviderRecord, int, error) {
+	filtered := make([]ProviderRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateProviders(filtered, page, limit)
+}
+
+func paginateProviders(records []ProviderRecord, page, limit int) ([]ProviderRecord, int, error) {
+	total := len(records)
+	start := (page - 1) * limit
+	if start >= total {
+		return []ProviderRecord{}, total, nil
+	}
+	end := min(start+limit, total)
+	return records[start:end], total, nil
+}
+
 func NewFakeStores() Stores {
 	workspaces := &devWorkspaceStore{
 		records: map[string]WorkspaceRecord{
@@ -290,10 +347,34 @@ func NewFakeStores() Stores {
 		},
 		orderedIDs: []string{"eval_ehs_regression", "eval_guardrail_release", "eval_enterprise_ops"},
 	}
+	providers := &devProviderStore{
+		records: map[string]ProviderRecord{
+			"provider_qwen_prod": {
+				ID: "provider_qwen_prod", TenantID: "t_demo", WorkspaceID: "ws_demo",
+				Provider: "qwen", DisplayName: "Qwen Production", Family: "openai-compatible",
+				BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", CredentialRef: "secret://demo/qwen-api-key",
+				Status: "active", Domestic: true, SupportsJSONSchema: true, SupportsToolCalling: true,
+			},
+			"provider_deepseek_gate": {
+				ID: "provider_deepseek_gate", TenantID: "t_demo", WorkspaceID: "ws_staging",
+				Provider: "deepseek", DisplayName: "DeepSeek Release Gate", Family: "openai-compatible",
+				BaseURL: "https://api.deepseek.com/v1", CredentialRef: "secret://staging/deepseek-api-key",
+				Status: "active", Domestic: true, SupportsJSONSchema: true, SupportsToolCalling: true,
+			},
+			"provider_openai_fallback": {
+				ID: "provider_openai_fallback", TenantID: "t_enterprise", WorkspaceID: "ws_enterprise",
+				Provider: "openai", DisplayName: "OpenAI Fallback", Family: "openai-compatible",
+				BaseURL: "https://api.openai.com/v1", CredentialRef: "secret://enterprise/openai-api-key",
+				Status: "active", SupportsJSONSchema: true, SupportsToolCalling: true,
+			},
+		},
+		orderedIDs: []string{"provider_qwen_prod", "provider_deepseek_gate", "provider_openai_fallback"},
+	}
 	return Stores{
 		Workspaces:  workspaces,
 		Tenants:     tenants,
 		Agents:      agents,
 		Evaluations: evaluations,
+		Providers:   providers,
 	}
 }

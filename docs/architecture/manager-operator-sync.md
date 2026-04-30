@@ -92,16 +92,16 @@ or annotations.
 Recommended labels:
 
 ```yaml
-agentcontrolplane.surefire.ai/tenant-id: tenant_...
-agentcontrolplane.surefire.ai/workspace-id: ws_...
-agentcontrolplane.surefire.ai/managed-by: manager
+korus.surefire.ai/tenant-id: tenant_...
+korus.surefire.ai/workspace-id: ws_...
+korus.surefire.ai/managed-by: manager
 ```
 
 Recommended annotations:
 
 ```yaml
-agentcontrolplane.surefire.ai/manager-resource-id: ...
-agentcontrolplane.surefire.ai/manager-sync-generation: "..."
+korus.surefire.ai/manager-resource-id: ...
+korus.surefire.ai/manager-sync-generation: "..."
 ```
 
 The exact label domain can change before implementation, but the contract

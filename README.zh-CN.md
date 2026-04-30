@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>基于 Kubernetes 的企业级多租户 Agent Control Plane。</strong>
+  <strong>基于 Kubernetes 的企业级多租户 Korus。</strong>
 </p>
 
 <p align="center">
@@ -133,7 +133,7 @@ make deploy
 ### 使用 Helm 安装
 
 ```bash
-helm upgrade --install korus charts/agent-control-plane \
+helm upgrade --install korus charts/korus \
   --namespace korus-system \
   --create-namespace
 ```

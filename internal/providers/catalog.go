@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
 )
 
 const (

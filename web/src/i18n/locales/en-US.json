@@ -29,7 +29,7 @@
     "settings": "Settings",
     "newWorkspace": "New Workspace",
     "language": "Language",
-    "consoleSubtitle": "Agent Control Plane",
+    "consoleSubtitle": "Korus",
     "evaluationGates": "Evaluation gates",
     "releaseChecksWaiting": "4 release checks waiting"
   },
@@ -56,7 +56,10 @@
     "dataset": "Dataset",
     "score": "Score",
     "gate": "Gate",
-    "samples": "Samples"
+    "samples": "Samples",
+    "provider": "Provider",
+    "capabilities": "Capabilities",
+    "credential": "Credential"
   },
   "tenant": {
     "title": "Tenants",
@@ -107,6 +110,20 @@
     "loadError": "Failed to load evaluations",
     "emptyTitle": "No evaluations",
     "emptyDescription": "Evaluation definitions and runs will appear here."
+  },
+  "provider": {
+    "title": "Providers",
+    "subtitle": "Manage model provider accounts, credential references, and tenant policy",
+    "loadError": "Failed to load providers",
+    "emptyTitle": "No providers",
+    "emptyDescription": "Provider accounts and credential references will appear here.",
+    "workspaceBindingsTitle": "Provider bindings",
+    "workspaceBindingsSubtitle": "Workspace-scoped model access and credential references",
+    "emptyWorkspaceTitle": "No workspace provider bindings",
+    "emptyWorkspaceDescription": "Tenant provider accounts can be bound to this workspace when policy is configured.",
+    "domestic": "Domestic",
+    "jsonSchema": "JSON schema",
+    "toolCalling": "Tool calling"
   },
   "productAreas": {
     "tenantScope": "Tenant scope: {{tenantId}}",

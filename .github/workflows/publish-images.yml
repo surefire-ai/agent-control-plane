@@ -22,10 +22,10 @@ jobs:
         image:
           - name: controller-manager
             file: Dockerfile.controller-manager
-            repository: agent-control-plane-controller-manager
+            repository: korus-controller-manager
           - name: worker
             file: Dockerfile.worker
-            repository: agent-control-plane-worker
+            repository: korus-worker
 
     steps:
       - name: Checkout

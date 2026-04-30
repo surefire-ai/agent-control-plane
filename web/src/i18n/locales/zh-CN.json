@@ -29,7 +29,7 @@
     "settings": "设置",
     "newWorkspace": "创建工作区",
     "language": "语言",
-    "consoleSubtitle": "Agent Control Plane",
+    "consoleSubtitle": "Korus",
     "evaluationGates": "评估门禁",
     "releaseChecksWaiting": "4 项发布检查待处理"
   },
@@ -56,7 +56,10 @@
     "dataset": "评测集",
     "score": "分数",
     "gate": "门禁",
-    "samples": "样本"
+    "samples": "样本",
+    "provider": "供应商",
+    "capabilities": "能力",
+    "credential": "凭据"
   },
   "tenant": {
     "title": "租户",
@@ -107,6 +110,20 @@
     "loadError": "加载评估失败",
     "emptyTitle": "暂无评估",
     "emptyDescription": "评估定义和运行记录会显示在这里。"
+  },
+  "provider": {
+    "title": "模型供应商",
+    "subtitle": "管理模型供应商账号、凭据引用和租户策略",
+    "loadError": "加载模型供应商失败",
+    "emptyTitle": "暂无模型供应商",
+    "emptyDescription": "模型供应商账号和凭据引用会显示在这里。",
+    "workspaceBindingsTitle": "供应商绑定",
+    "workspaceBindingsSubtitle": "工作区级模型访问与凭据引用",
+    "emptyWorkspaceTitle": "暂无工作区供应商绑定",
+    "emptyWorkspaceDescription": "配置策略后，可将租户供应商账号绑定到此工作区。",
+    "domestic": "国内",
+    "jsonSchema": "JSON Schema",
+    "toolCalling": "工具调用"
   },
   "productAreas": {
     "tenantScope": "租户范围：{{tenantId}}",

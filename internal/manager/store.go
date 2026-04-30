@@ -69,6 +69,21 @@ type EvaluationRecord struct {
 	ReportRef        string
 }
 
+type ProviderRecord struct {
+	ID                  string
+	TenantID            string
+	WorkspaceID         string
+	Provider            string
+	DisplayName         string
+	Family              string
+	BaseURL             string
+	CredentialRef       string
+	Status              string
+	Domestic            bool
+	SupportsJSONSchema  bool
+	SupportsToolCalling bool
+}
+
 type WorkspaceStore interface {
 	GetWorkspace(ctx context.Context, id string) (*WorkspaceRecord, error)
 	ListWorkspaces(ctx context.Context, page, limit int) ([]WorkspaceRecord, int, error)
@@ -97,11 +112,19 @@ type EvaluationStore interface {
 	ListEvaluationsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]EvaluationRecord, int, error)
 }
 
+type ProviderStore interface {
+	GetProvider(ctx context.Context, id string) (*ProviderRecord, error)
+	ListProviders(ctx context.Context, page, limit int) ([]ProviderRecord, int, error)
+	ListProvidersByTenant(ctx context.Context, tenantID string, page, limit int) ([]ProviderRecord, int, error)
+	ListProvidersByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]ProviderRecord, int, error)
+}
+
 type Stores struct {
 	Workspaces  WorkspaceStore
 	Tenants     TenantStore
 	Agents      AgentStore
 	Evaluations EvaluationStore
+	Providers   ProviderStore
 }
 
 type SQLWorkspaceStore struct {
@@ -120,12 +143,17 @@ type SQLEvaluationStore struct {
 	DB *sql.DB
 }
 
+type SQLProviderStore struct {
+	DB *sql.DB
+}
+
 func NewSQLStores(db *sql.DB) Stores {
 	return Stores{
 		Workspaces:  SQLWorkspaceStore{DB: db},
 		Tenants:     SQLTenantStore{DB: db},
 		Agents:      SQLAgentStore{DB: db},
 		Evaluations: SQLEvaluationStore{DB: db},
+		Providers:   SQLProviderStore{DB: db},
 	}
 }
 
@@ -552,6 +580,117 @@ func (s SQLEvaluationStore) listEvaluations(ctx context.Context, query string, t
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("iterate manager evaluations: %w", err)
+	}
+	return records, total, nil
+}
+
+func (s SQLProviderStore) GetProvider(ctx context.Context, id string) (*ProviderRecord, error) {
+	if s.DB == nil {
+		return nil, fmt.Errorf("manager database is required")
+	}
+	var provider ProviderRecord
+	err := s.DB.QueryRowContext(ctx, `SELECT id, tenant_id, workspace_id, provider, display_name, family, base_url, credential_ref, status, domestic, supports_json_schema, supports_tool_calling
+	FROM provider_accounts
+	WHERE id = $1`, id).Scan(
+		&provider.ID,
+		&provider.TenantID,
+		&provider.WorkspaceID,
+		&provider.Provider,
+		&provider.DisplayName,
+		&provider.Family,
+		&provider.BaseURL,
+		&provider.CredentialRef,
+		&provider.Status,
+		&provider.Domestic,
+		&provider.SupportsJSONSchema,
+		&provider.SupportsToolCalling,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get manager provider %q: %w", id, err)
+	}
+	return &provider, nil
+}
+
+func (s SQLProviderStore) ListProviders(ctx context.Context, page, limit int) ([]ProviderRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM provider_accounts").Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager providers: %w", err)
+	}
+	return s.listProviders(ctx, `SELECT id, tenant_id, workspace_id, provider, display_name, family, base_url, credential_ref, status, domestic, supports_json_schema, supports_tool_calling
+	FROM provider_accounts
+	ORDER BY created_at DESC
+	LIMIT $1 OFFSET $2`, total, page, limit)
+}
+
+func (s SQLProviderStore) ListProvidersByTenant(ctx context.Context, tenantID string, page, limit int) ([]ProviderRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM provider_accounts WHERE tenant_id = $1", tenantID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager providers by tenant %q: %w", tenantID, err)
+	}
+	return s.listProviders(ctx, `SELECT id, tenant_id, workspace_id, provider, display_name, family, base_url, credential_ref, status, domestic, supports_json_schema, supports_tool_calling
+	FROM provider_accounts
+	WHERE tenant_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, tenantID)
+}
+
+func (s SQLProviderStore) ListProvidersByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]ProviderRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM provider_accounts WHERE workspace_id = $1", workspaceID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager providers by workspace %q: %w", workspaceID, err)
+	}
+	return s.listProviders(ctx, `SELECT id, tenant_id, workspace_id, provider, display_name, family, base_url, credential_ref, status, domestic, supports_json_schema, supports_tool_calling
+	FROM provider_accounts
+	WHERE workspace_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, workspaceID)
+}
+
+func (s SQLProviderStore) listProviders(ctx context.Context, query string, total, page, limit int, filters ...any) ([]ProviderRecord, int, error) {
+	offset := (page - 1) * limit
+	args := append([]any{}, filters...)
+	args = append(args, limit, offset)
+	rows, err := s.DB.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list manager providers: %w", err)
+	}
+	defer rows.Close()
+
+	records := make([]ProviderRecord, 0, limit)
+	for rows.Next() {
+		var rec ProviderRecord
+		if err := rows.Scan(
+			&rec.ID,
+			&rec.TenantID,
+			&rec.WorkspaceID,
+			&rec.Provider,
+			&rec.DisplayName,
+			&rec.Family,
+			&rec.BaseURL,
+			&rec.CredentialRef,
+			&rec.Status,
+			&rec.Domestic,
+			&rec.SupportsJSONSchema,
+			&rec.SupportsToolCalling,
+		); err != nil {
+			return nil, 0, fmt.Errorf("scan manager provider: %w", err)
+		}
+		records = append(records, rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate manager providers: %w", err)
 	}
 	return records, total, nil
 }

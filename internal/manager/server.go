@@ -82,6 +82,21 @@ type EvaluationResponse struct {
 	ReportRef        string  `json:"reportRef,omitempty"`
 }
 
+type ProviderResponse struct {
+	ID                  string `json:"id"`
+	TenantID            string `json:"tenantId"`
+	WorkspaceID         string `json:"workspaceId,omitempty"`
+	Provider            string `json:"provider"`
+	DisplayName         string `json:"displayName"`
+	Family              string `json:"family"`
+	BaseURL             string `json:"baseUrl,omitempty"`
+	CredentialRef       string `json:"credentialRef,omitempty"`
+	Status              string `json:"status"`
+	Domestic            bool   `json:"domestic"`
+	SupportsJSONSchema  bool   `json:"supportsJsonSchema"`
+	SupportsToolCalling bool   `json:"supportsToolCalling"`
+}
+
 type PaginatedWorkspacesResponse struct {
 	Workspaces []WorkspaceResponse `json:"workspaces"`
 	Page       int                 `json:"page"`
@@ -108,6 +123,13 @@ type PaginatedEvaluationsResponse struct {
 	Page        int                  `json:"page"`
 	Limit       int                  `json:"limit"`
 	Total       int                  `json:"total"`
+}
+
+type PaginatedProvidersResponse struct {
+	Providers []ProviderResponse `json:"providers"`
+	Page      int                `json:"page"`
+	Limit     int                `json:"limit"`
+	Total     int                `json:"total"`
 }
 
 type CreateWorkspaceRequest struct {
@@ -192,6 +214,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/tenants/", s.handleTenant)
 	mux.HandleFunc("/api/v1/agents/", s.handleAgent)
 	mux.HandleFunc("/api/v1/evaluations/", s.handleEvaluation)
+	mux.HandleFunc("/api/v1/providers/", s.handleProvider)
 	return corsMiddleware(mux)
 }
 
@@ -489,6 +512,35 @@ func (s Server) handleEvaluation(w http.ResponseWriter, r *http.Request) {
 	s.handleGetEvaluation(w, r, evaluationID)
 }
 
+func (s Server) handleProvider(w http.ResponseWriter, r *http.Request) {
+	if s.Stores.Providers == nil {
+		writeError(w, http.StatusServiceUnavailable, "provider store is not configured")
+		return
+	}
+	providerID := strings.TrimPrefix(r.URL.Path, "/api/v1/providers/")
+	providerID = strings.TrimSpace(providerID)
+
+	if providerID == "" {
+		if r.Method != http.MethodGet {
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+			return
+		}
+		s.handleListProviders(w, r)
+		return
+	}
+
+	if strings.Contains(providerID, "/") {
+		writeError(w, http.StatusNotFound, "provider not found")
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
+		return
+	}
+	s.handleGetProvider(w, r, providerID)
+}
+
 func (s Server) handleGetAgent(w http.ResponseWriter, r *http.Request, agentID string) {
 	agent, err := s.Stores.Agents.GetAgent(r.Context(), agentID)
 	if errors.Is(err, ErrNotFound) {
@@ -574,6 +626,50 @@ func (s Server) handleListEvaluations(w http.ResponseWriter, r *http.Request) {
 		Page:        page,
 		Limit:       limit,
 		Total:       total,
+	})
+}
+
+func (s Server) handleGetProvider(w http.ResponseWriter, r *http.Request, providerID string) {
+	provider, err := s.Stores.Providers.GetProvider(r.Context(), providerID)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "provider not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read provider")
+		return
+	}
+	writeJSON(w, http.StatusOK, providerResponseFromRecord(*provider))
+}
+
+func (s Server) handleListProviders(w http.ResponseWriter, r *http.Request) {
+	page, limit := paginationFromQuery(r)
+	tenantID := r.URL.Query().Get("tenantId")
+	workspaceID := r.URL.Query().Get("workspaceId")
+	var records []ProviderRecord
+	var total int
+	var err error
+	switch {
+	case workspaceID != "":
+		records, total, err = s.Stores.Providers.ListProvidersByWorkspace(r.Context(), workspaceID, page, limit)
+	case tenantID != "":
+		records, total, err = s.Stores.Providers.ListProvidersByTenant(r.Context(), tenantID, page, limit)
+	default:
+		records, total, err = s.Stores.Providers.ListProviders(r.Context(), page, limit)
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list providers")
+		return
+	}
+	providers := make([]ProviderResponse, 0, len(records))
+	for _, rec := range records {
+		providers = append(providers, providerResponseFromRecord(rec))
+	}
+	writeJSON(w, http.StatusOK, PaginatedProvidersResponse{
+		Providers: providers,
+		Page:      page,
+		Limit:     limit,
+		Total:     total,
 	})
 }
 
@@ -673,6 +769,23 @@ func evaluationResponseFromRecord(rec EvaluationRecord) EvaluationResponse {
 		SamplesEvaluated: rec.SamplesEvaluated,
 		LatestRunID:      rec.LatestRunID,
 		ReportRef:        rec.ReportRef,
+	}
+}
+
+func providerResponseFromRecord(rec ProviderRecord) ProviderResponse {
+	return ProviderResponse{
+		ID:                  rec.ID,
+		TenantID:            rec.TenantID,
+		WorkspaceID:         rec.WorkspaceID,
+		Provider:            rec.Provider,
+		DisplayName:         rec.DisplayName,
+		Family:              rec.Family,
+		BaseURL:             rec.BaseURL,
+		CredentialRef:       rec.CredentialRef,
+		Status:              rec.Status,
+		Domestic:            rec.Domestic,
+		SupportsJSONSchema:  rec.SupportsJSONSchema,
+		SupportsToolCalling: rec.SupportsToolCalling,
 	}
 }
 

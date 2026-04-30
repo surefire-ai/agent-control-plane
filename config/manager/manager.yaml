@@ -1,37 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: agent-control-plane-controller-manager
-  namespace: agent-control-plane-system
+  name: korus-controller-manager
+  namespace: korus-system
   labels:
-    app.kubernetes.io/name: agent-control-plane-controller-manager
-    app.kubernetes.io/part-of: agent-control-plane
+    app.kubernetes.io/name: korus-controller-manager
+    app.kubernetes.io/part-of: korus
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: agent-control-plane-controller-manager
+      app.kubernetes.io/name: korus-controller-manager
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: agent-control-plane-controller-manager
-        app.kubernetes.io/part-of: agent-control-plane
+        app.kubernetes.io/name: korus-controller-manager
+        app.kubernetes.io/part-of: korus
     spec:
-      serviceAccountName: agent-control-plane-controller-manager
+      serviceAccountName: korus-controller-manager
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
       containers:
       - name: manager
-        image: ghcr.io/surefire-ai/agent-control-plane-controller-manager:latest
+        image: ghcr.io/surefire-ai/korus-controller-manager:latest
         imagePullPolicy: IfNotPresent
         command:
         - /controller-manager
         args:
         - --leader-elect
         - --runtime-backend=worker
-        - --worker-job-image=ghcr.io/surefire-ai/agent-control-plane-worker:latest
+        - --worker-job-image=ghcr.io/surefire-ai/korus-worker:latest
         ports:
         - name: metrics
           containerPort: 8080

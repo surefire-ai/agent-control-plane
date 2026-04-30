@@ -57,7 +57,7 @@ jobs:
           context: .
           file: Dockerfile.controller-manager
           push: false
-          tags: ghcr.io/surefire-ai/agent-control-plane-controller-manager:ci
+          tags: ghcr.io/surefire-ai/korus-controller-manager:ci
 
       - name: Build worker image
         uses: docker/build-push-action@v6
@@ -65,4 +65,4 @@ jobs:
           context: .
           file: Dockerfile.worker
           push: false
-          tags: ghcr.io/surefire-ai/agent-control-plane-worker:ci
+          tags: ghcr.io/surefire-ai/korus-worker:ci

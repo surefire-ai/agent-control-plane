@@ -5,6 +5,7 @@ import { useWorkspace, useUpdateWorkspace, useDeleteWorkspace } from "@/api/work
 import { WorkspaceDetailCard } from "@/components/workspaces/WorkspaceDetailCard";
 import { WorkspaceEditForm } from "@/components/workspaces/WorkspaceEditForm";
 import { WorkspaceDeleteDialog } from "@/components/workspaces/WorkspaceDeleteDialog";
+import { WorkspaceProviderBindings } from "@/components/providers/WorkspaceProviderBindings";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { ErrorAlert } from "@/components/shared/ErrorAlert";
@@ -101,7 +102,10 @@ export function WorkspaceDetailPage() {
           isPending={updateMutation.isPending}
         />
       ) : (
-        <WorkspaceDetailCard workspace={workspace} />
+        <>
+          <WorkspaceDetailCard workspace={workspace} />
+          <WorkspaceProviderBindings tenantId={tenantId} workspaceId={workspace.id} />
+        </>
       )}
 
       <WorkspaceDeleteDialog

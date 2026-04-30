@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
-	agentruntime "github.com/surefire-ai/agent-control-plane/internal/runtime"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	agentruntime "github.com/surefire-ai/korus/internal/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

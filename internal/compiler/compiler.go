@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
-	"github.com/surefire-ai/agent-control-plane/internal/contract"
-	"github.com/surefire-ai/agent-control-plane/internal/providers"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	"github.com/surefire-ai/korus/internal/contract"
+	"github.com/surefire-ai/korus/internal/providers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 

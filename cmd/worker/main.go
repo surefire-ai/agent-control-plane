@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/surefire-ai/agent-control-plane/internal/worker"
+	"github.com/surefire-ai/korus/internal/worker"
 )
 
 func main() {

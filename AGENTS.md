@@ -4,7 +4,7 @@ This file guides AI collaborators working in this repository.
 
 ## Project Identity
 
-Agent Control Plane is an enterprise Agent Control Plane built on Kubernetes.
+Korus is an enterprise Agent Control Plane built on Kubernetes.
 
 Treat this project as a four-component system, not as a generic app or a
 prompt playground:

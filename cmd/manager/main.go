@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/surefire-ai/agent-control-plane/internal/manager"
+	"github.com/surefire-ai/korus/internal/manager"
 )
 
 func main() {

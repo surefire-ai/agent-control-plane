@@ -1,0 +1,7 @@
+Korus has been installed into namespace {{ .Release.Namespace }}.
+
+Gateway service:
+  {{ include "korus.gatewayName" . }}.{{ .Release.Namespace }}.svc:{{ .Values.gateway.service.port }}
+
+Try a local port-forward:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "korus.gatewayName" . }} 8082:{{ .Values.gateway.service.port }}

@@ -82,6 +82,28 @@ export interface PaginatedEvaluationsResponse {
   total: number;
 }
 
+export interface ProviderAccount {
+  id: string;
+  tenantId: string;
+  workspaceId?: string;
+  provider: string;
+  displayName: string;
+  family: string;
+  baseUrl?: string;
+  credentialRef?: string;
+  status: string;
+  domestic: boolean;
+  supportsJsonSchema: boolean;
+  supportsToolCalling: boolean;
+}
+
+export interface PaginatedProvidersResponse {
+  providers: ProviderAccount[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 export interface CreateWorkspaceRequest {
   id: string;
   tenantId: string;

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/surefire-ai/agent-control-plane/internal/contract"
-	"github.com/surefire-ai/agent-control-plane/internal/providers"
+	"github.com/surefire-ai/korus/internal/contract"
+	"github.com/surefire-ai/korus/internal/providers"
 )
 
 type Runner interface {

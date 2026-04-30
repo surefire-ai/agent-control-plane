@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: agentruns.windosx.com
+  name: skills.windosx.com
 spec:
   group: windosx.com
   names:
-    kind: AgentRun
-    listKind: AgentRunList
-    plural: agentruns
-    singular: agentrun
+    kind: Skill
+    listKind: SkillList
+    plural: skills
+    singular: skill
   scope: Namespaced
   versions:
   - name: v1alpha1
@@ -37,28 +37,77 @@ spec:
             type: object
           spec:
             properties:
-              agentRef:
+              description:
+                type: string
+              functions:
+                items:
+                  type: string
+                type: array
+              graph:
                 properties:
-                  name:
+                  edges:
+                    items:
+                      properties:
+                        from:
+                          type: string
+                        to:
+                          type: string
+                        when:
+                          type: string
+                      required:
+                      - from
+                      - to
+                      type: object
+                    type: array
+                  nodes:
+                    items:
+                      properties:
+                        implementation:
+                          type: string
+                        kind:
+                          type: string
+                        knowledgeRef:
+                          type: string
+                        modelRef:
+                          type: string
+                        name:
+                          type: string
+                        toolRef:
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    type: array
+                type: object
+              knowledgeRefs:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    ref:
+                      type: string
+                    retrieval:
+                      additionalProperties:
+                        x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                  required:
+                  - name
+                  - ref
+                  type: object
+                type: array
+              promptRefs:
+                properties:
+                  system:
                     type: string
-                required:
-                - name
                 type: object
-              execution:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
-              input:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
-            required:
-            - agentRef
+              toolRefs:
+                items:
+                  type: string
+                type: array
             type: object
           status:
             properties:
-              agentRevision:
-                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -115,26 +164,8 @@ spec:
                   - type
                   type: object
                 type: array
-              finishedAt:
-                format: date-time
-                type: string
-              output:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
               phase:
                 type: string
-              startedAt:
-                format: date-time
-                type: string
-              ticket:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
-              traceRef:
-                additionalProperties:
-                  x-kubernetes-preserve-unknown-fields: true
-                type: object
             type: object
         type: object
     served: true

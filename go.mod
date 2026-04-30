@@ -1,4 +1,4 @@
-module github.com/surefire-ai/agent-control-plane
+module github.com/surefire-ai/korus
 
 go 1.25.0
 

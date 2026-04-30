@@ -15,7 +15,7 @@ generate:
 
 .PHONY: manifests
 manifests:
-	$(CONTROLLER_GEN) rbac:roleName=agent-control-plane-manager-role crd:crdVersions=v1,allowDangerousTypes=true paths=./api/... paths=./internal/controller/... output:rbac:artifacts:config=config/rbac output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=korus-manager-role crd:crdVersions=v1,allowDangerousTypes=true paths=./api/... paths=./internal/controller/... output:rbac:artifacts:config=config/rbac output:crd:artifacts:config=config/crd/bases
 
 .PHONY: install
 install: manifests
@@ -35,18 +35,18 @@ build:
 
 .PHONY: docker-build
 docker-build:
-	docker build -f Dockerfile.controller-manager -t $(IMAGE_REPOSITORY)/agent-control-plane-controller-manager:$(IMAGE_TAG) .
-	docker build -f Dockerfile.worker -t $(IMAGE_REPOSITORY)/agent-control-plane-worker:$(IMAGE_TAG) .
+	docker build -f Dockerfile.controller-manager -t $(IMAGE_REPOSITORY)/korus-controller-manager:$(IMAGE_TAG) .
+	docker build -f Dockerfile.worker -t $(IMAGE_REPOSITORY)/korus-worker:$(IMAGE_TAG) .
 
 .PHONY: docker-build-worker-local
 docker-build-worker-local:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCAL_DOCKER_ARCH) $(GO) build -o bin/agent-control-plane-worker ./cmd/worker
-	docker build -f Dockerfile.worker.local -t agent-control-plane-worker:dev .
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(LOCAL_DOCKER_ARCH) $(GO) build -o bin/korus-worker ./cmd/worker
+	docker build -f Dockerfile.worker.local -t korus-worker:dev .
 
 .PHONY: docker-build-controller-local
 docker-build-controller-local:
-	docker build --build-arg TARGETARCH=$(LOCAL_DOCKER_ARCH) -f Dockerfile.controller-manager -t agent-control-plane-controller-manager:dev .
+	docker build --build-arg TARGETARCH=$(LOCAL_DOCKER_ARCH) -f Dockerfile.controller-manager -t korus-controller-manager:dev .
 
 .PHONY: k8s-smoke-ehs-setup
 k8s-smoke-ehs-setup:
@@ -95,11 +95,11 @@ deploy: manifests
 
 .PHONY: helm-lint
 helm-lint:
-	helm lint charts/agent-control-plane
+	helm lint charts/korus
 
 .PHONY: helm-template
 helm-template:
-	helm template agent-control-plane charts/agent-control-plane --namespace agent-control-plane-system --include-crds
+	helm template korus charts/korus --namespace korus-system --include-crds
 
 .PHONY: undeploy
 undeploy:

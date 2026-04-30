@@ -1,7 +1,0 @@
-Agent Control Plane has been installed into namespace {{ .Release.Namespace }}.
-
-Gateway service:
-  {{ include "agent-control-plane.gatewayName" . }}.{{ .Release.Namespace }}.svc:{{ .Values.gateway.service.port }}
-
-Try a local port-forward:
-  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "agent-control-plane.gatewayName" . }} 8082:{{ .Values.gateway.service.port }}

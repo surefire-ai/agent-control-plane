@@ -1,13 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: agent-control-plane-leader-election-rolebinding
-  namespace: agent-control-plane-system
+  name: korus-leader-election-rolebinding
+  namespace: korus-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: agent-control-plane-leader-election-role
+  name: korus-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: agent-control-plane-controller-manager
-  namespace: agent-control-plane-system
+  name: korus-controller-manager
+  namespace: korus-system

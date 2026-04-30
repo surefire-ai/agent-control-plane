@@ -4,5 +4,5 @@ kind: Namespace
 metadata:
   name: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "agent-control-plane.labels" . | nindent 4 }}
+    {{- include "korus.labels" . | nindent 4 }}
 {{- end }}

@@ -1,11 +1,11 @@
 # Project Governance
 
-Agent Control Plane is developed under the `surefire-ai` GitHub organization.
+Korus is developed under the `surefire-ai` GitHub organization.
 
 ## Project Identity
 
 - GitHub organization: `surefire-ai`
-- Repository: `github.com/surefire-ai/agent-control-plane`
+- Repository: `github.com/surefire-ai/korus`
 - Kubernetes API group: `windosx.com/v1alpha1`
 - Global project domain: `windosx.com`
 

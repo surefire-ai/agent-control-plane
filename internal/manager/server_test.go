@@ -234,6 +234,60 @@ func paginateTestEvaluations(records []EvaluationRecord, page, limit int) []Eval
 	return records[start:end]
 }
 
+type fakeProviderStore struct {
+	records    map[string]ProviderRecord
+	orderedIDs []string
+}
+
+func (s fakeProviderStore) GetProvider(ctx context.Context, id string) (*ProviderRecord, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return &record, nil
+}
+
+func (s fakeProviderStore) ListProviders(ctx context.Context, page, limit int) ([]ProviderRecord, int, error) {
+	return paginateTestProvidersFromIDs(s.records, s.orderedIDs, page, limit), len(s.records), nil
+}
+
+func (s fakeProviderStore) ListProvidersByTenant(ctx context.Context, tenantID string, page, limit int) ([]ProviderRecord, int, error) {
+	filtered := make([]ProviderRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].TenantID == tenantID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestProviders(filtered, page, limit), len(filtered), nil
+}
+
+func (s fakeProviderStore) ListProvidersByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]ProviderRecord, int, error) {
+	filtered := make([]ProviderRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestProviders(filtered, page, limit), len(filtered), nil
+}
+
+func paginateTestProvidersFromIDs(records map[string]ProviderRecord, orderedIDs []string, page, limit int) []ProviderRecord {
+	all := make([]ProviderRecord, 0, len(orderedIDs))
+	for _, id := range orderedIDs {
+		all = append(all, records[id])
+	}
+	return paginateTestProviders(all, page, limit)
+}
+
+func paginateTestProviders(records []ProviderRecord, page, limit int) []ProviderRecord {
+	start := (page - 1) * limit
+	if start >= len(records) {
+		return []ProviderRecord{}
+	}
+	end := min(start+limit, len(records))
+	return records[start:end]
+}
+
 func TestManagerHealthAndReadiness(t *testing.T) {
 	handler := Server{}.Handler()
 	for _, path := range []string{"/healthz", "/readyz"} {
@@ -254,7 +308,7 @@ func TestManagerInfo(t *testing.T) {
 			Mode:           "managed",
 			AutoMigrate:    true,
 			DatabaseDriver: "pgx",
-			DatabaseURL:    "postgres://manager@example/agent-control-plane",
+			DatabaseURL:    "postgres://manager@example/korus",
 			Addr:           ":8090",
 		},
 	}
@@ -949,6 +1003,89 @@ func TestManagerEvaluationRejectsUnsupportedMethod(t *testing.T) {
 		},
 	}.Handler()
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status 405, got %d", recorder.Code)
+	}
+}
+
+func TestManagerGetProvider(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Providers: &fakeProviderStore{
+				records: map[string]ProviderRecord{
+					"provider_1": {
+						ID: "provider_1", TenantID: "t_1", WorkspaceID: "ws_1",
+						Provider: "qwen", DisplayName: "Qwen Production", Family: "openai-compatible",
+						BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", CredentialRef: "secret://demo/qwen",
+						Status: "active", Domestic: true, SupportsJSONSchema: true, SupportsToolCalling: true,
+					},
+				},
+				orderedIDs: []string{"provider_1"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/providers/provider_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp ProviderResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.ID != "provider_1" || resp.Provider != "qwen" || !resp.Domestic || !resp.SupportsToolCalling {
+		t.Fatalf("unexpected provider response: %#v", resp)
+	}
+}
+
+func TestManagerListProvidersByTenant(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Providers: &fakeProviderStore{
+				records: map[string]ProviderRecord{
+					"provider_1": {ID: "provider_1", TenantID: "t_1", WorkspaceID: "ws_1", Provider: "qwen", DisplayName: "Qwen", Family: "openai-compatible", Status: "active"},
+					"provider_2": {ID: "provider_2", TenantID: "t_2", WorkspaceID: "ws_2", Provider: "openai", DisplayName: "OpenAI", Family: "openai-compatible", Status: "active"},
+					"provider_3": {ID: "provider_3", TenantID: "t_1", WorkspaceID: "ws_3", Provider: "deepseek", DisplayName: "DeepSeek", Family: "openai-compatible", Status: "inactive"},
+				},
+				orderedIDs: []string{"provider_1", "provider_2", "provider_3"},
+			},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/providers/?tenantId=t_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	var resp PaginatedProvidersResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Providers) != 2 || resp.Total != 2 {
+		t.Fatalf("expected 2 tenant providers, got len=%d total=%d", len(resp.Providers), resp.Total)
+	}
+}
+
+func TestManagerProviderRequiresStore(t *testing.T) {
+	handler := Server{}.Handler()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/providers/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503, got %d", recorder.Code)
+	}
+}
+
+func TestManagerProviderRejectsUnsupportedMethod(t *testing.T) {
+	handler := Server{
+		Stores: Stores{
+			Providers: &fakeProviderStore{records: map[string]ProviderRecord{}, orderedIDs: []string{}},
+		},
+	}.Handler()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/providers/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {

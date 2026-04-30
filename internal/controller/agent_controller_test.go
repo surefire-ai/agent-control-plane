@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	apiv1alpha1 "github.com/surefire-ai/agent-control-plane/api/v1alpha1"
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

@@ -8,7 +8,7 @@ test.describe("Workspace Detail Page", () => {
   test("displays workspace details", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Demo Workspace" })).toBeVisible();
     await expect(page.getByText("ws_demo")).toBeVisible();
-    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+    await expect(page.locator("dl").getByText("Active", { exact: true })).toBeVisible();
   });
 
   test("can enter edit mode and cancel", async ({ page }) => {
@@ -34,5 +34,11 @@ test.describe("Workspace Detail Page", () => {
     await expect(breadcrumb.getByText("Tenants")).toBeVisible();
     await expect(breadcrumb.getByText("Demo Tenant")).toBeVisible();
     await expect(breadcrumb.getByText("Demo Workspace")).toBeVisible();
+  });
+
+  test("shows workspace provider bindings", async ({ page }) => {
+    await expect(page.getByRole("heading", { name: "Provider bindings" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Qwen Production" })).toBeVisible();
+    await expect(page.getByText("DeepSeek Release Gate")).not.toBeVisible();
   });
 });

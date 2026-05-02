@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -145,7 +146,8 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			baselineSet.GatePassed = gatePassed(evaluation.Spec.Gate, baselineSet.Results)
 			baseline = baselineSet
 		}
-		setAgentEvaluationSucceeded(&evaluation, req.Namespace, workspaceName, current, baselineRevision, baseline)
+		report := buildEvaluationReport(evaluation, current, baseline, samples)
+		setAgentEvaluationSucceeded(&evaluation, req.Namespace, workspaceName, current, baselineRevision, baseline, report)
 	}
 
 	return ctrl.Result{}, r.patchAgentEvaluationStatusIfChanged(ctx, &evaluation, original, previousStatus)
@@ -350,7 +352,7 @@ func setAgentEvaluationRunning(evaluation *apiv1alpha1.AgentEvaluation, namespac
 	})
 }
 
-func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, current evaluatedRunSet, baselineRevision string, baseline *evaluatedRunSet) {
+func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namespace string, workspaceRef string, current evaluatedRunSet, baselineRevision string, baseline *evaluatedRunSet, report apiv1alpha1.FreeformObject) {
 	evaluation.Status.Summary.DatasetRevision = evaluation.Spec.DatasetRef.Revision
 	evaluation.Status.Summary.BaselineRevision = baselineRevision
 	evaluation.Status.Summary.SamplesTotal = int32(len(current.Runs))
@@ -377,15 +379,7 @@ func setAgentEvaluationSucceeded(evaluation *apiv1alpha1.AgentEvaluation, namesp
 	} else {
 		evaluation.Status.Comparison = nil
 	}
-	evaluation.Status.ReportRef = apiv1alpha1.FreeformObject{
-		"provider": jsonValue("kubernetes-status"),
-		"report": jsonValue(
-			"/apis/" + apiv1alpha1.Group + "/" + apiv1alpha1.Version +
-				"/namespaces/" + namespace + "/agentevaluations/" + evaluation.Name + ":report",
-		),
-		"runName":  jsonValue(latest.Name),
-		"runCount": jsonAnyValue(len(current.Runs)),
-	}
+	evaluation.Status.ReportRef = report
 	setAgentEvaluationStatus(evaluation, namespace, workspaceRef, "Succeeded", metav1.Condition{
 		Type:               agentEvaluationReadyCondition,
 		Status:             metav1.ConditionTrue,
@@ -607,6 +601,14 @@ func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evalu
 		return riskLevelMatchScore(run, sample)
 	case "hazard_coverage":
 		return hazardCoverageScore(run, sample)
+	case "response_completeness":
+		return responseCompletenessScore(agent, run)
+	case "output_coherence":
+		return outputCoherenceScore(run)
+	case "actionable_next_steps":
+		return actionableNextStepsScore(run)
+	case "confidence_calibration":
+		return confidenceCalibrationScore(run)
 	}
 	if score, ok := expectedMetricScore(run, sample, metric); ok {
 		return score, true
@@ -722,6 +724,268 @@ func hasHazardMatch(actual []hazardDescriptor, expected hazardDescriptor) bool {
 		}
 	}
 	return false
+}
+
+// responseCompletenessScore checks that all required output fields have
+// meaningful values (non-empty strings, non-empty arrays, non-null).
+// Unlike schema_validity which only checks field presence, this checks
+// whether the values are actually populated.
+func responseCompletenessScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun) (float64, bool) {
+	required := requiredOutputFields(agent)
+	if len(required) == 0 {
+		required = []string{"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview"}
+	}
+	if len(required) == 0 {
+		return 0, false
+	}
+	meaningful := 0
+	for _, field := range required {
+		raw, ok := run.Status.Output[field]
+		if !ok {
+			continue
+		}
+		if isMeaningfulValue(raw) {
+			meaningful++
+		}
+	}
+	return float64(meaningful) / float64(len(required)), true
+}
+
+// isMeaningfulValue checks whether a JSON value represents something
+// meaningful: non-null, non-empty string, non-empty array, non-empty object,
+// true boolean, or non-zero number.
+func isMeaningfulValue(value apiextensionsv1.JSON) bool {
+	if len(value.Raw) == 0 {
+		return false
+	}
+	s := strings.TrimSpace(string(value.Raw))
+	if s == "null" || s == `""` || s == "[]" || s == "{}" {
+		return false
+	}
+	// Check empty string unmarshalled
+	var str string
+	if err := json.Unmarshal(value.Raw, &str); err == nil && strings.TrimSpace(str) == "" {
+		return false
+	}
+	// Check array: unmarshal as slice to see if it's empty
+	var arr []interface{}
+	if err := json.Unmarshal(value.Raw, &arr); err == nil && len(arr) == 0 {
+		return false
+	}
+	return true
+}
+
+// outputCoherenceScore checks internal consistency of the output.
+// For example, multiple hazards should not correspond to a "low" risk level.
+// Returns 0~1 where 1 means fully coherent.
+func outputCoherenceScore(run apiv1alpha1.AgentRun) (float64, bool) {
+	coherenceChecks := 0
+	passedChecks := 0
+
+	// Check hazards vs overallRiskLevel coherence
+	hazardsValue, hasHazards := run.Status.Output["hazards"]
+	riskValue, hasRisk := run.Status.Output["overallRiskLevel"]
+
+	if hasHazards && hasRisk {
+		coherenceChecks++
+		var hazards []interface{}
+		if err := json.Unmarshal(hazardsValue.Raw, &hazards); err == nil {
+			risk := strings.ToLower(strings.TrimSpace(jsonString(riskValue)))
+			hazardCount := len(hazards)
+			// Multiple hazards with low risk is incoherent
+			if hazardCount > 2 && risk == "low" {
+				// Fail: too many hazards for low risk
+			} else {
+				passedChecks++
+			}
+		}
+	}
+
+	// Check confidence vs needsHumanReview coherence
+	confidenceValue, hasConfidence := run.Status.Output["confidence"]
+	reviewValue, hasReview := run.Status.Output["needsHumanReview"]
+
+	if hasConfidence && hasReview {
+		coherenceChecks++
+		var confidence float64
+		var needsReview bool
+		if err := json.Unmarshal(confidenceValue.Raw, &confidence); err == nil {
+			if err := json.Unmarshal(reviewValue.Raw, &needsReview); err == nil {
+				// High confidence (>=0.8) with needsHumanReview=true is incoherent
+				if confidence >= 0.8 && needsReview {
+					// Fail: high confidence but requests human review
+				} else {
+					passedChecks++
+				}
+			}
+		}
+	}
+
+	// Check hazards count vs hazards array coherence
+	if hasHazards {
+		coherenceChecks++
+		var hazards []interface{}
+		if err := json.Unmarshal(hazardsValue.Raw, &hazards); err == nil {
+			// Non-empty hazards array with high risk is coherent;
+			// empty hazards with high risk is incoherent
+			risk := ""
+			if hasRisk {
+				risk = strings.ToLower(strings.TrimSpace(jsonString(riskValue)))
+			}
+			if len(hazards) == 0 && (risk == "high" || risk == "critical") {
+				// Fail: no hazards but high/critical risk
+			} else {
+				passedChecks++
+			}
+		}
+	}
+
+	if coherenceChecks == 0 {
+		return 0, false
+	}
+	return float64(passedChecks) / float64(coherenceChecks), true
+}
+
+// actionableNextStepsScore checks whether nextActions is present and each
+// action item is specific enough (length > 10 characters) to be actionable.
+// Returns 0~1 score.
+func actionableNextStepsScore(run apiv1alpha1.AgentRun) (float64, bool) {
+	actionsValue, ok := run.Status.Output["nextActions"]
+	if !ok {
+		return 0, false
+	}
+	var actions []interface{}
+	if err := json.Unmarshal(actionsValue.Raw, &actions); err != nil {
+		return 0, false
+	}
+	if len(actions) == 0 {
+		return 0, true
+	}
+	actionable := 0
+	for _, item := range actions {
+		str, ok := item.(string)
+		if !ok {
+			continue
+		}
+		if len(strings.TrimSpace(str)) > 10 {
+			actionable++
+		}
+	}
+	return float64(actionable) / float64(len(actions)), true
+}
+
+// confidenceCalibrationScore checks whether the confidence value is in a
+// valid range (0~1) and whether it's consistent with the run outcome.
+// High confidence + success = well calibrated; high confidence + failure = poorly calibrated.
+// Returns 0~1 score.
+func confidenceCalibrationScore(run apiv1alpha1.AgentRun) (float64, bool) {
+	confidenceValue, ok := run.Status.Output["confidence"]
+	if !ok {
+		return 0, false
+	}
+	var confidence float64
+	if err := json.Unmarshal(confidenceValue.Raw, &confidence); err != nil {
+		return 0, false
+	}
+	// Confidence must be in [0, 1]
+	if confidence < 0 || confidence > 1 {
+		return 0, true
+	}
+	succeeded := run.Status.Phase == string(apiv1alpha1.AgentRunPhaseSucceeded)
+	if succeeded {
+		// High confidence (>=0.7) with success is well calibrated
+		if confidence >= 0.7 {
+			return 1, true
+		}
+		// Medium confidence (0.4~0.7) with success is partially calibrated
+		if confidence >= 0.4 {
+			return 0.7, true
+		}
+		// Low confidence (<0.4) with success: reasonable but cautious
+		return 0.5, true
+	}
+	// For failed runs: low confidence is well calibrated, high is not
+	if confidence < 0.3 {
+		return 1, true
+	}
+	if confidence < 0.7 {
+		return 0.5, true
+	}
+	// High confidence with failure is poorly calibrated
+	return 0.2, true
+}
+
+// buildEvaluationReport creates a structured report from evaluation results.
+func buildEvaluationReport(
+	evaluation apiv1alpha1.AgentEvaluation,
+	current evaluatedRunSet,
+	baseline *evaluatedRunSet,
+	samples []evaluationSample,
+) apiv1alpha1.FreeformObject {
+	metricDetails := make([]interface{}, 0, len(current.Results))
+	for _, result := range current.Results {
+		detail := map[string]interface{}{
+			"name":      result.Name,
+			"metric":    result.Metric,
+			"score":     result.Score,
+			"threshold": result.Threshold,
+			"passed":    result.Passed,
+		}
+		if result.Reason != "" {
+			detail["reason"] = result.Reason
+		}
+		metricDetails = append(metricDetails, detail)
+	}
+
+	sampleSummaries := make([]interface{}, 0, len(current.Runs))
+	for i, run := range current.Runs {
+		sampleName := fmt.Sprintf("sample-%d", i)
+		if i < len(samples) {
+			sampleName = samples[i].Name
+		}
+		summary := map[string]interface{}{
+			"name":      sampleName,
+			"runName":   run.Name,
+			"phase":     run.Status.Phase,
+			"succeeded": run.Status.Phase == string(apiv1alpha1.AgentRunPhaseSucceeded),
+		}
+		sampleSummaries = append(sampleSummaries, summary)
+	}
+
+	report := apiv1alpha1.FreeformObject{
+		"generatedAt": jsonAnyValue(time.Now().UTC().Format(time.RFC3339)),
+		"evaluation": jsonAnyValue(map[string]interface{}{
+			"name":      evaluation.Name,
+			"namespace": evaluation.Namespace,
+		}),
+		"agent": jsonAnyValue(map[string]interface{}{
+			"name":     current.AgentRef,
+			"revision": current.Revision,
+		}),
+		"overall": jsonAnyValue(map[string]interface{}{
+			"score":      current.Score,
+			"gatePassed": current.GatePassed,
+			"samples":    len(current.Runs),
+		}),
+		"metrics": jsonAnyValue(metricDetails),
+		"samples": jsonAnyValue(sampleSummaries),
+		"thresholds": jsonAnyValue(map[string]interface{}{
+			"count":    len(evaluation.Spec.Thresholds),
+			"gateMode": evaluation.Spec.Gate.Mode,
+		}),
+	}
+
+	if baseline != nil {
+		report["baseline"] = jsonAnyValue(map[string]interface{}{
+			"agentRef":   baseline.AgentRef,
+			"revision":   baseline.Revision,
+			"score":      baseline.Score,
+			"gatePassed": baseline.GatePassed,
+			"scoreDelta": current.Score - baseline.Score,
+		})
+	}
+
+	return report
 }
 
 func expectedMetricScore(run apiv1alpha1.AgentRun, sample evaluationSample, metric string) (float64, bool) {

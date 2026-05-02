@@ -15,10 +15,11 @@ type Request struct {
 }
 
 type Result struct {
-	Output   apiv1alpha1.FreeformObject
-	TraceRef apiv1alpha1.FreeformObject
-	Reason   string
-	Message  string
+	Output       apiv1alpha1.FreeformObject
+	TraceRef     apiv1alpha1.FreeformObject
+	Reason       string
+	Message      string
+	ArtifactRefs []apiv1alpha1.ArtifactRef
 }
 
 type Failure struct {

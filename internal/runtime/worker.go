@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	"github.com/surefire-ai/korus/internal/artifact"
 	"github.com/surefire-ai/korus/internal/contract"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,18 +28,20 @@ const (
 var defaultWorkerCommand = []string{"/korus-worker"}
 
 type WorkerOptions struct {
-	Client    client.Client
-	Clientset kubernetes.Interface
-	Image     string
-	Command   []string
-	LogReader PodLogReader
+	Client        client.Client
+	Clientset     kubernetes.Interface
+	Image         string
+	Command       []string
+	LogReader     PodLogReader
+	ArtifactStore artifact.Store // optional; when nil, artifacts remain inline in CRD status
 }
 
 type WorkerRuntime struct {
-	client    client.Client
-	image     string
-	command   []string
-	logReader PodLogReader
+	client        client.Client
+	image         string
+	command       []string
+	logReader     PodLogReader
+	artifactStore artifact.Store
 }
 
 func NewWorkerRuntime(options WorkerOptions) WorkerRuntime {
@@ -55,10 +58,11 @@ func NewWorkerRuntime(options WorkerOptions) WorkerRuntime {
 		logReader = KubernetesPodLogReader{Clientset: options.Clientset}
 	}
 	return WorkerRuntime{
-		client:    options.Client,
-		image:     image,
-		command:   command,
-		logReader: logReader,
+		client:        options.Client,
+		image:         image,
+		command:       command,
+		logReader:     logReader,
+		artifactStore: options.ArtifactStore,
 	}
 }
 
@@ -359,11 +363,23 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 	if message == "" {
 		message = fmt.Sprintf("Worker job %s completed for %s.", job.Name, request.Agent.Name)
 	}
+
+	// Persist artifacts to external store if configured.
+	var refs []apiv1alpha1.ArtifactRef
+	if r.artifactStore != nil && len(result.Artifacts) > 0 {
+		stored, err := r.artifactStore.Store(ctx, request.Run.Name, request.Run.Namespace, result.Artifacts)
+		if err != nil {
+			return Result{}, fmt.Errorf("persist worker artifacts: %w", err)
+		}
+		refs = stored
+	}
+
 	return Result{
-		Output:   workerOutput(message, result),
-		TraceRef: workerTraceRef(job, logs),
-		Reason:   "WorkerJobSucceeded",
-		Message:  message,
+		Output:       workerOutput(message, result),
+		TraceRef:     workerTraceRef(job, logs),
+		Reason:       "WorkerJobSucceeded",
+		Message:      message,
+		ArtifactRefs: refs,
 	}, nil
 }
 

@@ -160,6 +160,16 @@ type AgentRunStatus struct {
 	WorkspaceRef      string         `json:"workspaceRef,omitempty"`
 	RetryCount        int32          `json:"retryCount,omitempty"`
 	LastFailureReason string         `json:"lastFailureReason,omitempty"`
+	ArtifactRefs      []ArtifactRef  `json:"artifactRefs,omitempty"`
+}
+
+// ArtifactRef identifies an external resource (e.g. ConfigMap data key)
+// that stores durable worker artifacts. Namespace and Name identify the
+// ConfigMap; Key is the data key within it.
+type ArtifactRef struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Key       string `json:"key,omitempty"`
 }
 
 type AgentRunPhase string

@@ -283,6 +283,7 @@ func setAgentRunSucceeded(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent, no
 	run.Status.FinishedAt = &now
 	run.Status.Output = result.Output
 	run.Status.TraceRef = result.TraceRef
+	run.Status.ArtifactRefs = result.ArtifactRefs
 	reason := result.Reason
 	if reason == "" {
 		reason = "RuntimeSucceeded"

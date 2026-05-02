@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
@@ -727,4 +728,568 @@ func TestAgentEvaluationReconcilerCreatesManagedRunsFromDataset(t *testing.T) {
 			t.Fatalf("expected managed AgentRun %q to be created from Dataset: %v", runName, err)
 		}
 	}
+}
+
+func TestResponseCompletenessScore(t *testing.T) {
+	agent := *readyAgent("test-agent", "default", "sha256:test")
+
+	// All fields populated with meaningful values
+	t.Run("all fields populated", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"summary":          agentruntime.JSONValue("found hazards"),
+					"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{"title": "wire"}}),
+					"overallRiskLevel": agentruntime.JSONValue("high"),
+					"nextActions":      agentruntime.JSONValue([]string{"fix wiring immediately"}),
+					"confidence":       agentruntime.JSONValue(0.95),
+					"needsHumanReview": agentruntime.JSONValue(false),
+				},
+			},
+		}
+		score, ok := responseCompletenessScore(agent, run)
+		if !ok || score != 1.0 {
+			t.Fatalf("expected score 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Some fields are empty/null
+	t.Run("some fields empty", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"summary":          agentruntime.JSONValue("found hazards"),
+					"hazards":          agentruntime.JSONValue([]interface{}{}),
+					"overallRiskLevel": agentruntime.JSONValue("high"),
+					"nextActions":      agentruntime.JSONValue(""),
+					"confidence":       agentruntime.JSONValue(0.95),
+					"needsHumanReview": agentruntime.JSONValue(false),
+				},
+			},
+		}
+		score, ok := responseCompletenessScore(agent, run)
+		if !ok {
+			t.Fatal("expected ok=true")
+		}
+		// 4/6 meaningful: summary, overallRiskLevel, confidence, needsHumanReview
+		// hazards is empty array, nextActions is empty string
+		if score != 4.0/6.0 {
+			t.Fatalf("expected score 4/6, got %v", score)
+		}
+	})
+
+	// No output at all
+	t.Run("no output", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{},
+			},
+		}
+		score, ok := responseCompletenessScore(agent, run)
+		if !ok {
+			t.Fatal("expected ok=true")
+		}
+		if score != 0 {
+			t.Fatalf("expected score 0, got %v", score)
+		}
+	})
+
+	// Null values
+	t.Run("null values", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"summary":          agentruntime.JSONValue("found hazards"),
+					"hazards":          agentruntime.JSONValue(nil),
+					"overallRiskLevel": agentruntime.JSONValue(nil),
+					"nextActions":      agentruntime.JSONValue(nil),
+					"confidence":       agentruntime.JSONValue(nil),
+					"needsHumanReview": agentruntime.JSONValue(nil),
+				},
+			},
+		}
+		score, ok := responseCompletenessScore(agent, run)
+		if !ok {
+			t.Fatal("expected ok=true")
+		}
+		if score != 1.0/6.0 {
+			t.Fatalf("expected score 1/6, got %v", score)
+		}
+	})
+}
+
+func TestOutputCoherenceScore(t *testing.T) {
+	// Coherent: 1 hazard + low risk
+	t.Run("coherent single hazard low risk", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{"title": "wire"}}),
+					"overallRiskLevel": agentruntime.JSONValue("low"),
+					"confidence":       agentruntime.JSONValue(0.9),
+					"needsHumanReview": agentruntime.JSONValue(false),
+				},
+			},
+		}
+		score, ok := outputCoherenceScore(run)
+		if !ok || score != 1.0 {
+			t.Fatalf("expected score 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Incoherent: 3 hazards + low risk
+	t.Run("incoherent many hazards low risk", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{"title": "a"}, map[string]interface{}{"title": "b"}, map[string]interface{}{"title": "c"}}),
+					"overallRiskLevel": agentruntime.JSONValue("low"),
+					"confidence":       agentruntime.JSONValue(0.9),
+					"needsHumanReview": agentruntime.JSONValue(false),
+				},
+			},
+		}
+		score, ok := outputCoherenceScore(run)
+		if !ok {
+			t.Fatal("expected ok=true")
+		}
+		// 2/3 passed: hazards-risk check fails, confidence-review passes, hazards-highrisk passes
+		if score != 2.0/3.0 {
+			t.Fatalf("expected score 2/3, got %v", score)
+		}
+	})
+
+	// Incoherent: high confidence + needs human review
+	t.Run("incoherent high confidence needs review", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{"title": "a"}}),
+					"overallRiskLevel": agentruntime.JSONValue("high"),
+					"confidence":       agentruntime.JSONValue(0.95),
+					"needsHumanReview": agentruntime.JSONValue(true),
+				},
+			},
+		}
+		score, ok := outputCoherenceScore(run)
+		if !ok {
+			t.Fatal("expected ok=true")
+		}
+		// 2/3 passed: hazards-risk passes, confidence-review fails, hazards-highrisk passes
+		if score != 2.0/3.0 {
+			t.Fatalf("expected score 2/3, got %v", score)
+		}
+	})
+
+	// No coherence fields available
+	t.Run("no coherence fields", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"summary": agentruntime.JSONValue("something"),
+				},
+			},
+		}
+		_, ok := outputCoherenceScore(run)
+		if ok {
+			t.Fatal("expected ok=false when no coherence fields present")
+		}
+	})
+}
+
+func TestActionableNextStepsScore(t *testing.T) {
+	// All actions are specific
+	t.Run("all actionable", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"nextActions": agentruntime.JSONValue([]string{
+						"Replace all damaged wiring in the electrical room",
+						"Install protective covers on exposed junction boxes",
+					}),
+				},
+			},
+		}
+		score, ok := actionableNextStepsScore(run)
+		if !ok || score != 1.0 {
+			t.Fatalf("expected score 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Some actions are too short
+	t.Run("some too short", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"nextActions": agentruntime.JSONValue([]string{
+						"fix it",
+						"Replace all damaged wiring in the electrical room",
+					}),
+				},
+			},
+		}
+		score, ok := actionableNextStepsScore(run)
+		if !ok || score != 0.5 {
+			t.Fatalf("expected score 0.5, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Empty actions array
+	t.Run("empty actions", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"nextActions": agentruntime.JSONValue([]string{}),
+				},
+			},
+		}
+		score, ok := actionableNextStepsScore(run)
+		if !ok || score != 0 {
+			t.Fatalf("expected score 0, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Missing field
+	t.Run("missing field", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{},
+			},
+		}
+		_, ok := actionableNextStepsScore(run)
+		if ok {
+			t.Fatal("expected ok=false when field missing")
+		}
+	})
+}
+
+func TestConfidenceCalibrationScore(t *testing.T) {
+	// High confidence + success = well calibrated
+	t.Run("high confidence success", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+				Output: apiv1alpha1.FreeformObject{
+					"confidence": agentruntime.JSONValue(0.93),
+				},
+			},
+		}
+		score, ok := confidenceCalibrationScore(run)
+		if !ok || score != 1.0 {
+			t.Fatalf("expected score 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Low confidence + failure = well calibrated
+	t.Run("low confidence failure", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Phase: string(apiv1alpha1.AgentRunPhaseFailed),
+				Output: apiv1alpha1.FreeformObject{
+					"confidence": agentruntime.JSONValue(0.15),
+				},
+			},
+		}
+		score, ok := confidenceCalibrationScore(run)
+		if !ok || score != 1.0 {
+			t.Fatalf("expected score 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	// High confidence + failure = poorly calibrated
+	t.Run("high confidence failure", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Phase: string(apiv1alpha1.AgentRunPhaseFailed),
+				Output: apiv1alpha1.FreeformObject{
+					"confidence": agentruntime.JSONValue(0.95),
+				},
+			},
+		}
+		score, ok := confidenceCalibrationScore(run)
+		if !ok || score != 0.2 {
+			t.Fatalf("expected score 0.2, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Out of range confidence
+	t.Run("out of range", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+				Output: apiv1alpha1.FreeformObject{
+					"confidence": agentruntime.JSONValue(1.5),
+				},
+			},
+		}
+		score, ok := confidenceCalibrationScore(run)
+		if !ok || score != 0 {
+			t.Fatalf("expected score 0 for out-of-range confidence, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Medium confidence + success
+	t.Run("medium confidence success", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+				Output: apiv1alpha1.FreeformObject{
+					"confidence": agentruntime.JSONValue(0.5),
+				},
+			},
+		}
+		score, ok := confidenceCalibrationScore(run)
+		if !ok || score != 0.7 {
+			t.Fatalf("expected score 0.7, got %v ok=%v", score, ok)
+		}
+	})
+
+	// Missing confidence field
+	t.Run("missing field", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{},
+			},
+		}
+		_, ok := confidenceCalibrationScore(run)
+		if ok {
+			t.Fatal("expected ok=false when confidence missing")
+		}
+	})
+}
+
+func TestBuildEvaluationReport(t *testing.T) {
+	evaluation := apiv1alpha1.AgentEvaluation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eval-report-test",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentEvaluationSpec{
+			Thresholds: []apiv1alpha1.EvaluationThresholdSpec{
+				{Metric: "run_success", Target: 1.0},
+				{Metric: "confidence_calibration", Target: 0.8},
+			},
+			Gate: apiv1alpha1.EvaluationGateSpec{Mode: "all_blocking"},
+		},
+	}
+
+	current := evaluatedRunSet{
+		AgentRef: "agent-1",
+		Revision: "sha256:abc",
+		Runs: []apiv1alpha1.AgentRun{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "run-1"},
+				Status: apiv1alpha1.AgentRunStatus{
+					Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "run-2"},
+				Status: apiv1alpha1.AgentRunStatus{
+					Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+				},
+			},
+		},
+		Results: []apiv1alpha1.EvaluationMetricStatus{
+			{Name: "run_success", Metric: "run_success", Score: 1.0, Threshold: 1.0, Passed: true},
+			{Name: "confidence_calibration", Metric: "confidence_calibration", Score: 0.9, Threshold: 0.8, Passed: true, Reason: "well calibrated"},
+		},
+		Score:      0.95,
+		GatePassed: true,
+	}
+
+	samples := []evaluationSample{
+		{Name: "case-a", Input: apiv1alpha1.FreeformObject{"task": agentruntime.JSONValue("test")}},
+		{Name: "case-b", Input: apiv1alpha1.FreeformObject{"task": agentruntime.JSONValue("test")}},
+	}
+
+	baseline := &evaluatedRunSet{
+		AgentRef:   "agent-baseline",
+		Revision:   "sha256:def",
+		Score:      0.75,
+		GatePassed: false,
+	}
+
+	report := buildEvaluationReport(evaluation, current, baseline, samples)
+
+	// Verify report contains expected top-level keys
+	for _, key := range []string{"generatedAt", "evaluation", "agent", "overall", "metrics", "samples", "thresholds", "baseline"} {
+		if _, ok := report[key]; !ok {
+			t.Fatalf("expected report key %q to be present", key)
+		}
+	}
+
+	// Verify overall section
+	overallRaw, ok := report["overall"]
+	if !ok {
+		t.Fatal("expected overall in report")
+	}
+	var overall map[string]interface{}
+	if err := json.Unmarshal(overallRaw.Raw, &overall); err != nil {
+		t.Fatalf("failed to unmarshal overall: %v", err)
+	}
+	if overall["score"].(float64) != 0.95 {
+		t.Fatalf("expected overall score 0.95, got %v", overall["score"])
+	}
+	if overall["gatePassed"].(bool) != true {
+		t.Fatalf("expected gatePassed true, got %v", overall["gatePassed"])
+	}
+	if int(overall["samples"].(float64)) != 2 {
+		t.Fatalf("expected 2 samples, got %v", overall["samples"])
+	}
+
+	// Verify metrics section
+	metricsRaw, ok := report["metrics"]
+	if !ok {
+		t.Fatal("expected metrics in report")
+	}
+	var metrics []map[string]interface{}
+	if err := json.Unmarshal(metricsRaw.Raw, &metrics); err != nil {
+		t.Fatalf("failed to unmarshal metrics: %v", err)
+	}
+	if len(metrics) != 2 {
+		t.Fatalf("expected 2 metrics, got %d", len(metrics))
+	}
+	if metrics[0]["metric"] != "run_success" || metrics[0]["passed"].(bool) != true {
+		t.Fatalf("unexpected first metric: %v", metrics[0])
+	}
+	if metrics[1]["reason"] != "well calibrated" {
+		t.Fatalf("expected reason in second metric, got %v", metrics[1])
+	}
+
+	// Verify samples section
+	samplesRaw, ok := report["samples"]
+	if !ok {
+		t.Fatal("expected samples in report")
+	}
+	var reportSamples []map[string]interface{}
+	if err := json.Unmarshal(samplesRaw.Raw, &reportSamples); err != nil {
+		t.Fatalf("failed to unmarshal samples: %v", err)
+	}
+	if len(reportSamples) != 2 {
+		t.Fatalf("expected 2 sample summaries, got %d", len(reportSamples))
+	}
+	if reportSamples[0]["name"] != "case-a" || reportSamples[0]["succeeded"].(bool) != true {
+		t.Fatalf("unexpected first sample: %v", reportSamples[0])
+	}
+
+	// Verify baseline section
+	baselineRaw, ok := report["baseline"]
+	if !ok {
+		t.Fatal("expected baseline in report")
+	}
+	var baselineSection map[string]interface{}
+	if err := json.Unmarshal(baselineRaw.Raw, &baselineSection); err != nil {
+		t.Fatalf("failed to unmarshal baseline: %v", err)
+	}
+	if baselineSection["agentRef"] != "agent-baseline" {
+		t.Fatalf("expected baseline agentRef, got %v", baselineSection["agentRef"])
+	}
+	scoreDelta := baselineSection["scoreDelta"].(float64)
+	if scoreDelta < 0.19 || scoreDelta > 0.21 {
+		t.Fatalf("expected scoreDelta ~0.2, got %v", scoreDelta)
+	}
+}
+
+func TestBuildEvaluationReportWithoutBaseline(t *testing.T) {
+	evaluation := apiv1alpha1.AgentEvaluation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eval-no-baseline",
+			Namespace: "default",
+		},
+		Spec: apiv1alpha1.AgentEvaluationSpec{
+			Thresholds: []apiv1alpha1.EvaluationThresholdSpec{
+				{Metric: "run_success", Target: 1.0},
+			},
+		},
+	}
+	current := evaluatedRunSet{
+		AgentRef: "agent-1",
+		Revision: "sha256:abc",
+		Runs: []apiv1alpha1.AgentRun{
+			{ObjectMeta: metav1.ObjectMeta{Name: "run-1"}, Status: apiv1alpha1.AgentRunStatus{Phase: string(apiv1alpha1.AgentRunPhaseSucceeded)}},
+		},
+		Results:    []apiv1alpha1.EvaluationMetricStatus{{Name: "run_success", Metric: "run_success", Score: 1.0, Passed: true}},
+		Score:      1.0,
+		GatePassed: true,
+	}
+
+	report := buildEvaluationReport(evaluation, current, nil, nil)
+
+	if _, ok := report["baseline"]; ok {
+		t.Fatal("expected no baseline key when baseline is nil")
+	}
+	if _, ok := report["overall"]; !ok {
+		t.Fatal("expected overall key")
+	}
+}
+
+func TestNewEvaluatorsViaMetricScore(t *testing.T) {
+	agent := *readyAgent("test-agent", "default", "sha256:test")
+	sample := evaluationSample{Name: "test"}
+
+	t.Run("response_completeness via metricScore", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"summary":          agentruntime.JSONValue("found hazards"),
+					"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{}}),
+					"overallRiskLevel": agentruntime.JSONValue("high"),
+					"nextActions":      agentruntime.JSONValue([]string{"fix wiring"}),
+					"confidence":       agentruntime.JSONValue(0.9),
+					"needsHumanReview": agentruntime.JSONValue(false),
+				},
+			},
+		}
+		score, ok := metricScore(agent, run, sample, "response_completeness")
+		if !ok || score != 1.0 {
+			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	t.Run("output_coherence via metricScore", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"hazards":          agentruntime.JSONValue([]interface{}{map[string]interface{}{}}),
+					"overallRiskLevel": agentruntime.JSONValue("medium"),
+					"confidence":       agentruntime.JSONValue(0.9),
+					"needsHumanReview": agentruntime.JSONValue(false),
+				},
+			},
+		}
+		score, ok := metricScore(agent, run, sample, "output_coherence")
+		if !ok || score != 1.0 {
+			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	t.Run("actionable_next_steps via metricScore", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Output: apiv1alpha1.FreeformObject{
+					"nextActions": agentruntime.JSONValue([]string{"Replace the damaged electrical panel in room 301"}),
+				},
+			},
+		}
+		score, ok := metricScore(agent, run, sample, "actionable_next_steps")
+		if !ok || score != 1.0 {
+			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	t.Run("confidence_calibration via metricScore", func(t *testing.T) {
+		run := apiv1alpha1.AgentRun{
+			Status: apiv1alpha1.AgentRunStatus{
+				Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+				Output: apiv1alpha1.FreeformObject{
+					"confidence": agentruntime.JSONValue(0.88),
+				},
+			},
+		}
+		score, ok := metricScore(agent, run, sample, "confidence_calibration")
+		if !ok || score != 1.0 {
+			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
+		}
+	})
 }

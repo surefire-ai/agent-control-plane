@@ -3,7 +3,11 @@ resources:
 - bases/windosx.com_agentpolicies.yaml
 - bases/windosx.com_agentruns.yaml
 - bases/windosx.com_agents.yaml
+- bases/windosx.com_datasets.yaml
 - bases/windosx.com_knowledgebases.yaml
 - bases/windosx.com_mcpservers.yaml
 - bases/windosx.com_prompttemplates.yaml
+- bases/windosx.com_skills.yaml
+- bases/windosx.com_tenants.yaml
 - bases/windosx.com_toolproviders.yaml
+- bases/windosx.com_workspaces.yaml

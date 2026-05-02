@@ -102,9 +102,12 @@ func TestRunExecutesModelAndProducesStructuredResult(t *testing.T) {
 	if result.Output["model"] != "planner" {
 		t.Fatalf("expected model execution metadata, got %#v", result.Output)
 	}
-	parsed, ok := result.Output["result"].(map[string]interface{})
-	if !ok || parsed["summary"] != "inspection complete" {
-		t.Fatalf("expected parsed model result, got %#v", result.Output)
+	// The new EinoADKRunner merges parsed result directly into output.
+	if result.Output["summary"] != "inspection complete" {
+		t.Fatalf("expected summary in output, got %#v", result.Output)
+	}
+	if result.Output["modelResponse"] == nil {
+		t.Fatalf("expected modelResponse in output, got %#v", result.Output)
 	}
 	if len(result.Artifacts) < 4 {
 		t.Fatalf("expected prompt and chat completion artifacts, got %#v", result.Artifacts)

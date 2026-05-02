@@ -11,12 +11,12 @@ import (
 	"github.com/surefire-ai/korus/internal/contract"
 )
 
-func TestRunnerForReturnsEinoADKPlaceholderRunner(t *testing.T) {
+func TestRunnerForReturnsEinoADKRunner(t *testing.T) {
 	runner, err := runnerFor(contract.DefaultRuntimeIdentity())
 	if err != nil {
 		t.Fatalf("runnerFor returned error: %v", err)
 	}
-	if _, ok := runner.(EinoADKPlaceholderRunner); !ok {
+	if _, ok := runner.(EinoADKRunner); !ok {
 		t.Fatalf("unexpected runner type: %T", runner)
 	}
 }

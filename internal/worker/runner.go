@@ -162,7 +162,14 @@ func runnerFor(identity contract.RuntimeIdentity) (Runner, error) {
 	if err := identity.ValidateSupported(); err != nil {
 		return nil, err
 	}
-	return EinoADKPlaceholderRunner{Invoker: EinoOpenAIInvoker{}}, nil
+	// Phase 2: use the real Eino ADK runner with compose.Graph orchestration.
+	return EinoADKRunner{Invoker: EinoOpenAIInvoker{}}, nil
+}
+
+// placeholderRunner returns the Phase 1 placeholder runner for testing
+// and fallback purposes.
+func placeholderRunner() Runner {
+	return EinoADKPlaceholderRunner{Invoker: EinoOpenAIInvoker{}}
 }
 
 type ModelInvocation struct {

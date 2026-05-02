@@ -12,6 +12,8 @@ resources:
 
 images:
 - name: ghcr.io/surefire-ai/korus-controller-manager
-  newTag: latest
+  newName: korus-controller-manager
+  newTag: dev
 - name: ghcr.io/surefire-ai/korus-worker
-  newTag: latest
+  newName: korus-worker
+  newTag: dev

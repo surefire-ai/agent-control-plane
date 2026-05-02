@@ -1,3 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mock-openai-server
+  namespace: ehs
+data:
+  server.py: |
+    import json
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(length)
+            response = {
+                "id": "chatcmpl-mock",
+                "object": "chat.completion",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps({
+                            "summary": "inspection complete",
+                            "hazards": [],
+                            "overallRiskLevel": "medium",
+                            "nextActions": ["notify supervisor"],
+                            "confidence": 0.93,
+                            "needsHumanReview": False,
+                        }),
+                    },
+                    "finish_reason": "stop",
+                }],
+            }
+            body = json.dumps(response).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            self.do_POST()
+
+        def log_message(self, format, *args):
+            pass
+
+    server = HTTPServer(("0.0.0.0", 8080), Handler)
+    print("Mock OpenAI server listening on :8080")
+    server.serve_forever()
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,18 +67,18 @@ spec:
     spec:
       containers:
         - name: mock-openai
-          image: busybox:1.36
-          command:
-            - sh
-            - -c
-            - |
-              while true; do
-                response='{"id":"chatcmpl-mock","choices":[{"message":{"role":"assistant","content":"{\"summary\":\"inspection complete\",\"hazards\":[],\"overallRiskLevel\":\"medium\",\"nextActions\":[\"notify supervisor\"],\"confidence\":0.93,\"needsHumanReview\":false}"}}]}'
-                { printf 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %s\r\n\r\n%s' "${#response}" "$response"; } | nc -l -p 8080 -w 1
-              done
+          image: python:alpine
+          command: ["python", "/scripts/server.py"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
           ports:
             - containerPort: 8080
               name: http
+      volumes:
+        - name: scripts
+          configMap:
+            name: mock-openai-server
 ---
 apiVersion: v1
 kind: Service

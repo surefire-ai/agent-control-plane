@@ -65,6 +65,9 @@ Korus makes those concerns part of the platform contract.
 | Evaluation first | `AgentEvaluation` and `Dataset` support reusable samples, expected values, baseline comparison, metrics, and threshold gates. |
 | Enterprise scope | `Tenant` and `Workspace` CRDs act as lightweight runtime-scope bridge resources while the future manager owns product state in a database. |
 | Web Console direction | The `web/` scaffold is the start of a UX-first console for visual orchestration, evaluations, releases, providers, and governance. |
+| Agent patterns | Six built-in orchestration patterns — `react`, `router`, `reflection`, `tool_calling`, `plan_execute`, and `workflow` — so users can declare common agent designs without hand-writing a full graph. |
+| SubAgent composition | Agents can reference other Agents as SubAgents with cycle detection, async invocation through the gateway, and result propagation. |
+| Eino runtime | Workers execute compiled artifacts through Eino graphs with real LLM calls, tool invocation, and streaming support. |
 
 ## Architecture
 
@@ -206,9 +209,12 @@ The controller-manager accepts `--runtime-backend`:
 - `worker`: creates a Kubernetes Job and runs `cmd/worker` with the compiled
   artifact, run input, and secret-backed model configuration.
 
-The worker currently supports the first model-backed text execution path for
-OpenAI-compatible chat completion endpoints. A real Eino runner is being built
-behind the existing runner boundary.
+The worker executes compiled artifacts through Eino-based runners. Six
+orchestration patterns are supported: `react` (reasoning loop), `router`
+(classify and route), `reflection` (generate-critique-revise), `tool_calling`
+(model-driven structured tool calls), `plan_execute` (planner creates steps,
+executor completes them), and `workflow` (deterministic DAG execution). Each
+pattern maps to an Eino graph with real LLM calls and tool invocation.
 
 ## Web Console
 
@@ -239,7 +245,7 @@ See [`web/README.md`](./web/README.md) for current scope and development notes.
 | Phase | Focus | Status |
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP with CRDs, compilation, gateway invocation, worker Jobs, GHCR images, and Helm skeleton. | First public development baseline is in place. |
-| Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | In progress. |
+| Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | Core patterns complete (react, router, reflection, tool_calling, plan_execute, workflow). |
 | Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | Scaffolded. |
 | Phase 4 | Distributed agent fabric with multi-runtime execution, autoscaling, SubAgent composition, and A2A interoperability. | Planned. |
 
@@ -295,7 +301,8 @@ It is not yet a stable production release.
 
 Known alpha limits:
 
-- the Eino runner is still under active implementation;
+- the Eino runners cover six patterns but advanced features (streaming, parallel tool calls) are still evolving;
+- the Helm chart is not yet packaged for distribution;
 - gateway authentication, authorization, rate limiting, and idempotency are not
   complete;
 - cancellation, retry, timeout, and durable run artifact storage are not

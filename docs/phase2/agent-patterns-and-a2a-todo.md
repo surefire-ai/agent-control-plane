@@ -13,7 +13,7 @@ interfaces, memory, and observability as normal CRD fields.
 
 ## Agent Pattern Presets
 
-Status: in progress. `react` preset is implemented with iterative loop execution.
+Status: complete. All six presets are implemented and verified with k3d smoke tests.
 
 Add a first-class pattern field so users can declare the orchestration pattern
 without writing the full graph by hand. Other Agent inputs remain explicit and
@@ -53,9 +53,9 @@ Initial presets to support:
 | `react` | Reasoning plus tool use loop. | ✅ Implemented |
 | `router` | Classify task and route to specialized branch or SubAgent. | ✅ Implemented |
 | `reflection` | Generate, critique, and revise. | ✅ Implemented |
-| `plan_execute` | Planner creates steps, executor completes steps. | TODO |
+| `plan_execute` | Planner creates steps, executor completes steps. | ✅ Implemented |
 | `tool_calling` | Model-driven structured tool calls without full graph authoring. | ✅ Implemented |
-| `workflow` | Deterministic graph/workflow compiled from explicit nodes. | TODO |
+| `workflow` | Deterministic graph/workflow compiled from explicit nodes. | ✅ Implemented |
 
 ## Skill Support
 
@@ -97,10 +97,10 @@ Runtime TODO:
   bundles as first-class inputs.
 - Keep skill expansion compatible with future SubAgent and A2A boundaries.
 
-Compiler TODO:
+Compiler status:
 
-- Added `spec.pattern` and first-pass `react` expansion into `runner.graph`
-  when `spec.graph` is empty.
+- Added `spec.pattern` expansion for all six patterns into `runner.graph`
+  when `spec.graph` is empty. ✅ Implemented.
 - `react` should consume the normal `knowledgeRefs` and `toolRefs` selection,
   rather than requiring a separate `rag` preset.
 - Preserve user-selected models, tools, knowledge, MCP servers, policies, and
@@ -112,10 +112,15 @@ Compiler TODO:
 - Preserve the original pattern declaration in the compiled artifact.
 - Include pattern expansion metadata in `Agent.status.compiledArtifact`.
 
-Runtime TODO:
+Runtime status:
 
-- Map `react` to an Eino ADK/Graph loop. ✅ Implemented: `react_runner.go`
-  provides an iterative reason→act→observe loop with dynamic tool selection.
+- Map patterns to Eino runners. ✅ Implemented:
+  - `react` → `react_runner.go`: iterative reason→act→observe loop.
+  - `router` → `router_runner.go`: classify task → route to SubAgent.
+  - `reflection` → `reflection_runner.go`: generate→critique→revise loop.
+  - `tool_calling` → `tool_calling_runner.go`: model-driven structured tool calls.
+  - `plan_execute` → `plan_execute_runner.go`: planner creates JSON steps → executor completes each.
+  - `workflow` → `workflow_runner.go`: deterministic DAG execution via Eino graph.
 - Enforce iteration limits and tool allowlists. ✅ Implemented: maxIterations
   from pattern config; tool allowlists from compiled artifact tools.
 - Report pattern metadata in worker output and trace references. ✅ Implemented:

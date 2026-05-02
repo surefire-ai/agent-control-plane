@@ -62,6 +62,9 @@ Korus 把这些能力变成平台契约的一部分。
 | Evaluation 优先 | `AgentEvaluation` 和 `Dataset` 支持可复用样本、expected value、baseline 对比、metric 和 threshold gate。 |
 | 企业级范围 | `Tenant` 和 `Workspace` CRD 当前是轻量 runtime-scope bridge，未来 canonical 产品状态由 manager 数据库持有。 |
 | Web Console 方向 | `web/` 是 UX-first console 的起点，面向可视化编排、evaluation、release、provider 和治理体验。 |
+| Agent pattern | 六种内置编排模式 — `react`、`router`、`reflection`、`tool_calling`、`plan_execute`、`workflow`，用户无需手写完整 graph 即可声明常见 Agent 设计。 |
+| SubAgent 组合 | Agent 可引用其他 Agent 作为 SubAgent，支持环路检测、gateway 异步调用和结果传播。 |
+| Eino runtime | Worker 通过 Eino graph 执行 compiled artifact，支持真实 LLM 调用、tool 调用和流式输出。 |
 
 ## 架构
 
@@ -200,9 +203,11 @@ controller-manager 接受 `--runtime-backend`：
 - `worker`：创建 Kubernetes Job，并运行带 compiled artifact、run input 和
   Secret-backed 模型配置的 `cmd/worker`。
 
-worker 当前支持第一条面向 OpenAI-compatible chat completion endpoint 的
-model-backed text execution path。真实 Eino runner 正在现有 runner boundary
-后面逐步接入。
+Worker 通过基于 Eino 的 runner 执行 compiled artifact。支持六种编排模式：
+`react`（推理循环）、`router`（分类路由）、`reflection`（生成-评审-修订）、
+`tool_calling`（模型驱动结构化 tool 调用）、`plan_execute`（规划者创建步骤、
+执行者完成）和 `workflow`（确定性 DAG 执行）。每种模式映射到一个 Eino graph，
+支持真实 LLM 调用和 tool 调用。
 
 ## Web Console
 
@@ -233,7 +238,7 @@ npm run dev:fake
 | 阶段 | 重点 | 状态 |
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP，包括 CRD、编译、gateway invoke、worker Job、GHCR 镜像和 Helm skeleton。 | 第一个公开开发基线已具备。 |
-| Phase 2 | 真实 Eino runtime、provider catalog、模型凭据流、policy check、pattern、持久 run artifact 和更强的 evaluation contract。 | 进行中。 |
+| Phase 2 | 真实 Eino runtime、provider catalog、模型凭据流、policy check、pattern、持久 run artifact 和更强的 evaluation contract。 | 核心 pattern 已完成（react, router, reflection, tool_calling, plan_execute, workflow）。 |
 | Phase 3 | 基于 manager 的企业产品界面，包括 Web Console、tenant、workspace、可视化编排、发布流程、evaluation UX 和 provider 管理。 | 已有 scaffold。 |
 | Phase 4 | 分布式 Agent Fabric，包括 multi-runtime execution、autoscaling、SubAgent composition 和 A2A 互操作。 | 规划中。 |
 
@@ -288,7 +293,8 @@ Kubernetes smoke test。它还不是稳定生产版本。
 
 当前 alpha 限制：
 
-- Eino runner 仍在实现中；
+- Eino runner 覆盖六种模式，但高级特性（流式输出、并行 tool 调用）仍在演进；
+- Helm chart 尚未打包分发；
 - gateway 认证、鉴权、限流和幂等尚未完成；
 - 取消、重试、超时和持久 run artifact storage 尚未完成；
 - Web Console 和 manager backend 仍是 scaffold；

@@ -412,7 +412,7 @@ func TestCompileAgentRejectsPatternWithExplicitGraph(t *testing.T) {
 func TestCompileAgentRejectsUnsupportedPatternType(t *testing.T) {
 	agent := testAgent()
 	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
-	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "plan_execute", ModelRef: "planner"}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "unknown_pattern", ModelRef: "planner"}
 
 	_, err := CompileAgent(agent, ReferenceIndex{
 		Prompts: set("ehs-hazard-identification-system"),
@@ -439,7 +439,7 @@ func TestCompileAgentRejectsUnsupportedPatternType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unsupported pattern error")
 	}
-	if !strings.Contains(err.Error(), `pattern.type "plan_execute" is not supported yet`) {
+	if !strings.Contains(err.Error(), `pattern.type "unknown_pattern" is not supported yet`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -44,8 +44,30 @@ class Handler(BaseHTTPRequestHandler):
 
         _, call_count = get_call_count(req)
 
+        # Plan-execute: planning phase
+        if 'planning phase' in system_msg.lower():
+            content = json.dumps([
+                {"id": "step-1", "description": "提取现场隐患事实", "action": "分析配电箱和积水情况"},
+                {"id": "step-2", "description": "评估风险等级", "action": "根据EHS标准评估电气风险"},
+                {"id": "step-3", "description": "生成整改建议", "action": "输出整改工单和安全建议"}
+            ])
+            message = {
+                "role": "assistant",
+                "content": content
+            }
+        # Plan-execute: execution phase
+        elif 'execution phase' in system_msg.lower():
+            content = json.dumps({
+                "status": "completed",
+                "result": "配电箱门未关闭，地面有积水，电气风险等级：高",
+                "action_taken": "已识别隐患并生成整改建议"
+            })
+            message = {
+                "role": "assistant",
+                "content": content
+            }
         # Router classifier mode
-        if 'task classifier' in system_msg.lower() or 'classification' in system_msg.lower():
+        elif 'task classifier' in system_msg.lower() or 'classification' in system_msg.lower():
             content = json.dumps({
                 "classification": "electrical"
             })

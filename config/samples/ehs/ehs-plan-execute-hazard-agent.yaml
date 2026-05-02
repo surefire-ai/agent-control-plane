@@ -1,0 +1,44 @@
+apiVersion: windosx.com/v1alpha1
+kind: Agent
+metadata:
+  name: ehs-plan-execute-hazard-agent
+  namespace: ehs
+spec:
+  lifecycle:
+    desiredPhase: Published
+  runtime:
+    engine: eino
+    runnerClass: adk
+    entrypoint: ehs.plan_execute_hazard
+  identity:
+    displayName: EHS Plan-Execute Hazard Agent
+    role: hazard-planner
+    description: Plans hazard identification steps then executes each step sequentially.
+  pattern:
+    type: plan_execute
+    version: v1
+    modelRef: planner
+    maxIterations: 5
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      baseURL: http://mock-openai.ehs.svc.cluster.local:8080/v1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
+      temperature: 0.1
+      maxTokens: 4000
+      timeoutSeconds: 60
+  promptRefs:
+    system: ehs-hazard-identification-system
+  toolRefs:
+    - rectify-ticket-api
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+  policyRef: ehs-default-safety-policy
+  interfaces:
+    output:
+      schema:
+        type: object

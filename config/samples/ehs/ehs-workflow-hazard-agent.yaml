@@ -1,0 +1,59 @@
+apiVersion: windosx.com/v1alpha1
+kind: Agent
+metadata:
+  name: ehs-workflow-hazard-agent
+  namespace: ehs
+spec:
+  lifecycle:
+    desiredPhase: Published
+  runtime:
+    engine: eino
+    runnerClass: adk
+    entrypoint: ehs.workflow_hazard
+  identity:
+    displayName: EHS Workflow Hazard Agent
+    role: hazard-workflow
+    description: Deterministic workflow for EHS hazard identification using explicit graph steps.
+  pattern:
+    type: workflow
+    version: v1
+    modelRef: planner
+  graph:
+    nodes:
+      - name: extract_facts
+        kind: llm
+        modelRef: planner
+      - name: assess_risk
+        kind: llm
+        modelRef: planner
+      - name: generate_output
+        kind: llm
+        modelRef: planner
+    edges:
+      - from: extract_facts
+        to: assess_risk
+      - from: assess_risk
+        to: generate_output
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      baseURL: http://mock-openai.ehs.svc.cluster.local:8080/v1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
+      temperature: 0.1
+      maxTokens: 4000
+      timeoutSeconds: 60
+  promptRefs:
+    system: ehs-hazard-identification-system
+  toolRefs:
+    - rectify-ticket-api
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+  policyRef: ehs-default-safety-policy
+  interfaces:
+    output:
+      schema:
+        type: object

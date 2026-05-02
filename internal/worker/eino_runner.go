@@ -69,6 +69,12 @@ var patternRegistry = []struct {
 	{"tool_calling", isToolCallingPattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
 		return r.executeToolCallingLoop(ctx, request, runtimeInfo)
 	}},
+	{"plan_execute", isPlanExecutePattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
+		return r.executePlanExecuteLoop(ctx, request, runtimeInfo)
+	}},
+	{"workflow", isWorkflowPattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
+		return r.executeWorkflow(ctx, request, runtimeInfo)
+	}},
 }
 
 func (r EinoADKRunner) Run(ctx context.Context, request RunRequest) (contract.WorkerResult, error) {

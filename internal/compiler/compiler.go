@@ -406,6 +406,12 @@ func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1
 	case "tool_calling":
 		// tool_calling is handled entirely in the runtime — no graph expansion needed.
 		return graph
+	case "plan_execute":
+		// plan_execute is handled entirely in the runtime — no graph expansion needed.
+		return graph
+	case "workflow":
+		// workflow uses the explicit graph as-is — the compiler already has it.
+		return graph
 	default:
 		return graph
 	}
@@ -600,7 +606,10 @@ func validatePattern(spec apiv1alpha1.AgentSpec) error {
 		return fmt.Errorf("pattern.type is required when spec.pattern is set")
 	}
 	if len(spec.Graph.Nodes) > 0 || len(spec.Graph.Edges) > 0 {
-		return fmt.Errorf("spec.pattern cannot be used together with explicit spec.graph")
+		// Workflow pattern is the only pattern that uses explicit graph nodes.
+		if patternType != "workflow" {
+			return fmt.Errorf("spec.pattern cannot be used together with explicit spec.graph")
+		}
 	}
 	modelRef := strings.TrimSpace(spec.Pattern.ModelRef)
 	if modelRef != "" {
@@ -617,6 +626,10 @@ func validatePattern(spec apiv1alpha1.AgentSpec) error {
 		return nil
 	case "tool_calling":
 		return nil
+	case "plan_execute":
+		return nil
+	case "workflow":
+		return validateWorkflowPattern(spec)
 	default:
 		return fmt.Errorf("pattern.type %q is not supported yet", patternType)
 	}
@@ -640,6 +653,14 @@ func validateRouterPattern(pattern *apiv1alpha1.AgentPatternSpec) error {
 	}
 	if !hasDefault {
 		return fmt.Errorf("router pattern requires at least one route with default=true")
+	}
+	return nil
+}
+
+func validateWorkflowPattern(spec apiv1alpha1.AgentSpec) error {
+	// Workflow pattern requires an explicit graph definition.
+	if len(spec.Graph.Nodes) == 0 {
+		return fmt.Errorf("workflow pattern requires at least one node in spec.graph")
 	}
 	return nil
 }

@@ -572,6 +572,8 @@ func normalizeNodeName(raw interface{}) string {
 
 // autoWireEdges adds automatic START → first-node → END edges when the
 // artifact graph has nodes but no edges, or when edges don't reference START.
+// Note: wireEdges() already handles END connections for leaf nodes when edges
+// exist, so this function only handles the START connection for that case.
 func autoWireEdges(g *compose.Graph[graphState, graphState], nodesRaw []interface{}, edgesRaw []interface{}) error {
 	// Collect all node names.
 	nodeNames := make([]string, 0, len(nodesRaw))
@@ -625,7 +627,9 @@ func autoWireEdges(g *compose.Graph[graphState, graphState], nodesRaw []interfac
 	}
 
 	// If no edges reference END, wire last node → END.
-	if !hasEndEdge {
+	// Only do this when there are no explicit edges — wireEdges() already
+	// handles END connections for leaf nodes when edges exist.
+	if !hasEndEdge && len(edgesRaw) == 0 {
 		// Find leaf nodes (nodes with no outgoing edges).
 		outgoing := make(map[string]bool)
 		for _, raw := range edgesRaw {

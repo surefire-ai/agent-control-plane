@@ -71,6 +71,17 @@ func (r EinoADKRunner) Run(ctx context.Context, request RunRequest) (contract.Wo
 		}
 	}
 
+	// Try router pattern (classify → route).
+	if isRouterPattern(request.Artifact) {
+		if result, ok, err := r.executeRouterLoop(ctx, request, runtimeInfo); err != nil {
+			return contract.WorkerResult{}, err
+		} else if ok {
+			result.StartedAt = startedAt
+			result.Artifacts = append(result.Artifacts, artifacts...)
+			return result, nil
+		}
+	}
+
 	// Try graph-based execution next.
 	if result, ok, err := r.tryGraphExecution(ctx, request, runtimeInfo); err != nil {
 		return contract.WorkerResult{}, err

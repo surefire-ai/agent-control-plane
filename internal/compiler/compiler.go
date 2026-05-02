@@ -24,8 +24,10 @@ type ReferenceIndex struct {
 	Skills          map[string]struct{}
 	SkillSpecs      map[string]apiv1alpha1.SkillSpec
 	SubAgents       map[string]struct{}
-	MCPServers      map[string]struct{}
-	Policies        map[string]struct{}
+	// SubAgentRefs maps agent name → its SubAgentRef list, for cycle detection.
+	SubAgentRefs map[string][]apiv1alpha1.SubAgentBindingSpec
+	MCPServers   map[string]struct{}
+	Policies     map[string]struct{}
 }
 
 type Result struct {
@@ -43,6 +45,9 @@ func CompileAgent(agent apiv1alpha1.Agent, refs ReferenceIndex) (Result, error) 
 	missing := findMissingReferences(agent, refs)
 	if len(missing) > 0 {
 		return Result{}, fmt.Errorf("missing references: %v", missing)
+	}
+	if err := DetectSubAgentCycles(agent.Name, agent.Spec.SubAgentRefs, refs.SubAgentRefs); err != nil {
+		return Result{}, err
 	}
 	if err := validateSkillGraphMerges(agent.Spec, refs.SkillSpecs); err != nil {
 		return Result{}, err
@@ -141,6 +146,23 @@ func patternForArtifact(spec apiv1alpha1.AgentSpec) map[string]interface{} {
 		"knowledgeRefs": spec.Pattern.KnowledgeRefs,
 		"maxIterations": spec.Pattern.MaxIterations,
 		"stopWhen":      spec.Pattern.StopWhen,
+	}
+	if len(spec.Pattern.Routes) > 0 {
+		routes := make([]map[string]interface{}, 0, len(spec.Pattern.Routes))
+		for _, r := range spec.Pattern.Routes {
+			route := map[string]interface{}{
+				"label":   r.Label,
+				"default": r.Default,
+			}
+			if r.AgentRef != "" {
+				route["agentRef"] = r.AgentRef
+			}
+			if r.ModelRef != "" {
+				route["modelRef"] = r.ModelRef
+			}
+			routes = append(routes, route)
+		}
+		pattern["routes"] = routes
 	}
 	if expansion := patternExpansionMetadata(spec); expansion != nil {
 		pattern["expansion"] = expansion
@@ -377,9 +399,74 @@ func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1
 	switch strings.TrimSpace(pattern.Type) {
 	case "react":
 		return reactPatternGraph(pattern, graph, toolRefs, knowledgeRefs)
+	case "router":
+		return routerPatternGraph(pattern, graph)
 	default:
 		return graph
 	}
+}
+
+func routerPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
+	modelRef := strings.TrimSpace(pattern.ModelRef)
+	if modelRef == "" {
+		modelRef = "classifier"
+	}
+
+	nodes := make([]apiv1alpha1.AgentGraphNode, 0, len(pattern.Routes)+2)
+	edges := make([]apiv1alpha1.AgentGraphEdge, 0, len(pattern.Routes)*2+2)
+
+	// Classify node.
+	nodes = append(nodes, apiv1alpha1.AgentGraphNode{
+		Name:     "classify",
+		Kind:     "llm",
+		ModelRef: modelRef,
+	})
+	edges = append(edges, apiv1alpha1.AgentGraphEdge{From: "START", To: "classify"})
+
+	// Route nodes.
+	for _, route := range pattern.Routes {
+		label := strings.TrimSpace(route.Label)
+		if label == "" {
+			continue
+		}
+		nodeName := "route_" + strings.ReplaceAll(label, "-", "_")
+
+		if strings.TrimSpace(route.AgentRef) != "" {
+			nodes = append(nodes, apiv1alpha1.AgentGraphNode{
+				Name:     nodeName,
+				Kind:     "agent",
+				AgentRef: route.AgentRef,
+			})
+		} else {
+			routeModelRef := strings.TrimSpace(route.ModelRef)
+			if routeModelRef == "" {
+				routeModelRef = modelRef
+			}
+			nodes = append(nodes, apiv1alpha1.AgentGraphNode{
+				Name:     nodeName,
+				Kind:     "llm",
+				ModelRef: routeModelRef,
+			})
+		}
+
+		when := fmt.Sprintf("classification == %q", label)
+		if route.Default {
+			when = "default"
+		}
+		edges = append(edges, apiv1alpha1.AgentGraphEdge{
+			From: "classify",
+			To:   nodeName,
+			When: when,
+		})
+		edges = append(edges, apiv1alpha1.AgentGraphEdge{
+			From: nodeName,
+			To:   "END",
+		})
+	}
+
+	graph.Nodes = nodes
+	graph.Edges = edges
+	return graph
 }
 
 func reactPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec, toolRefs []string, knowledgeRefs []apiv1alpha1.KnowledgeBindingSpec) apiv1alpha1.AgentGraphSpec {
@@ -496,9 +583,33 @@ func validatePattern(spec apiv1alpha1.AgentSpec) error {
 	switch patternType {
 	case "react":
 		return nil
+	case "router":
+		return validateRouterPattern(spec.Pattern)
 	default:
 		return fmt.Errorf("pattern.type %q is not supported yet", patternType)
 	}
+}
+
+func validateRouterPattern(pattern *apiv1alpha1.AgentPatternSpec) error {
+	if len(pattern.Routes) == 0 {
+		return fmt.Errorf("router pattern requires at least one route")
+	}
+	hasDefault := false
+	for i, route := range pattern.Routes {
+		if strings.TrimSpace(route.Label) == "" {
+			return fmt.Errorf("router route[%d]: label is required", i)
+		}
+		if strings.TrimSpace(route.AgentRef) == "" && strings.TrimSpace(route.ModelRef) == "" {
+			return fmt.Errorf("router route[%d] %q: agentRef or modelRef is required", i, route.Label)
+		}
+		if route.Default {
+			hasDefault = true
+		}
+	}
+	if !hasDefault {
+		return fmt.Errorf("router pattern requires at least one route with default=true")
+	}
+	return nil
 }
 
 func validateSkillGraphMerges(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec) error {
@@ -634,6 +745,10 @@ func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []strin
 		if !contains(refs.SubAgents, subAgentRef.Ref) {
 			missing = append(missing, "Agent/"+subAgentRef.Ref)
 		}
+		// Self-reference check.
+		if subAgentRef.Ref == agent.Name {
+			missing = append(missing, fmt.Sprintf("Agent/%s: self-reference in subAgentRefs", agent.Name))
+		}
 	}
 
 	// Validate graph nodes with kind=agent have a matching subAgentRef.
@@ -651,6 +766,17 @@ func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []strin
 		}
 	}
 
+	// Validate router pattern routes reference valid SubAgents.
+	if agent.Spec.Pattern != nil && agent.Spec.Pattern.Type == "router" {
+		for _, route := range agent.Spec.Pattern.Routes {
+			if ref := strings.TrimSpace(route.AgentRef); ref != "" {
+				if _, ok := subAgentNames[ref]; !ok {
+					missing = append(missing, fmt.Sprintf("router route %q: agentRef %q not found in subAgentRefs", route.Label, ref))
+				}
+			}
+		}
+	}
+
 	sort.Strings(missing)
 	return missing
 }
@@ -661,6 +787,32 @@ func contains(values map[string]struct{}, name string) bool {
 	}
 	_, ok := values[name]
 	return ok
+}
+
+// DetectSubAgentCycles checks for cycles in the SubAgent dependency graph.
+// It performs a DFS from the given agent and returns an error if a cycle is found.
+func DetectSubAgentCycles(agentName string, agentRefs []apiv1alpha1.SubAgentBindingSpec, index map[string][]apiv1alpha1.SubAgentBindingSpec) error {
+	visited := make(map[string]bool)
+	return dfsVisit(agentName, agentRefs, index, visited)
+}
+
+func dfsVisit(current string, refs []apiv1alpha1.SubAgentBindingSpec, index map[string][]apiv1alpha1.SubAgentBindingSpec, visited map[string]bool) error {
+	visited[current] = true
+	defer delete(visited, current)
+
+	for _, ref := range refs {
+		if visited[ref.Ref] {
+			return fmt.Errorf("SubAgent cycle detected: %s → %s", current, ref.Ref)
+		}
+		childRefs, ok := index[ref.Ref]
+		if !ok {
+			continue
+		}
+		if err := dfsVisit(ref.Ref, childRefs, index, visited); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func revisionFor(artifact apiv1alpha1.FreeformObject) string {

@@ -412,7 +412,7 @@ func TestCompileAgentRejectsPatternWithExplicitGraph(t *testing.T) {
 func TestCompileAgentRejectsUnsupportedPatternType(t *testing.T) {
 	agent := testAgent()
 	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
-	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "router", ModelRef: "planner"}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{Type: "plan_execute", ModelRef: "planner"}
 
 	_, err := CompileAgent(agent, ReferenceIndex{
 		Prompts: set("ehs-hazard-identification-system"),
@@ -439,7 +439,7 @@ func TestCompileAgentRejectsUnsupportedPatternType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unsupported pattern error")
 	}
-	if !strings.Contains(err.Error(), `pattern.type "router" is not supported yet`) {
+	if !strings.Contains(err.Error(), `pattern.type "plan_execute" is not supported yet`) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -833,5 +833,198 @@ func TestCompileAgentRejectsAgentNodeWithUnmatchedAgentRef(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "agentRef \"nonexistent_binding\" not found in subAgentRefs") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileAgentExpandsRouterPattern(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:     "router",
+		Version:  "v1",
+		ModelRef: "planner",
+		Routes: []apiv1alpha1.PatternRoute{
+			{Label: "safety", AgentRef: "risk_scorer"},
+			{Label: "compliance", ModelRef: "planner"},
+			{Label: "general", ModelRef: "planner", Default: true},
+		},
+	}
+	agent.Spec.SubAgentRefs = []apiv1alpha1.SubAgentBindingSpec{
+		{Name: "risk_scorer", Ref: "ehs-risk-scoring-agent"},
+	}
+
+	result, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		SubAgents:  set("ehs-risk-scoring-agent"),
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err != nil {
+		t.Fatalf("CompileAgent returned error: %v", err)
+	}
+
+	runner := runnerArtifact(t, result.Artifact["runner"])
+	nodes, _ := runner.Graph["nodes"].([]interface{})
+	// Expected: classify + 3 route nodes = 4 (plus 1 skill node from skillSpec = 5)
+	if len(nodes) != 5 {
+		t.Fatalf("expected 5 graph nodes (skill + classify + 3 routes), got %d: %#v", len(nodes), runner.Graph)
+	}
+
+	edges, _ := runner.Graph["edges"].([]interface{})
+	// Expected: 2 skill edges + 7 router edges = 9
+	if len(edges) != 9 {
+		t.Fatalf("expected 9 graph edges, got %d: %#v", len(edges), runner.Graph)
+	}
+
+	if runner.Pattern["type"] != "router" {
+		t.Fatalf("expected runner pattern type router, got %#v", runner.Pattern)
+	}
+}
+
+func TestCompileAgentRouterPatternRequiresRoutes(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:     "router",
+		ModelRef: "planner",
+	}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts:         set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{"ehs-hazard-identification-system": promptTemplateSpec()},
+		KnowledgeBases:  set("ehs-regulations"),
+		KnowledgeSpecs:  map[string]apiv1alpha1.KnowledgeBaseSpec{"ehs-regulations": knowledgeSpec("法规库", 5, 0.72)},
+		Tools:           set("vision-inspection-tool"),
+		ToolSpecs:       map[string]apiv1alpha1.ToolProviderSpec{"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具")},
+		MCPServers:      set("ehs-docs-mcp"),
+		Policies:        set("ehs-default-safety-policy"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "router pattern requires at least one route") {
+		t.Fatalf("expected route requirement error, got %v", err)
+	}
+}
+
+func TestCompileAgentRouterPatternRequiresDefault(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:     "router",
+		ModelRef: "planner",
+		Routes: []apiv1alpha1.PatternRoute{
+			{Label: "safety", ModelRef: "planner"},
+		},
+	}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts:         set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{"ehs-hazard-identification-system": promptTemplateSpec()},
+		KnowledgeBases:  set("ehs-regulations"),
+		KnowledgeSpecs:  map[string]apiv1alpha1.KnowledgeBaseSpec{"ehs-regulations": knowledgeSpec("法规库", 5, 0.72)},
+		Tools:           set("vision-inspection-tool"),
+		ToolSpecs:       map[string]apiv1alpha1.ToolProviderSpec{"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具")},
+		MCPServers:      set("ehs-docs-mcp"),
+		Policies:        set("ehs-default-safety-policy"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires at least one route with default=true") {
+		t.Fatalf("expected default route requirement error, got %v", err)
+	}
+}
+
+func TestCompileAgentRouterRejectsRouteWithMissingSubAgent(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:     "router",
+		ModelRef: "planner",
+		Routes: []apiv1alpha1.PatternRoute{
+			{Label: "safety", AgentRef: "nonexistent"},
+			{Label: "general", ModelRef: "planner", Default: true},
+		},
+	}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts:         set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{"ehs-hazard-identification-system": promptTemplateSpec()},
+		KnowledgeBases:  set("ehs-regulations"),
+		KnowledgeSpecs:  map[string]apiv1alpha1.KnowledgeBaseSpec{"ehs-regulations": knowledgeSpec("法规库", 5, 0.72)},
+		Tools:           set("vision-inspection-tool"),
+		ToolSpecs:       map[string]apiv1alpha1.ToolProviderSpec{"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具")},
+		MCPServers:      set("ehs-docs-mcp"),
+		Policies:        set("ehs-default-safety-policy"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "agentRef \"nonexistent\" not found in subAgentRefs") {
+		t.Fatalf("expected missing SubAgent error, got %v", err)
+	}
+}
+
+func TestCompileAgentRejectsSelfReferencingSubAgent(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.SubAgentRefs = []apiv1alpha1.SubAgentBindingSpec{
+		{Name: "self", Ref: "ehs-hazard-identification-agent"}, // self-reference
+	}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		SubAgents:  set("ehs-hazard-identification-agent"),
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil || !strings.Contains(err.Error(), "self-reference") {
+		t.Fatalf("expected self-reference error, got %v", err)
+	}
+}
+
+func TestDetectSubAgentCyclesFindsTwoCycle(t *testing.T) {
+	index := map[string][]apiv1alpha1.SubAgentBindingSpec{
+		"agentA": {{Name: "b", Ref: "agentB"}},
+		"agentB": {{Name: "a", Ref: "agentA"}},
+	}
+
+	err := DetectSubAgentCycles("agentA", index["agentA"], index)
+	if err == nil || !strings.Contains(err.Error(), "cycle detected") {
+		t.Fatalf("expected cycle detection error, got %v", err)
+	}
+}
+
+func TestDetectSubAgentCyclesPassesForAcyclic(t *testing.T) {
+	index := map[string][]apiv1alpha1.SubAgentBindingSpec{
+		"agentA": {{Name: "b", Ref: "agentB"}},
+		"agentB": {{Name: "c", Ref: "agentC"}},
+		"agentC": {},
+	}
+
+	err := DetectSubAgentCycles("agentA", index["agentA"], index)
+	if err != nil {
+		t.Fatalf("expected no cycle, got %v", err)
 	}
 }

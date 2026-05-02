@@ -71,7 +71,16 @@ type ArtifactPattern struct {
 	KnowledgeRefs []string               `json:"knowledgeRefs,omitempty"`
 	MaxIterations int32                  `json:"maxIterations,omitempty"`
 	StopWhen      string                 `json:"stopWhen,omitempty"`
+	Routes        []PatternRouteConfig   `json:"routes,omitempty"`
 	Expansion     map[string]interface{} `json:"expansion,omitempty"`
+}
+
+// PatternRouteConfig defines a route in the router pattern.
+type PatternRouteConfig struct {
+	Label    string `json:"label,omitempty"`
+	AgentRef string `json:"agentRef,omitempty"`
+	ModelRef string `json:"modelRef,omitempty"`
+	Default  bool   `json:"default,omitempty"`
 }
 
 type SkillSpec struct {

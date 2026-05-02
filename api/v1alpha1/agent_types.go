@@ -60,13 +60,26 @@ type AgentIdentitySpec struct {
 }
 
 type AgentPatternSpec struct {
-	Type          string   `json:"type,omitempty"`
-	Version       string   `json:"version,omitempty"`
-	ModelRef      string   `json:"modelRef,omitempty"`
-	ToolRefs      []string `json:"toolRefs,omitempty"`
-	KnowledgeRefs []string `json:"knowledgeRefs,omitempty"`
-	MaxIterations int32    `json:"maxIterations,omitempty"`
-	StopWhen      string   `json:"stopWhen,omitempty"`
+	Type          string         `json:"type,omitempty"`
+	Version       string         `json:"version,omitempty"`
+	ModelRef      string         `json:"modelRef,omitempty"`
+	ToolRefs      []string       `json:"toolRefs,omitempty"`
+	KnowledgeRefs []string       `json:"knowledgeRefs,omitempty"`
+	MaxIterations int32          `json:"maxIterations,omitempty"`
+	StopWhen      string         `json:"stopWhen,omitempty"`
+	Routes        []PatternRoute `json:"routes,omitempty"`
+}
+
+// PatternRoute defines a routing target for the router pattern.
+type PatternRoute struct {
+	// Label is the classification label that triggers this route.
+	Label string `json:"label"`
+	// AgentRef routes to a SubAgent by name.
+	AgentRef string `json:"agentRef,omitempty"`
+	// ModelRef routes to a model invocation by name.
+	ModelRef string `json:"modelRef,omitempty"`
+	// Default marks this route as the fallback when no label matches.
+	Default bool `json:"default,omitempty"`
 }
 
 type AgentPromptRefs struct {

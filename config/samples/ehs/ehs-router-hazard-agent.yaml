@@ -1,0 +1,54 @@
+apiVersion: windosx.com/v1alpha1
+kind: Agent
+metadata:
+  name: ehs-router-hazard-agent
+  namespace: ehs
+spec:
+  lifecycle:
+    desiredPhase: Published
+  runtime:
+    engine: eino
+    runnerClass: adk
+    entrypoint: ehs.router_hazard
+  identity:
+    displayName: EHS Router Hazard Agent
+    role: hazard-router
+    description: Routes EHS hazard tasks to specialized handlers based on classification.
+  pattern:
+    type: router
+    version: v1
+    modelRef: planner
+    routes:
+      - label: electrical
+        agentRef: ehs-hazard-handler
+      - label: chemical
+        modelRef: planner
+      - label: general
+        modelRef: planner
+        default: true
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      baseURL: http://mock-openai.ehs.svc.cluster.local:8080/v1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
+      temperature: 0.1
+      maxTokens: 4000
+      timeoutSeconds: 60
+  subAgentRefs:
+    - name: ehs-hazard-handler
+      ref: ehs-hazard-identification-agent
+  promptRefs:
+    system: ehs-hazard-identification-system
+  toolRefs:
+    - rectify-ticket-api
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+  policyRef: ehs-default-safety-policy
+  interfaces:
+    output:
+      schema:
+        type: object

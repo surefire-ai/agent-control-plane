@@ -198,6 +198,29 @@ spec:
                     type: integer
                   modelRef:
                     type: string
+                  routes:
+                    items:
+                      description: PatternRoute defines a routing target for the router
+                        pattern.
+                      properties:
+                        agentRef:
+                          description: AgentRef routes to a SubAgent by name.
+                          type: string
+                        default:
+                          description: Default marks this route as the fallback when
+                            no label matches.
+                          type: boolean
+                        label:
+                          description: Label is the classification label that triggers
+                            this route.
+                          type: string
+                        modelRef:
+                          description: ModelRef routes to a model invocation by name.
+                          type: string
+                      required:
+                      - label
+                      type: object
+                    type: array
                   stopWhen:
                     type: string
                   toolRefs:

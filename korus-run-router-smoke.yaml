@@ -1,0 +1,15 @@
+apiVersion: windosx.com/v1alpha1
+kind: AgentRun
+metadata:
+  generateName: ehs-router-smoke-
+  namespace: ehs
+spec:
+  agentRef:
+    name: ehs-router-hazard-agent
+  execution:
+    mode: sync
+    source: router-smoke-test
+  input:
+    task: identify_hazard
+    payload:
+      text: "配电箱门打开，地面有积水"

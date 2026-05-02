@@ -206,7 +206,7 @@ func (r EinoADKRunner) executeRouteAgent(
 		return contract.WorkerResult{}, fmt.Errorf("reading SubAgent response: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		return contract.WorkerResult{}, fmt.Errorf("SubAgent %q returned HTTP %d: %s", subAgentName, resp.StatusCode, string(respBody))
 	}
 
@@ -215,12 +215,96 @@ func (r EinoADKRunner) executeRouteAgent(
 		return contract.WorkerResult{}, fmt.Errorf("parsing SubAgent response: %w", err)
 	}
 
+	// If async (201 Created or 202 Accepted), poll for the AgentRun result.
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusAccepted {
+		agentRunRef, ok := invokeResp["agentRun"].(map[string]interface{})
+		if !ok {
+			return contract.WorkerResult{}, fmt.Errorf("SubAgent %q: accepted but no agentRun ref", subAgentName)
+		}
+		agentRunName, _ := agentRunRef["name"].(string)
+		agentRunNamespace, _ := agentRunRef["namespace"].(string)
+		if agentRunName == "" || agentRunNamespace == "" {
+			return contract.WorkerResult{}, fmt.Errorf("SubAgent %q: incomplete agentRun ref", subAgentName)
+		}
+
+		result, err := pollAgentRun(ctx, httpClient, gatewayURL, agentRunNamespace, agentRunName)
+		if err != nil {
+			return contract.WorkerResult{}, fmt.Errorf("SubAgent %q polling: %w", subAgentName, err)
+		}
+		return result, nil
+	}
+
 	return contract.WorkerResult{
 		Status:  contract.WorkerStatusSucceeded,
 		Message: fmt.Sprintf("router route %q invoked SubAgent %q", route.Label, route.AgentRef),
 		Output:  invokeResp,
 		Runtime: &runtimeInfo,
 	}, nil
+}
+
+// pollAgentRun polls the AgentRun status until it completes or times out.
+func pollAgentRun(ctx context.Context, httpClient *http.Client, gatewayURL, namespace, name string) (contract.WorkerResult, error) {
+	statusURL := fmt.Sprintf("%s/apis/windosx.com/v1alpha1/namespaces/%s/agentruns/%s",
+		gatewayURL, namespace, name)
+
+	deadline := time.After(110 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return contract.WorkerResult{}, ctx.Err()
+		case <-deadline:
+			return contract.WorkerResult{}, fmt.Errorf("timeout waiting for AgentRun %s/%s", namespace, name)
+		case <-ticker.C:
+			resp, err := httpClient.Get(statusURL)
+			if err != nil {
+				continue
+			}
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				continue
+			}
+
+			var agentRun map[string]interface{}
+			if err := json.Unmarshal(body, &agentRun); err != nil {
+				continue
+			}
+
+			status, _ := agentRun["status"].(map[string]interface{})
+			if status == nil {
+				continue
+			}
+
+			phase, _ := status["phase"].(string)
+			switch phase {
+			case "Succeeded":
+				output, _ := status["output"].(map[string]interface{})
+				if output == nil {
+					output = make(map[string]interface{})
+				}
+				return contract.WorkerResult{
+					Status:  contract.WorkerStatusSucceeded,
+					Message: fmt.Sprintf("SubAgent AgentRun %s completed", name),
+					Output:  output,
+				}, nil
+			case "Failed":
+				conditions, _ := status["conditions"].([]interface{})
+				errMsg := "unknown error"
+				if len(conditions) > 0 {
+					if cond, ok := conditions[0].(map[string]interface{}); ok {
+						errMsg, _ = cond["message"].(string)
+					}
+				}
+				return contract.WorkerResult{}, fmt.Errorf("SubAgent AgentRun %s failed: %s", name, errMsg)
+			case "Canceled":
+				return contract.WorkerResult{}, fmt.Errorf("SubAgent AgentRun %s was canceled", name)
+			}
+			// Pending/Running - continue polling
+		}
+	}
 }
 
 // executeRouteModel invokes a model directly.

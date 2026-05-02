@@ -98,7 +98,7 @@ func (s Server) Start(ctx context.Context) error {
 
 func (s Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/apis/"+apiv1alpha1.Group+"/"+apiv1alpha1.Version+"/namespaces/", s.handleInvoke)
+	mux.HandleFunc("/apis/"+apiv1alpha1.Group+"/"+apiv1alpha1.Version+"/namespaces/", s.handleNamespacePath)
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -107,6 +107,65 @@ func (s Server) Handler() http.Handler {
 	handler = RateLimitMiddleware(NewRateLimiter(s.RateLimit, s.RateBurst))(handler)
 	handler = BearerTokenAuth(s.AuthTokens)(handler)
 	return handler
+}
+
+// handleNamespacePath routes requests to the correct handler based on method and path.
+func (s Server) handleNamespacePath(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.URL.Path, "/agentruns/") && r.Method == http.MethodGet {
+		s.handleGetAgentRun(w, r)
+		return
+	}
+	s.handleInvoke(w, r)
+}
+
+// handleGetAgentRun returns the current status of an AgentRun.
+func (s Server) handleGetAgentRun(w http.ResponseWriter, r *http.Request) {
+	namespace, name, ok := parseAgentRunPath(r.URL.Path)
+	if !ok {
+		writeError(w, http.StatusNotFound, "agentrun path not found")
+		return
+	}
+
+	var agentRun apiv1alpha1.AgentRun
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+	if err := s.Client.Get(r.Context(), key, &agentRun); err != nil {
+		if apierrors.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "agentrun not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to read agentrun")
+		return
+	}
+
+	resp := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"name":      agentRun.Name,
+			"namespace": agentRun.Namespace,
+		},
+		"status": agentRun.Status,
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func parseAgentRunPath(path string) (string, string, bool) {
+	prefix := "/apis/" + apiv1alpha1.Group + "/" + apiv1alpha1.Version + "/namespaces/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", "", false
+	}
+	rest := strings.TrimPrefix(path, prefix)
+	parts := strings.Split(rest, "/")
+	if len(parts) != 3 || parts[1] != "agentruns" {
+		return "", "", false
+	}
+	namespace, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	name, err := url.PathUnescape(parts[2])
+	if err != nil {
+		return "", "", false
+	}
+	return namespace, name, namespace != "" && name != ""
 }
 
 func (s Server) handleInvoke(w http.ResponseWriter, r *http.Request) {

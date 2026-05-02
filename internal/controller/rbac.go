@@ -10,6 +10,7 @@
 // +kubebuilder:rbac:groups=windosx.com,resources=datasets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=mcpservers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentpolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=windosx.com,resources=skills,verbs=get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentruns,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups=windosx.com,resources=agentruns/status,verbs=get;patch;update
 // +kubebuilder:rbac:groups=windosx.com,resources=agentevaluations,verbs=get;list;watch

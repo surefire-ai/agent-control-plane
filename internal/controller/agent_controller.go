@@ -112,6 +112,8 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 		ToolSpecs:       map[string]apiv1alpha1.ToolProviderSpec{},
 		Skills:          map[string]struct{}{},
 		SkillSpecs:      map[string]apiv1alpha1.SkillSpec{},
+		SubAgents:       map[string]struct{}{},
+		SubAgentRefs:    map[string][]apiv1alpha1.SubAgentBindingSpec{},
 		MCPServers:      map[string]struct{}{},
 		Policies:        map[string]struct{}{},
 	}
@@ -166,6 +168,15 @@ func BuildReferenceIndex(ctx context.Context, reader client.Reader, namespace st
 	}
 	for _, item := range policies.Items {
 		refs.Policies[item.Name] = struct{}{}
+	}
+
+	var agents apiv1alpha1.AgentList
+	if err := reader.List(ctx, &agents, client.InNamespace(namespace)); err != nil {
+		return compiler.ReferenceIndex{}, err
+	}
+	for _, item := range agents.Items {
+		refs.SubAgents[item.Name] = struct{}{}
+		refs.SubAgentRefs[item.Name] = item.Spec.SubAgentRefs
 	}
 
 	return refs, nil

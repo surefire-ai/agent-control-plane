@@ -33,6 +33,9 @@ type Store interface {
 	// recorded in AgentRunStatus. If artifacts are small enough to remain
 	// inline in the CRD status, Store returns an empty slice and no error.
 	Store(ctx context.Context, runName, namespace string, artifacts []contract.WorkerArtifact) ([]apiv1alpha1.ArtifactRef, error)
+	// SetOwnerReference attaches an OwnerReference to stored artifact
+	// ConfigMaps for automatic garbage collection.
+	SetOwnerReference(ctx context.Context, owner metav1.Object, refs []apiv1alpha1.ArtifactRef) error
 }
 
 // ConfigMapArtifactStore persists worker artifacts into a ConfigMap owned by

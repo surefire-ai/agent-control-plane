@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/surefire-ai/korus/internal/artifact"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -16,11 +17,12 @@ const (
 )
 
 type Options struct {
-	Backend    string
-	Client     client.Client
-	Clientset  kubernetes.Interface
-	JobImage   string
-	JobCommand []string
+	Backend       string
+	Client        client.Client
+	Clientset     kubernetes.Interface
+	JobImage      string
+	JobCommand    []string
+	ArtifactStore artifact.Store
 }
 
 func NewRunner(options Options) (Runner, error) {
@@ -33,10 +35,11 @@ func NewRunner(options Options) (Runner, error) {
 			return nil, fmt.Errorf("worker runtime requires a Kubernetes client")
 		}
 		return NewWorkerRuntime(WorkerOptions{
-			Client:    options.Client,
-			Clientset: options.Clientset,
-			Image:     options.JobImage,
-			Command:   options.JobCommand,
+			Client:        options.Client,
+			Clientset:     options.Clientset,
+			Image:         options.JobImage,
+			Command:       options.JobCommand,
+			ArtifactStore: options.ArtifactStore,
 		}), nil
 	default:
 		return nil, fmt.Errorf("unsupported runtime backend %q", options.Backend)

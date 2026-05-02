@@ -372,6 +372,11 @@ func (r WorkerRuntime) workerJobResult(ctx context.Context, request Request, job
 			return Result{}, fmt.Errorf("persist worker artifacts: %w", err)
 		}
 		refs = stored
+		if len(refs) > 0 {
+			if err := r.artifactStore.SetOwnerReference(ctx, &request.Run, refs); err != nil {
+				return Result{}, fmt.Errorf("set artifact owner reference: %w", err)
+			}
+		}
 	}
 
 	return Result{

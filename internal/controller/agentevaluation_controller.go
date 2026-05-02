@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -575,7 +576,7 @@ func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, sampl
 	if seen == 0 {
 		return 0, false
 	}
-	return total / float64(len(runs)), true
+	return total / float64(seen), true
 }
 
 func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evaluationSample, metric string) (float64, bool) {
@@ -734,9 +735,6 @@ func responseCompletenessScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun
 	required := requiredOutputFields(agent)
 	if len(required) == 0 {
 		required = []string{"summary", "hazards", "overallRiskLevel", "nextActions", "confidence", "needsHumanReview"}
-	}
-	if len(required) == 0 {
-		return 0, false
 	}
 	meaningful := 0
 	for _, field := range required {
@@ -1178,9 +1176,9 @@ func passesThreshold(score float64, threshold apiv1alpha1.EvaluationThresholdSpe
 	case "gt":
 		return score > threshold.Target
 	case "eq":
-		return score == threshold.Target
+		return math.Abs(score-threshold.Target) < 1e-9
 	case "neq":
-		return score != threshold.Target
+		return math.Abs(score-threshold.Target) >= 1e-9
 	default:
 		return score >= threshold.Target
 	}

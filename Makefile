@@ -8,6 +8,9 @@ KUBECTL ?= kubectl
 .PHONY: test
 test:
 	$(GO) test -race ./...
+.PHONY: vet
+vet:
+	$(GO) vet ./...
 
 .PHONY: generate
 generate:

@@ -1241,7 +1241,7 @@ func TestNewEvaluatorsViaMetricScore(t *testing.T) {
 				},
 			},
 		}
-		score, ok := metricScore(agent, run, sample, "response_completeness")
+		score, ok := metricScore(agent, run, sample, "response_completeness", nil)
 		if !ok || score != 1.0 {
 			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
 		}
@@ -1258,7 +1258,7 @@ func TestNewEvaluatorsViaMetricScore(t *testing.T) {
 				},
 			},
 		}
-		score, ok := metricScore(agent, run, sample, "output_coherence")
+		score, ok := metricScore(agent, run, sample, "output_coherence", nil)
 		if !ok || score != 1.0 {
 			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
 		}
@@ -1272,7 +1272,7 @@ func TestNewEvaluatorsViaMetricScore(t *testing.T) {
 				},
 			},
 		}
-		score, ok := metricScore(agent, run, sample, "actionable_next_steps")
+		score, ok := metricScore(agent, run, sample, "actionable_next_steps", nil)
 		if !ok || score != 1.0 {
 			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
 		}
@@ -1287,9 +1287,83 @@ func TestNewEvaluatorsViaMetricScore(t *testing.T) {
 				},
 			},
 		}
-		score, ok := metricScore(agent, run, sample, "confidence_calibration")
+		score, ok := metricScore(agent, run, sample, "confidence_calibration", nil)
 		if !ok || score != 1.0 {
 			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
+		}
+	})
+}
+
+func TestCELMetricScore(t *testing.T) {
+	run := apiv1alpha1.AgentRun{
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase: string(apiv1alpha1.AgentRunPhaseSucceeded),
+			Output: apiv1alpha1.FreeformObject{
+				"hazards":          agentruntime.JSONValue([]interface{}{"h1", "h2", "h3"}),
+				"overallRiskLevel": agentruntime.JSONValue("high"),
+				"confidence":       agentruntime.JSONValue(0.9),
+			},
+		},
+	}
+	sample := evaluationSample{
+		Name:     "test-case",
+		Expected: apiv1alpha1.FreeformObject{},
+	}
+
+	t.Run("bool expression true", func(t *testing.T) {
+		config := apiv1alpha1.FreeformObject{
+			"expression": agentruntime.JSONValue("size(output.hazards) > 2 && output.overallRiskLevel != 'low'"),
+		}
+		score, ok := celMetricScore(run, sample, config)
+		if !ok || score != 1.0 {
+			t.Fatalf("expected 1.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	t.Run("bool expression false", func(t *testing.T) {
+		config := apiv1alpha1.FreeformObject{
+			"expression": agentruntime.JSONValue("output.overallRiskLevel == 'low'"),
+		}
+		score, ok := celMetricScore(run, sample, config)
+		if !ok || score != 0.0 {
+			t.Fatalf("expected 0.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	t.Run("numeric expression", func(t *testing.T) {
+		config := apiv1alpha1.FreeformObject{
+			"expression": agentruntime.JSONValue("size(output.hazards)"),
+		}
+		score, ok := celMetricScore(run, sample, config)
+		if !ok || score != 3.0 {
+			t.Fatalf("expected 3.0, got %v ok=%v", score, ok)
+		}
+	})
+
+	t.Run("empty config returns false", func(t *testing.T) {
+		score, ok := celMetricScore(run, sample, nil)
+		if ok {
+			t.Fatalf("expected ok=false, got score=%v", score)
+		}
+	})
+
+	t.Run("missing expression key", func(t *testing.T) {
+		config := apiv1alpha1.FreeformObject{
+			"other": agentruntime.JSONValue("value"),
+		}
+		score, ok := celMetricScore(run, sample, config)
+		if ok {
+			t.Fatalf("expected ok=false, got score=%v", score)
+		}
+	})
+
+	t.Run("invalid expression returns false", func(t *testing.T) {
+		config := apiv1alpha1.FreeformObject{
+			"expression": agentruntime.JSONValue("output.???"),
+		}
+		score, ok := celMetricScore(run, sample, config)
+		if ok {
+			t.Fatalf("expected ok=false for invalid expression, got score=%v", score)
 		}
 	})
 }

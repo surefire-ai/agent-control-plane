@@ -10,6 +10,7 @@ import (
 	"time"
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	"github.com/surefire-ai/korus/internal/evaluation"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -131,7 +132,7 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			Revision: agent.Status.CompiledRevision,
 			Runs:     runs,
 		}
-		current.Results = buildEvaluationMetricResults(*agent, runs, samples, evaluation.Spec.Thresholds)
+		current.Results = buildEvaluationMetricResults(*agent, runs, samples, evaluation.Spec.Thresholds, evaluation.Spec.Evaluators)
 		current.Score = aggregateMetricScore(current.Results)
 		current.GatePassed = gatePassed(evaluation.Spec.Gate, current.Results)
 		var baseline *evaluatedRunSet
@@ -142,7 +143,7 @@ func (r *AgentEvaluationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				Revision: baselineAgent.Status.CompiledRevision,
 				Runs:     baselineRuns,
 			}
-			baselineSet.Results = buildEvaluationMetricResults(*baselineAgent, baselineRuns, samples, evaluation.Spec.Thresholds)
+			baselineSet.Results = buildEvaluationMetricResults(*baselineAgent, baselineRuns, samples, evaluation.Spec.Thresholds, evaluation.Spec.Evaluators)
 			baselineSet.Score = aggregateMetricScore(baselineSet.Results)
 			baselineSet.GatePassed = gatePassed(evaluation.Spec.Gate, baselineSet.Results)
 			baseline = baselineSet
@@ -510,10 +511,11 @@ func (r *AgentEvaluationReconciler) evaluationSamples(ctx context.Context, names
 	return nil, false, nil
 }
 
-func buildEvaluationMetricResults(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, samples []evaluationSample, thresholds []apiv1alpha1.EvaluationThresholdSpec) []apiv1alpha1.EvaluationMetricStatus {
+func buildEvaluationMetricResults(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, samples []evaluationSample, thresholds []apiv1alpha1.EvaluationThresholdSpec, evaluators []apiv1alpha1.EvaluationEvaluatorSpec) []apiv1alpha1.EvaluationMetricStatus {
+	evalConfigs := evaluatorConfigMap(evaluators)
 	results := make([]apiv1alpha1.EvaluationMetricStatus, 0, len(thresholds))
 	for _, threshold := range thresholds {
-		score, ok := aggregateMetric(agent, runs, samples, threshold.Metric)
+		score, ok := aggregateMetric(agent, runs, samples, threshold.Metric, evalConfigs)
 		result := apiv1alpha1.EvaluationMetricStatus{
 			Name:      threshold.Metric,
 			Metric:    threshold.Metric,
@@ -559,7 +561,7 @@ func buildEvaluationMetricResultsForFailures(runs []apiv1alpha1.AgentRun, thresh
 	return results
 }
 
-func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, samples []evaluationSample, metric string) (float64, bool) {
+func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, samples []evaluationSample, metric string, evalConfigs map[string]apiv1alpha1.FreeformObject) (float64, bool) {
 	if len(runs) == 0 {
 		return 0, false
 	}
@@ -567,7 +569,7 @@ func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, sampl
 	seen := 0
 	for _, run := range runs {
 		sample, _ := sampleForRun(samples, run.Name)
-		score, ok := metricScore(agent, run, sample, metric)
+		score, ok := metricScore(agent, run, sample, metric, evalConfigs[metric])
 		if ok {
 			total += score
 			seen++
@@ -579,13 +581,15 @@ func aggregateMetric(agent apiv1alpha1.Agent, runs []apiv1alpha1.AgentRun, sampl
 	return total / float64(seen), true
 }
 
-func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evaluationSample, metric string) (float64, bool) {
+func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evaluationSample, metric string, evalConfig apiv1alpha1.FreeformObject) (float64, bool) {
 	switch metric {
 	case "run_success":
 		if run.Status.Phase == string(apiv1alpha1.AgentRunPhaseSucceeded) {
 			return 1, true
 		}
 		return 0, true
+	case "cel":
+		return celMetricScore(run, sample, evalConfig)
 	case "schema_validity":
 		required := requiredOutputFields(agent)
 		if len(required) == 0 {
@@ -628,6 +632,65 @@ func metricScore(agent apiv1alpha1.Agent, run apiv1alpha1.AgentRun, sample evalu
 		}
 	}
 	return 0, false
+}
+
+// evaluatorConfigMap builds a lookup map from evaluator name to its config.
+func evaluatorConfigMap(evaluators []apiv1alpha1.EvaluationEvaluatorSpec) map[string]apiv1alpha1.FreeformObject {
+	m := make(map[string]apiv1alpha1.FreeformObject, len(evaluators))
+	for _, e := range evaluators {
+		if len(e.Config) > 0 {
+			m[e.Name] = e.Config
+		}
+	}
+	return m
+}
+
+// celMetricScore executes a CEL expression from the evaluator config.
+func celMetricScore(run apiv1alpha1.AgentRun, sample evaluationSample, evalConfig apiv1alpha1.FreeformObject) (float64, bool) {
+	if len(evalConfig) == 0 {
+		return 0, false
+	}
+	exprRaw, ok := evalConfig["expression"]
+	if !ok {
+		return 0, false
+	}
+	expression := jsonString(exprRaw)
+	if expression == "" {
+		return 0, false
+	}
+
+	output := freeformToMap(run.Status.Output)
+	expected := freeformToMap(sample.Expected)
+	sampleMap := map[string]interface{}{
+		"name":  sample.Name,
+		"input": freeformToMap(sample.Input),
+	}
+
+	celEval, err := evaluation.NewCELEvaluator()
+	if err != nil {
+		return 0, false
+	}
+	score, ok, err := celEval.Evaluate(expression, output, expected, sampleMap)
+	if err != nil {
+		return 0, false
+	}
+	return score, ok
+}
+
+// freeformToMap converts a FreeformObject to a map[string]interface{} for CEL.
+func freeformToMap(obj apiv1alpha1.FreeformObject) map[string]interface{} {
+	if len(obj) == 0 {
+		return map[string]interface{}{}
+	}
+	result := make(map[string]interface{}, len(obj))
+	for k, v := range obj {
+		var val interface{}
+		if err := json.Unmarshal(v.Raw, &val); err != nil {
+			val = string(v.Raw)
+		}
+		result[k] = val
+	}
+	return result
 }
 
 var riskOrdinal = map[string]int{

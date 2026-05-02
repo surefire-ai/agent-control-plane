@@ -684,3 +684,154 @@ func runnerArtifact(t *testing.T, value apiextensionsv1.JSON) contract.ArtifactR
 	}
 	return output
 }
+
+func TestCompileAgentWithSubAgentRefs(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.SubAgentRefs = []apiv1alpha1.SubAgentBindingSpec{
+		{Name: "risk_scorer", Ref: "ehs-risk-scoring-agent", Namespace: "ehs"},
+		{Name: "ticket_creator", Ref: "ehs-ticket-agent"},
+	}
+
+	result, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		SubAgents:  set("ehs-risk-scoring-agent", "ehs-ticket-agent"),
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err != nil {
+		t.Fatalf("CompileAgent returned error: %v", err)
+	}
+
+	runner := runnerArtifact(t, result.Artifact["runner"])
+	if runner.SubAgents == nil {
+		t.Fatalf("expected subAgents in runner, got nil")
+	}
+	if _, ok := runner.SubAgents["risk_scorer"]; !ok {
+		t.Fatalf("expected risk_scorer in subAgents, got %#v", runner.SubAgents)
+	}
+	if _, ok := runner.SubAgents["ticket_creator"]; !ok {
+		t.Fatalf("expected ticket_creator in subAgents, got %#v", runner.SubAgents)
+	}
+}
+
+func TestCompileAgentRejectsMissingSubAgentRef(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.SubAgentRefs = []apiv1alpha1.SubAgentBindingSpec{
+		{Name: "risk_scorer", Ref: "nonexistent-agent"},
+	}
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		SubAgents:  set(), // Agent not in index
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil {
+		t.Fatal("expected missing sub-agent error")
+	}
+	if !strings.Contains(err.Error(), "Agent/nonexistent-agent") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileAgentRejectsAgentNodeWithoutAgentRef(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph.Nodes = append(agent.Spec.Graph.Nodes, apiv1alpha1.AgentGraphNode{
+		Name: "delegate_risk",
+		Kind: "agent",
+		// Missing AgentRef
+	})
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil {
+		t.Fatal("expected agent node validation error")
+	}
+	if !strings.Contains(err.Error(), "kind=agent requires agentRef") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCompileAgentRejectsAgentNodeWithUnmatchedAgentRef(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph.Nodes = append(agent.Spec.Graph.Nodes, apiv1alpha1.AgentGraphNode{
+		Name:     "delegate_risk",
+		Kind:     "agent",
+		AgentRef: "nonexistent_binding",
+	})
+
+	_, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err == nil {
+		t.Fatal("expected unmatched agentRef error")
+	}
+	if !strings.Contains(err.Error(), "agentRef \"nonexistent_binding\" not found in subAgentRefs") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

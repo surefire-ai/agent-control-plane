@@ -23,6 +23,7 @@ type ReferenceIndex struct {
 	ToolSpecs       map[string]apiv1alpha1.ToolProviderSpec
 	Skills          map[string]struct{}
 	SkillSpecs      map[string]apiv1alpha1.SkillSpec
+	SubAgents       map[string]struct{}
 	MCPServers      map[string]struct{}
 	Policies        map[string]struct{}
 }
@@ -107,6 +108,7 @@ func runnerForArtifact(spec apiv1alpha1.AgentSpec, refs ReferenceIndex, normaliz
 		"providers": providers.CatalogForModels(normalizedModels),
 		"tools":     toolsForArtifact(resolvedToolRefs, refs.ToolSpecs),
 		"skills":    skillsForArtifact(spec.SkillRefs, refs.SkillSpecs),
+		"subAgents": subAgentsForArtifact(spec.SubAgentRefs),
 		"knowledge": knowledgeForArtifact(resolvedKnowledgeRefs, refs.KnowledgeSpecs),
 		"output": map[string]interface{}{
 			"schema": spec.Interfaces.Output.Schema,
@@ -318,6 +320,26 @@ func skillsForArtifact(bindings []apiv1alpha1.SkillBindingSpec, specs map[string
 		skills[key] = entry
 	}
 	return skills
+}
+
+func subAgentsForArtifact(bindings []apiv1alpha1.SubAgentBindingSpec) map[string]interface{} {
+	if len(bindings) == 0 {
+		return nil
+	}
+	subAgents := make(map[string]interface{}, len(bindings))
+	for _, binding := range bindings {
+		key := binding.Name
+		if key == "" {
+			key = binding.Ref
+		}
+		entry := map[string]interface{}{
+			"name":      binding.Name,
+			"ref":       binding.Ref,
+			"namespace": binding.Namespace,
+		}
+		subAgents[key] = entry
+	}
+	return subAgents
 }
 
 func resolvedGraph(spec apiv1alpha1.AgentSpec, skills map[string]apiv1alpha1.SkillSpec, toolRefs []string, knowledgeRefs []apiv1alpha1.KnowledgeBindingSpec) apiv1alpha1.AgentGraphSpec {
@@ -606,6 +628,26 @@ func findMissingReferences(agent apiv1alpha1.Agent, refs ReferenceIndex) []strin
 	for _, mcpRef := range agent.Spec.MCPRefs {
 		if !contains(refs.MCPServers, mcpRef) {
 			missing = append(missing, "MCPServer/"+mcpRef)
+		}
+	}
+	for _, subAgentRef := range agent.Spec.SubAgentRefs {
+		if !contains(refs.SubAgents, subAgentRef.Ref) {
+			missing = append(missing, "Agent/"+subAgentRef.Ref)
+		}
+	}
+
+	// Validate graph nodes with kind=agent have a matching subAgentRef.
+	subAgentNames := make(map[string]struct{})
+	for _, ref := range agent.Spec.SubAgentRefs {
+		subAgentNames[ref.Name] = struct{}{}
+	}
+	for _, node := range agent.Spec.Graph.Nodes {
+		if node.Kind == "agent" {
+			if strings.TrimSpace(node.AgentRef) == "" {
+				missing = append(missing, fmt.Sprintf("graph node %q: kind=agent requires agentRef", node.Name))
+			} else if _, ok := subAgentNames[node.AgentRef]; !ok {
+				missing = append(missing, fmt.Sprintf("graph node %q: agentRef %q not found in subAgentRefs", node.Name, node.AgentRef))
+			}
 		}
 	}
 

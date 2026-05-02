@@ -46,7 +46,6 @@ rules:
   - knowledgebases
   - mcpservers
   - prompttemplates
-  - skills
   - tenants
   - toolproviders
   - workspaces

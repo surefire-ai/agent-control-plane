@@ -62,6 +62,8 @@ spec:
                   nodes:
                     items:
                       properties:
+                        agentRef:
+                          type: string
                         implementation:
                           type: string
                         kind:

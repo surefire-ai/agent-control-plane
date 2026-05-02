@@ -124,7 +124,7 @@ Runtime TODO:
 
 ## SubAgent Support
 
-Status: not started.
+Status: implemented.
 
 Add SubAgent references as a first-class part of `AgentSpec`.
 
@@ -148,22 +148,26 @@ spec:
 API TODO:
 
 - Add `AgentBindingSpec` with `name`, `ref`, optional namespace, and optional
-  policy propagation settings.
-- Add `AgentSpec.subAgentRefs`.
-- Add `AgentGraphNode.agentRef`.
+  policy propagation settings. ✅ Implemented as `SubAgentBindingSpec`.
+- Add `AgentSpec.subAgentRefs`. ✅ Implemented.
+- Add `AgentGraphNode.agentRef`. ✅ Implemented.
 
 Compiler TODO:
 
-- Validate SubAgent references.
-- Capture SubAgent endpoint and revision in the compiled artifact.
-- Detect cycles where possible.
-- Preserve policy and trace propagation requirements.
+- Validate SubAgent references. ✅ Implemented in `findMissingReferences()`.
+- Capture SubAgent endpoint and revision in the compiled artifact. ✅ Implemented:
+  `subAgentsForArtifact()` writes bindings to `runner.subAgents`.
+- Detect cycles where possible. TODO: not yet implemented.
+- Preserve policy and trace propagation requirements. TODO: deferred.
 
 Runtime TODO:
 
-- Invoke SubAgents through the internal gateway first.
-- Carry parent run identity and trace context.
+- Invoke SubAgents through the internal gateway first. ✅ Implemented:
+  `buildAgentLambda()` calls gateway invoke endpoint via `KORUS_GATEWAY_URL`.
+- Carry parent run identity and trace context. ✅ Implemented: state is passed
+  as SubAgent input.
 - Preserve SubAgent result summaries under the parent `AgentRun.status.output`.
+  ✅ Implemented: SubAgent output merged into graph state.
 
 ## A2A Protocol Support
 

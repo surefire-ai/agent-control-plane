@@ -20,6 +20,7 @@ type AgentSpec struct {
 	KnowledgeRefs []KnowledgeBindingSpec `json:"knowledgeRefs,omitempty"`
 	ToolRefs      []string               `json:"toolRefs,omitempty"`
 	SkillRefs     []SkillBindingSpec     `json:"skillRefs,omitempty"`
+	SubAgentRefs  []SubAgentBindingSpec  `json:"subAgentRefs,omitempty"`
 	MCPRefs       []string               `json:"mcpRefs,omitempty"`
 	PolicyRef     string                 `json:"policyRef,omitempty"`
 	Interfaces    AgentInterfaceSpec     `json:"interfaces,omitempty"`
@@ -83,6 +84,18 @@ type SkillBindingSpec struct {
 	Ref  string `json:"ref"`
 }
 
+// SubAgentBindingSpec references another Agent as a SubAgent that can be
+// invoked from graph nodes with kind "agent".
+type SubAgentBindingSpec struct {
+	// Name is the local alias used in graph node agentRef references.
+	Name string `json:"name"`
+	// Ref is the name of the Agent CR to invoke as a SubAgent.
+	Ref string `json:"ref"`
+	// Namespace overrides the namespace of the referenced Agent.
+	// If empty, the SubAgent is resolved in the same namespace as the parent Agent.
+	Namespace string `json:"namespace,omitempty"`
+}
+
 type AgentInterfaceSpec struct {
 	Input  SchemaEnvelope `json:"input,omitempty"`
 	Output SchemaEnvelope `json:"output,omitempty"`
@@ -110,6 +123,7 @@ type AgentGraphNode struct {
 	ModelRef       string `json:"modelRef,omitempty"`
 	ToolRef        string `json:"toolRef,omitempty"`
 	KnowledgeRef   string `json:"knowledgeRef,omitempty"`
+	AgentRef       string `json:"agentRef,omitempty"`
 	Implementation string `json:"implementation,omitempty"`
 }
 

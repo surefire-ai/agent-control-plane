@@ -1,8 +1,12 @@
 package worker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/cloudwego/eino/compose"
@@ -118,6 +122,8 @@ func buildNodeLambda(
 		return buildRetrievalLambda(node, artifact, runtimeInfo, retrievalInvoker)
 	case "function":
 		return buildFunctionLambda(node, artifact)
+	case "agent":
+		return buildAgentLambda(node, artifact, runtimeInfo)
 	default:
 		return nil, nil
 	}
@@ -332,6 +338,104 @@ func buildFunctionLambda(
 		// Merge function output into top-level state.
 		for k, v := range output {
 			out[k] = v
+		}
+		return out, nil
+	}), nil
+}
+
+// buildAgentLambda creates a Lambda that invokes a SubAgent through the gateway.
+// The node must have an "agentRef" field matching a declared subAgentRef binding.
+// The gateway URL is read from KORUS_GATEWAY_URL env var, defaulting to
+// http://korus-gateway.korus-system.svc.cluster.local:8082.
+func buildAgentLambda(
+	node map[string]interface{},
+	artifact contract.CompiledArtifact,
+	runtimeInfo contract.WorkerRuntimeInfo,
+) (*compose.Lambda, error) {
+	nodeName, _ := node["name"].(string)
+	agentRef, _ := node["agentRef"].(string)
+	if strings.TrimSpace(agentRef) == "" {
+		return nil, fmt.Errorf("agent node %q missing agentRef", nodeName)
+	}
+
+	// Resolve SubAgent binding from compiled artifact.
+	subAgentsRaw := artifact.Runner.SubAgents
+
+	return compose.InvokableLambda(func(ctx context.Context, state graphState) (graphState, error) {
+		// Build the SubAgent invocation input from current state.
+		inputJSON, err := json.Marshal(state)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling state for sub-agent %q: %w", agentRef, err)
+		}
+
+		// Resolve the SubAgent reference.
+		var subAgentName, subAgentNamespace string
+		if subAgentsRaw != nil {
+			if binding, ok := subAgentsRaw[agentRef].(map[string]interface{}); ok {
+				subAgentName, _ = binding["ref"].(string)
+				subAgentNamespace, _ = binding["namespace"].(string)
+			}
+		}
+		if subAgentName == "" {
+			subAgentName = agentRef
+		}
+		if subAgentNamespace == "" {
+			subAgentNamespace = artifact.Agent.Namespace
+		}
+
+		// Call the gateway invoke endpoint.
+		gatewayURL := strings.TrimRight(lookupEnv("KORUS_GATEWAY_URL"), "/")
+		if gatewayURL == "" {
+			gatewayURL = "http://korus-gateway.korus-system.svc.cluster.local:8082"
+		}
+		invokeURL := fmt.Sprintf("%s/apis/windosx.com/v1alpha1/namespaces/%s/agents/%s:invoke",
+			gatewayURL, subAgentNamespace, subAgentName)
+
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, invokeURL, bytes.NewReader(inputJSON))
+		if err != nil {
+			return nil, fmt.Errorf("creating sub-agent request for %q: %w", agentRef, err)
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		httpResp, err := http.DefaultClient.Do(httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("invoking sub-agent %q: %w", agentRef, err)
+		}
+		defer httpResp.Body.Close()
+
+		respBody, err := io.ReadAll(httpResp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("reading sub-agent response for %q: %w", agentRef, err)
+		}
+
+		if httpResp.StatusCode != http.StatusOK && httpResp.StatusCode != http.StatusAccepted {
+			return nil, FailureReasonError{
+				Reason:  "SubAgentInvocationFailed",
+				Message: fmt.Sprintf("sub-agent %q returned status %d: %s", agentRef, httpResp.StatusCode, string(respBody)),
+			}
+		}
+
+		// Parse the gateway response.
+		var gatewayResp map[string]interface{}
+		if err := json.Unmarshal(respBody, &gatewayResp); err != nil {
+			// If not JSON, store raw response.
+			gatewayResp = map[string]interface{}{"raw": string(respBody)}
+		}
+
+		out := copyState(state)
+		out[nodeName] = map[string]interface{}{
+			"kind":       "agent",
+			"agentRef":   agentRef,
+			"subAgent":   subAgentName,
+			"namespace":  subAgentNamespace,
+			"statusCode": httpResp.StatusCode,
+			"output":     gatewayResp,
+		}
+		// Merge SubAgent output into top-level state if it has an output field.
+		if output, ok := gatewayResp["output"].(map[string]interface{}); ok {
+			for k, v := range output {
+				out[k] = v
+			}
 		}
 		return out, nil
 	}), nil

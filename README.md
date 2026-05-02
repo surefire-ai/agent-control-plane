@@ -245,7 +245,7 @@ See [`web/README.md`](./web/README.md) for current scope and development notes.
 | Phase | Focus | Status |
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP with CRDs, compilation, gateway invocation, worker Jobs, GHCR images, and Helm skeleton. | First public development baseline is in place. |
-| Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | Core patterns complete (react, router, reflection, tool_calling, plan_execute, workflow). |
+| Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | **Complete.** |
 | Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | Scaffolded. |
 | Phase 4 | Distributed agent fabric with multi-runtime execution, autoscaling, SubAgent composition, and A2A interoperability. | Planned. |
 
@@ -301,7 +301,7 @@ It is not yet a stable production release.
 
 Known alpha limits:
 
-- the Eino runners cover six patterns but advanced features (streaming, parallel tool calls) are still evolving;
+- the Eino runners cover six patterns with durable artifact storage and 8 evaluation metrics, but advanced features (streaming, parallel tool calls) are still evolving;
 - the Helm chart is not yet packaged for distribution;
 - gateway authentication, authorization, rate limiting, and idempotency are not
   complete;

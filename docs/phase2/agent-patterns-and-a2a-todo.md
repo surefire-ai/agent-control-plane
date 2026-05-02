@@ -48,14 +48,14 @@ spec:
 
 Initial presets to support:
 
-| Pattern | Purpose |
-| --- | --- |
-| `react` | Reasoning plus tool use loop. |
-| `plan_execute` | Planner creates steps, executor completes steps. |
-| `router` | Classify task and route to specialized branch or SubAgent. |
-| `reflection` | Generate, critique, and revise. |
-| `tool_calling` | Model-driven structured tool calls without full graph authoring. |
-| `workflow` | Deterministic graph/workflow compiled from explicit nodes. |
+| Pattern | Purpose | Status |
+| --- | --- | --- |
+| `react` | Reasoning plus tool use loop. | ✅ Implemented |
+| `router` | Classify task and route to specialized branch or SubAgent. | ✅ Implemented |
+| `reflection` | Generate, critique, and revise. | ✅ Implemented |
+| `plan_execute` | Planner creates steps, executor completes steps. | TODO |
+| `tool_calling` | Model-driven structured tool calls without full graph authoring. | TODO |
+| `workflow` | Deterministic graph/workflow compiled from explicit nodes. | TODO |
 
 ## Skill Support
 
@@ -157,7 +157,7 @@ Compiler TODO:
 - Validate SubAgent references. ✅ Implemented in `findMissingReferences()`.
 - Capture SubAgent endpoint and revision in the compiled artifact. ✅ Implemented:
   `subAgentsForArtifact()` writes bindings to `runner.subAgents`.
-- Detect cycles where possible. TODO: not yet implemented.
+- Detect cycles where possible. ✅ Implemented: self-reference check + DFS cycle detection via `DetectSubAgentCycles()`.
 - Preserve policy and trace propagation requirements. TODO: deferred.
 
 Runtime TODO:

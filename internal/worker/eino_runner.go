@@ -60,7 +60,18 @@ func (r EinoADKRunner) Run(ctx context.Context, request RunRequest) (contract.Wo
 	}
 	artifacts = append(artifacts, promptPreviewArtifact(request.Artifact, request.Config.ParsedRunInput))
 
-	// Try graph-based execution first.
+	// Try ReAct loop first (pattern-based iterative execution).
+	if isReactPattern(request.Artifact) {
+		if result, ok, err := r.executeReactLoop(ctx, request, runtimeInfo); err != nil {
+			return contract.WorkerResult{}, err
+		} else if ok {
+			result.StartedAt = startedAt
+			result.Artifacts = append(result.Artifacts, artifacts...)
+			return result, nil
+		}
+	}
+
+	// Try graph-based execution next.
 	if result, ok, err := r.tryGraphExecution(ctx, request, runtimeInfo); err != nil {
 		return contract.WorkerResult{}, err
 	} else if ok {

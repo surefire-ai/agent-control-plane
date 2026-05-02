@@ -13,7 +13,7 @@ interfaces, memory, and observability as normal CRD fields.
 
 ## Agent Pattern Presets
 
-Status: in progress.
+Status: in progress. `react` preset is implemented with iterative loop execution.
 
 Add a first-class pattern field so users can declare the orchestration pattern
 without writing the full graph by hand. Other Agent inputs remain explicit and
@@ -114,9 +114,13 @@ Compiler TODO:
 
 Runtime TODO:
 
-- Map `react` to an Eino ADK/Graph loop.
-- Enforce iteration limits and tool allowlists.
-- Report pattern metadata in worker output and trace references.
+- Map `react` to an Eino ADK/Graph loop. ✅ Implemented: `react_runner.go`
+  provides an iterative reason→act→observe loop with dynamic tool selection.
+- Enforce iteration limits and tool allowlists. ✅ Implemented: maxIterations
+  from pattern config; tool allowlists from compiled artifact tools.
+- Report pattern metadata in worker output and trace references. ✅ Implemented:
+  output includes `pattern`, `iterations`, `reasoning` trace, and `react-trace`
+  artifact.
 
 ## SubAgent Support
 

@@ -45,6 +45,32 @@ func (r EinoADKRunner) retrievalInvoker() RetrievalInvoker {
 	return EinoRetrievalInvoker{}
 }
 
+// patternHandler is a function that attempts to handle a specific pattern.
+// Returns (result, true, nil) if the pattern matched and was executed,
+// (zero, false, nil) if the pattern doesn't apply, or an error.
+type patternHandler func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error)
+
+// patternRegistry defines the order in which pattern handlers are tried.
+// Earlier entries take precedence. New patterns should be appended here.
+var patternRegistry = []struct {
+	name    string
+	check   func(contract.CompiledArtifact) bool
+	handler patternHandler
+}{
+	{"react", isReactPattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
+		return r.executeReactLoop(ctx, request, runtimeInfo)
+	}},
+	{"router", isRouterPattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
+		return r.executeRouterLoop(ctx, request, runtimeInfo)
+	}},
+	{"reflection", isReflectionPattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
+		return r.executeReflectionLoop(ctx, request, runtimeInfo)
+	}},
+	{"tool_calling", isToolCallingPattern, func(ctx context.Context, r EinoADKRunner, request RunRequest, runtimeInfo contract.WorkerRuntimeInfo) (contract.WorkerResult, bool, error) {
+		return r.executeToolCallingLoop(ctx, request, runtimeInfo)
+	}},
+}
+
 func (r EinoADKRunner) Run(ctx context.Context, request RunRequest) (contract.WorkerResult, error) {
 	select {
 	case <-ctx.Done():
@@ -60,42 +86,12 @@ func (r EinoADKRunner) Run(ctx context.Context, request RunRequest) (contract.Wo
 	}
 	artifacts = append(artifacts, promptPreviewArtifact(request.Artifact, request.Config.ParsedRunInput))
 
-	// Try ReAct loop first (pattern-based iterative execution).
-	if isReactPattern(request.Artifact) {
-		if result, ok, err := r.executeReactLoop(ctx, request, runtimeInfo); err != nil {
-			return contract.WorkerResult{}, err
-		} else if ok {
-			result.StartedAt = startedAt
-			result.Artifacts = append(result.Artifacts, artifacts...)
-			return result, nil
+	// Try registered pattern handlers in order.
+	for _, ph := range patternRegistry {
+		if !ph.check(request.Artifact) {
+			continue
 		}
-	}
-
-	// Try router pattern (classify → route).
-	if isRouterPattern(request.Artifact) {
-		if result, ok, err := r.executeRouterLoop(ctx, request, runtimeInfo); err != nil {
-			return contract.WorkerResult{}, err
-		} else if ok {
-			result.StartedAt = startedAt
-			result.Artifacts = append(result.Artifacts, artifacts...)
-			return result, nil
-		}
-	}
-
-	// Try reflection pattern (generate → critique → revise).
-	if isReflectionPattern(request.Artifact) {
-		if result, ok, err := r.executeReflectionLoop(ctx, request, runtimeInfo); err != nil {
-			return contract.WorkerResult{}, err
-		} else if ok {
-			result.StartedAt = startedAt
-			result.Artifacts = append(result.Artifacts, artifacts...)
-			return result, nil
-		}
-	}
-
-	// Try tool_calling pattern (model → tool calls → model).
-	if isToolCallingPattern(request.Artifact) {
-		if result, ok, err := r.executeToolCallingLoop(ctx, request, runtimeInfo); err != nil {
+		if result, ok, err := ph.handler(ctx, r, request, runtimeInfo); err != nil {
 			return contract.WorkerResult{}, err
 		} else if ok {
 			result.StartedAt = startedAt

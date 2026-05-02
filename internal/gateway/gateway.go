@@ -109,12 +109,14 @@ func (s Server) Handler() http.Handler {
 	return handler
 }
 
-// handleNamespacePath routes requests to the correct handler based on method and path.
+// handleNamespacePath routes requests to the correct handler based on method and path structure.
 func (s Server) handleNamespacePath(w http.ResponseWriter, r *http.Request) {
-	if strings.Contains(r.URL.Path, "/agentruns/") && r.Method == http.MethodGet {
+	// If the path matches /agentruns/{name} and method is GET, serve status.
+	if _, _, ok := parseAgentRunPath(r.URL.Path); ok && r.Method == http.MethodGet {
 		s.handleGetAgentRun(w, r)
 		return
 	}
+	// Everything else goes to the invoke handler (POST-only).
 	s.handleInvoke(w, r)
 }
 

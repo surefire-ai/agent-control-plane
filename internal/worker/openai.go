@@ -59,24 +59,77 @@ type ModelInvocationResult struct {
 
 var lookupEnv = os.Getenv
 
-func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, prompt contract.PromptSpec, input map[string]interface{}, output map[string]interface{}) (ModelInvocationResult, error) {
-	baseURL := strings.TrimRight(model.BaseURL, "/")
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
-	}
+// resolveAPIKey validates model credentials and returns the resolved API key.
+func resolveAPIKey(model contract.WorkerModelRuntime, modelName string) (string, error) {
 	if model.APIKeyEnv == "" {
-		return ModelInvocationResult{}, FailureReasonError{
+		return "", FailureReasonError{
 			Reason:  "MissingModelCredentials",
-			Message: fmt.Sprintf("missing model credentials for %q", config.Model),
+			Message: fmt.Sprintf("missing model credentials for %q", modelName),
 		}
 	}
-
 	apiKey := strings.TrimSpace(lookupEnv(model.APIKeyEnv))
 	if apiKey == "" {
-		return ModelInvocationResult{}, FailureReasonError{
+		return "", FailureReasonError{
 			Reason:  "MissingModelCredentials",
-			Message: fmt.Sprintf("missing model credentials for %q via %s", config.Model, model.APIKeyEnv),
+			Message: fmt.Sprintf("missing model credentials for %q via %s", modelName, model.APIKeyEnv),
 		}
+	}
+	return apiKey, nil
+}
+
+// resolveBaseURL returns the model's base URL or the default OpenAI endpoint.
+func resolveBaseURL(model contract.WorkerModelRuntime) string {
+	baseURL := strings.TrimRight(model.BaseURL, "/")
+	if baseURL == "" {
+		return "https://api.openai.com/v1"
+	}
+	return baseURL
+}
+
+// doPost performs an HTTP POST to the model endpoint and returns the raw response body.
+func doPost(ctx context.Context, client HTTPDoer, apiKey, url string, rawBody []byte) ([]byte, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(rawBody))
+	if err != nil {
+		return nil, FailureReasonError{
+			Reason:  "ModelRequestBuildFailed",
+			Message: fmt.Sprintf("failed to create model request: %v", err),
+		}
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, FailureReasonError{
+			Reason:  "ModelCallFailed",
+			Message: fmt.Sprintf("model call failed: %v", err),
+		}
+	}
+	defer resp.Body.Close()
+
+	rawResponse, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, FailureReasonError{
+			Reason:  "ModelCallFailed",
+			Message: fmt.Sprintf("failed to read model response: %v", err),
+		}
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, FailureReasonError{
+			Reason:  "ModelCallFailed",
+			Message: fmt.Sprintf("model call returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResponse))),
+		}
+	}
+	return rawResponse, nil
+}
+
+func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, prompt contract.PromptSpec, input map[string]interface{}, output map[string]interface{}) (ModelInvocationResult, error) {
+	apiKey, err := resolveAPIKey(model, config.Model)
+	if err != nil {
+		return ModelInvocationResult{}, err
 	}
 
 	requestBody := chatCompletionRequest(config, prompt, input, output)
@@ -88,41 +141,9 @@ func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.Work
 		}
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(rawBody))
+	rawResponse, err := doPost(ctx, i.Client, apiKey, resolveBaseURL(model)+"/chat/completions", rawBody)
 	if err != nil {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelRequestBuildFailed",
-			Message: fmt.Sprintf("failed to create model request: %v", err),
-		}
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	client := i.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelCallFailed",
-			Message: fmt.Sprintf("model call failed: %v", err),
-		}
-	}
-	defer resp.Body.Close()
-
-	rawResponse, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelCallFailed",
-			Message: fmt.Sprintf("failed to read model response: %v", err),
-		}
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelCallFailed",
-			Message: fmt.Sprintf("model call returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResponse))),
-		}
+		return ModelInvocationResult{}, err
 	}
 
 	var response ChatCompletionResponse
@@ -132,6 +153,9 @@ func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.Work
 			Message: fmt.Sprintf("failed to parse model response: %v", err),
 		}
 	}
+	// Invoke is for standard chat completions where content must be present.
+	// For tool calling (where content may be empty and tool_calls present),
+	// use InvokeWithBody instead.
 	if len(response.Choices) == 0 || strings.TrimSpace(response.Choices[0].Message.Content) == "" {
 		return ModelInvocationResult{}, FailureReasonError{
 			Reason:  "ModelResponseParseFailed",
@@ -159,61 +183,18 @@ func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.Work
 }
 
 // InvokeWithBody calls the model with a pre-built request body (used for tool calling).
+// Unlike Invoke, this method skips output schema validation since the response may
+// contain tool_calls instead of final structured output. Content may be empty when
+// tool_calls are present — this is valid OpenAI function-calling behavior.
 func (i OpenAICompatibleInvoker) InvokeWithBody(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, rawBody []byte, requestBody map[string]interface{}) (ModelInvocationResult, error) {
-	baseURL := strings.TrimRight(model.BaseURL, "/")
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
-	}
-	if model.APIKeyEnv == "" {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "MissingModelCredentials",
-			Message: fmt.Sprintf("missing model credentials for %q", config.Model),
-		}
-	}
-
-	apiKey := strings.TrimSpace(lookupEnv(model.APIKeyEnv))
-	if apiKey == "" {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "MissingModelCredentials",
-			Message: fmt.Sprintf("missing model credentials for %q via %s", config.Model, model.APIKeyEnv),
-		}
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(rawBody))
+	apiKey, err := resolveAPIKey(model, config.Model)
 	if err != nil {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelRequestBuildFailed",
-			Message: fmt.Sprintf("failed to create model request: %v", err),
-		}
+		return ModelInvocationResult{}, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
 
-	client := i.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-	resp, err := client.Do(httpReq)
+	rawResponse, err := doPost(ctx, i.Client, apiKey, resolveBaseURL(model)+"/chat/completions", rawBody)
 	if err != nil {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelCallFailed",
-			Message: fmt.Sprintf("model call failed: %v", err),
-		}
-	}
-	defer resp.Body.Close()
-
-	rawResponse, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelCallFailed",
-			Message: fmt.Sprintf("failed to read model response: %v", err),
-		}
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return ModelInvocationResult{}, FailureReasonError{
-			Reason:  "ModelCallFailed",
-			Message: fmt.Sprintf("model call returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResponse))),
-		}
+		return ModelInvocationResult{}, err
 	}
 
 	var response ChatCompletionResponse

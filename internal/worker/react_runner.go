@@ -148,7 +148,7 @@ func (r EinoADKRunner) executeReactLoop(
 		step.Action = decision.Action
 		step.ActionInput = decision.ActionInput
 
-		observation, toolErr := r.executeReactTool(ctx, artifact, runtimeInfo, decision.Action, decision.ActionInput)
+		observation, toolErr := r.executeTool(ctx, artifact, runtimeInfo, decision.Action, decision.ActionInput)
 		if toolErr != nil {
 			observation = map[string]interface{}{
 				"error": toolErr.Error(),
@@ -363,8 +363,9 @@ func extractJSONFromContent(content string) map[string]interface{} {
 	return nil
 }
 
-// executeReactTool executes a named tool from the compiled artifact.
-func (r EinoADKRunner) executeReactTool(
+// executeTool executes a named tool from the compiled artifact.
+// Shared by react and tool_calling runners.
+func (r EinoADKRunner) executeTool(
 	ctx context.Context,
 	artifact contract.CompiledArtifact,
 	runtimeInfo contract.WorkerRuntimeInfo,

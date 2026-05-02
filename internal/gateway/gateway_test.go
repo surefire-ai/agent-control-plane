@@ -185,3 +185,208 @@ func jsonString(t *testing.T, value apiextensionsv1.JSON) string {
 	}
 	return output
 }
+
+func TestParseAgentRunPath(t *testing.T) {
+	tests := []struct {
+		name          string
+		path          string
+		wantNamespace string
+		wantName      string
+		wantOk        bool
+	}{
+		{
+			name:          "valid agentrun path",
+			path:          "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/my-run-abc",
+			wantNamespace: "ehs",
+			wantName:      "my-run-abc",
+			wantOk:        true,
+		},
+		{
+			name:   "agent invoke path is not agentrun",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-agent:invoke",
+			wantOk: false,
+		},
+		{
+			name:   "missing namespace",
+			path:   "/apis/windosx.com/v1alpha1/namespaces//agentruns/my-run",
+			wantOk: false,
+		},
+		{
+			name:   "missing name",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/",
+			wantOk: false,
+		},
+		{
+			name:   "wrong prefix",
+			path:   "/api/v1/namespaces/ehs/agentruns/my-run",
+			wantOk: false,
+		},
+		{
+			name:   "too many segments",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/my-run/extra",
+			wantOk: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ns, name, ok := parseAgentRunPath(tt.path)
+			if ok != tt.wantOk {
+				t.Fatalf("parseAgentRunPath(%q) ok = %v, want %v", tt.path, ok, tt.wantOk)
+			}
+			if ok {
+				if ns != tt.wantNamespace {
+					t.Errorf("namespace = %q, want %q", ns, tt.wantNamespace)
+				}
+				if name != tt.wantName {
+					t.Errorf("name = %q, want %q", name, tt.wantName)
+				}
+			}
+		})
+	}
+}
+
+func TestGatewayGetAgentRunStatus(t *testing.T) {
+	scheme := testScheme(t)
+
+	// Create an existing AgentRun in the fake store.
+	existingRun := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ehs-run-abc",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase: "Succeeded",
+			ConditionedStatus: apiv1alpha1.ConditionedStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:    "Completed",
+						Status:  metav1.ConditionTrue,
+						Reason:  "WorkerJobSucceeded",
+						Message: "worker completed",
+					},
+				},
+			},
+		},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existingRun).
+		WithStatusSubresource(existingRun).
+		Build()
+
+	server := Server{Client: kubeClient}
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+		wantPhase  string
+	}{
+		{
+			name:       "get existing agentrun",
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/ehs-run-abc",
+			wantStatus: http.StatusOK,
+			wantPhase:  "Succeeded",
+		},
+		{
+			name:       "get nonexistent agentrun",
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/does-not-exist",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "invalid path structure",
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/",
+			wantStatus: http.StatusMethodNotAllowed, // Falls through to invoke handler which rejects GET
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			server.Handler().ServeHTTP(recorder, request)
+
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d: %s", tt.wantStatus, recorder.Code, recorder.Body.String())
+			}
+
+			if tt.wantPhase != "" {
+				var resp map[string]interface{}
+				if err := json.Unmarshal(recorder.Body.Bytes(), &resp); err != nil {
+					t.Fatalf("failed to parse response: %v", err)
+				}
+				status, _ := resp["status"].(map[string]interface{})
+				if status == nil {
+					t.Fatal("response missing status field")
+				}
+				phase, _ := status["phase"].(string)
+				if phase != tt.wantPhase {
+					t.Errorf("phase = %q, want %q", phase, tt.wantPhase)
+				}
+			}
+		})
+	}
+}
+
+func TestGatewayGetAgentRunMethodRouting(t *testing.T) {
+	scheme := testScheme(t)
+
+	existingRun := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-run",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{Phase: "Running"},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(readyAgent(), existingRun).
+		WithStatusSubresource(existingRun).
+		Build()
+
+	server := Server{Client: kubeClient}
+
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		wantStatus int
+	}{
+		{
+			name:       "GET agentrun returns status",
+			method:     http.MethodGet,
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/test-run",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "POST agentrun falls through to invoke (404 no :invoke suffix)",
+			method:     http.MethodPost,
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/test-run",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "GET agents:invoke returns method not allowed",
+			method:     http.MethodGet,
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-agent:invoke",
+			wantStatus: http.StatusMethodNotAllowed,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(tt.method, tt.path, nil)
+			server.Handler().ServeHTTP(recorder, request)
+
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d: %s", tt.wantStatus, recorder.Code, recorder.Body.String())
+			}
+		})
+	}
+}

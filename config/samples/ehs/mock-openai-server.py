@@ -1,33 +1,82 @@
 import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import re
 
-call_count = 0
+# Per-session call counters keyed by AgentRun name (from execution.source).
+# Falls back to a global counter for requests without a session key.
+session_counters = {}
+global_counter = [0]
+
+def get_call_count(req):
+    """Return (session_key, current_count) for this request."""
+    exec_source = ''
+    try:
+        exec_source = req.get('execution', {}).get('source', '')
+    except (AttributeError, TypeError):
+        pass
+    # Extract a stable session key (router/react/reflection source label).
+    key = exec_source if exec_source else '__global__'
+    if key not in session_counters:
+        session_counters[key] = 0
+    session_counters[key] += 1
+    global_counter[0] += 1
+    return key, session_counters[key]
+
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        global call_count
-        call_count += 1
         length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(length)
-        
+
         try:
             req = json.loads(body)
             messages = req.get('messages', [])
+            tools = req.get('tools', [])
             system_msg = ''
             for msg in messages:
                 if msg.get('role') == 'system':
                     system_msg = msg.get('content', '')
                     break
-        except:
+        except Exception:
             system_msg = ''
-        
+            tools = []
+            req = {}
+
+        _, call_count = get_call_count(req)
+
         # Router classifier mode
         if 'task classifier' in system_msg.lower() or 'classification' in system_msg.lower():
             content = json.dumps({
                 "classification": "electrical"
             })
+            message = {
+                "role": "assistant",
+                "content": content
+            }
+        elif tools and call_count == 1:
+            # Function-calling mode: return tool_calls in OpenAI format
+            tool_def = tools[0] if tools else {}
+            func_name = tool_def.get('function', {}).get('name', 'rectify-ticket-api')
+            message = {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{
+                    "id": "call_mock_001",
+                    "type": "function",
+                    "function": {
+                        "name": func_name,
+                        "arguments": json.dumps({
+                            "hazard_id": "H-001",
+                            "action": "修复配电箱门锁",
+                            "priority": "high",
+                            "location": "3号线配电间"
+                        })
+                    }
+                }]
+            }
+            content = None
         elif call_count == 1:
-            # First call: tool call - request rectify-ticket-api
+            # ReAct mode: tool call via content JSON
             content = json.dumps({
                 "action": "rectify-ticket-api",
                 "action_input": {
@@ -37,8 +86,12 @@ class Handler(BaseHTTPRequestHandler):
                     "location": "3号线配电间"
                 }
             })
+            message = {
+                "role": "assistant",
+                "content": content
+            }
         else:
-            # Second call: final answer
+            # Final answer
             content = json.dumps({
                 "final_answer": {
                     "summary": "巡检发现配电箱门未关闭，地面有积水，已创建整改工单",
@@ -58,16 +111,17 @@ class Handler(BaseHTTPRequestHandler):
                     "needsHumanReview": True
                 }
             })
-        
+            message = {
+                "role": "assistant",
+                "content": content
+            }
+
         response = {
             "id": "chatcmpl-mock",
             "object": "chat.completion",
             "choices": [{
                 "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": content
-                },
+                "message": message,
                 "finish_reason": "stop"
             }]
         }
@@ -77,13 +131,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(resp_body)))
         self.end_headers()
         self.wfile.write(resp_body)
-    
+
     def do_GET(self):
         self.do_POST()
-    
+
     def log_message(self, format, *args):
         pass
 
 server = HTTPServer(('0.0.0.0', 8080), Handler)
-print('Mock OpenAI server (ReAct + Router mode) listening on :8080')
+print('Mock OpenAI server (ReAct + Router + ToolCalling mode) listening on :8080')
 server.serve_forever()

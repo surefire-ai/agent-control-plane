@@ -86,6 +86,12 @@ func (r EinoADKRunner) executeReflectionLoop(
 
 	// Phase 2..N: Critique → Revise loop.
 	for iter := int32(1); iter <= maxIter; iter++ {
+		select {
+		case <-ctx.Done():
+			return contract.WorkerResult{}, false, ctx.Err()
+		default:
+		}
+
 		// Critique.
 		critiquePrompt := augmentPromptForPhase(systemPrompt, "critique", currentOutput)
 		critResult, err := r.modelInvoker().Invoke(ctx, modelCfg, modelConfigFor(artifact, modelRef), critiquePrompt, request.Config.ParsedRunInput, nil)

@@ -54,14 +54,23 @@ func (r EinoADKRunner) executeToolCallingLoop(
 	}
 	modelConfig, ok := preferredModelConfig(modelRef, artifact)
 	if !ok {
-		return contract.WorkerResult{}, false, nil
+		return contract.WorkerResult{}, false, FailureReasonError{
+			Reason:  "MissingModelConfig",
+			Message: fmt.Sprintf("tool_calling pattern: model %q not declared in spec.models", modelRef),
+		}
 	}
 	modelRuntime, ok := runtimeInfo.Models[modelRef]
 	if !ok {
-		return contract.WorkerResult{}, false, nil
+		return contract.WorkerResult{}, false, FailureReasonError{
+			Reason:  "MissingModelRuntime",
+			Message: fmt.Sprintf("tool_calling pattern: model %q not resolved in runtime", modelRef),
+		}
 	}
 	if strings.TrimSpace(modelRuntime.BaseURL) == "" {
-		return contract.WorkerResult{}, false, nil
+		return contract.WorkerResult{}, false, FailureReasonError{
+			Reason:  "MissingModelBaseURL",
+			Message: fmt.Sprintf("tool_calling pattern: model %q has no baseURL configured", modelRef),
+		}
 	}
 
 	// Resolve system prompt.
@@ -161,7 +170,7 @@ func (r EinoADKRunner) executeToolCallingLoop(
 			step.Input = toolInput
 
 			// Execute tool.
-			observation, toolErr := r.executeReactTool(ctx, artifact, runtimeInfo, tc.Function.Name, toolInput)
+			observation, toolErr := r.executeTool(ctx, artifact, runtimeInfo, tc.Function.Name, toolInput)
 			if toolErr != nil {
 				step.Error = toolErr.Error()
 				step.Output = map[string]interface{}{"error": toolErr.Error()}
@@ -289,7 +298,7 @@ func (r EinoADKRunner) callModelWithTools(
 		"model":    config.Model,
 		"messages": messages,
 	}
-	if config.Temperature > 0 {
+	if config.Temperature != 0 {
 		requestBody["temperature"] = config.Temperature
 	}
 	if config.MaxTokens > 0 {

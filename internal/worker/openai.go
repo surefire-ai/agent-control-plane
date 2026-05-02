@@ -19,6 +19,7 @@ type HTTPDoer interface {
 
 type ModelInvoker interface {
 	Invoke(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, prompt contract.PromptSpec, input map[string]interface{}, output map[string]interface{}) (ModelInvocationResult, error)
+	InvokeWithBody(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, rawBody []byte, requestBody map[string]interface{}) (ModelInvocationResult, error)
 }
 
 type OpenAICompatibleInvoker struct {
@@ -153,6 +154,99 @@ func (i OpenAICompatibleInvoker) Invoke(ctx context.Context, model contract.Work
 		RequestBody:  requestBody,
 		ResponseBody: responseBody,
 		Content:      strings.TrimSpace(response.Choices[0].Message.Content),
+		Parsed:       parsed,
+	}, nil
+}
+
+// InvokeWithBody calls the model with a pre-built request body (used for tool calling).
+func (i OpenAICompatibleInvoker) InvokeWithBody(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, rawBody []byte, requestBody map[string]interface{}) (ModelInvocationResult, error) {
+	baseURL := strings.TrimRight(model.BaseURL, "/")
+	if baseURL == "" {
+		baseURL = "https://api.openai.com/v1"
+	}
+	if model.APIKeyEnv == "" {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "MissingModelCredentials",
+			Message: fmt.Sprintf("missing model credentials for %q", config.Model),
+		}
+	}
+
+	apiKey := strings.TrimSpace(lookupEnv(model.APIKeyEnv))
+	if apiKey == "" {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "MissingModelCredentials",
+			Message: fmt.Sprintf("missing model credentials for %q via %s", config.Model, model.APIKeyEnv),
+		}
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(rawBody))
+	if err != nil {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "ModelRequestBuildFailed",
+			Message: fmt.Sprintf("failed to create model request: %v", err),
+		}
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := i.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "ModelCallFailed",
+			Message: fmt.Sprintf("model call failed: %v", err),
+		}
+	}
+	defer resp.Body.Close()
+
+	rawResponse, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "ModelCallFailed",
+			Message: fmt.Sprintf("failed to read model response: %v", err),
+		}
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "ModelCallFailed",
+			Message: fmt.Sprintf("model call returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(rawResponse))),
+		}
+	}
+
+	var response ChatCompletionResponse
+	if err := json.Unmarshal(rawResponse, &response); err != nil {
+		return ModelInvocationResult{}, FailureReasonError{
+			Reason:  "ModelResponseParseFailed",
+			Message: fmt.Sprintf("failed to parse model response: %v", err),
+		}
+	}
+
+	var responseBody map[string]interface{}
+	if err := json.Unmarshal(rawResponse, &responseBody); err != nil {
+		responseBody = map[string]interface{}{}
+	}
+
+	// For tool calling, content may be empty when tool_calls are present.
+	content := ""
+	if len(response.Choices) > 0 {
+		content = strings.TrimSpace(response.Choices[0].Message.Content)
+	}
+
+	// Parse content as JSON if possible, but don't fail if empty.
+	parsed := make(map[string]interface{})
+	if content != "" {
+		if err := json.Unmarshal([]byte(content), &parsed); err != nil {
+			parsed["text"] = content
+		}
+	}
+
+	return ModelInvocationResult{
+		RequestBody:  requestBody,
+		ResponseBody: responseBody,
+		Content:      content,
 		Parsed:       parsed,
 	}, nil
 }

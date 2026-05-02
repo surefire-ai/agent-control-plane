@@ -1,0 +1,44 @@
+apiVersion: windosx.com/v1alpha1
+kind: Agent
+metadata:
+  name: ehs-tool-calling-hazard-agent
+  namespace: ehs
+spec:
+  lifecycle:
+    desiredPhase: Published
+  runtime:
+    engine: eino
+    runnerClass: adk
+    entrypoint: ehs.tool_calling_hazard
+  identity:
+    displayName: EHS Tool Calling Hazard Agent
+    role: hazard-inspector
+    description: Uses model-driven structured tool calls to identify and triage EHS hazards.
+  pattern:
+    type: tool_calling
+    version: v1
+    modelRef: planner
+    maxIterations: 3
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      baseURL: http://mock-openai.ehs.svc.cluster.local:8080/v1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
+      temperature: 0.1
+      maxTokens: 4000
+      timeoutSeconds: 60
+  promptRefs:
+    system: ehs-hazard-identification-system
+  toolRefs:
+    - rectify-ticket-api
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+  policyRef: ehs-default-safety-policy
+  interfaces:
+    output:
+      schema:
+        type: object

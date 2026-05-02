@@ -110,6 +110,19 @@ func (i EinoOpenAIInvoker) Invoke(ctx context.Context, model contract.WorkerMode
 	}, nil
 }
 
+// InvokeWithBody calls the model with a pre-built request body (used for tool calling).
+// Falls back to OpenAICompatibleInvoker for raw HTTP control.
+func (i EinoOpenAIInvoker) InvokeWithBody(ctx context.Context, model contract.WorkerModelRuntime, config contract.ModelConfig, rawBody []byte, requestBody map[string]interface{}) (ModelInvocationResult, error) {
+	var httpClient HTTPDoer
+	if i.Client != nil {
+		httpClient = i.Client
+	} else {
+		httpClient = http.DefaultClient
+	}
+	delegate := OpenAICompatibleInvoker{Client: httpClient}
+	return delegate.InvokeWithBody(ctx, model, config, rawBody, requestBody)
+}
+
 func einoResponseFormat(output map[string]interface{}) (*einoopenai.ChatCompletionResponseFormat, error) {
 	if len(output) == 0 {
 		return nil, nil

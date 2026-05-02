@@ -403,6 +403,9 @@ func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1
 		return routerPatternGraph(pattern, graph)
 	case "reflection":
 		return reflectionPatternGraph(pattern, graph)
+	case "tool_calling":
+		// tool_calling is handled entirely in the runtime — no graph expansion needed.
+		return graph
 	default:
 		return graph
 	}
@@ -611,6 +614,8 @@ func validatePattern(spec apiv1alpha1.AgentSpec) error {
 	case "router":
 		return validateRouterPattern(spec.Pattern)
 	case "reflection":
+		return nil
+	case "tool_calling":
 		return nil
 	default:
 		return fmt.Errorf("pattern.type %q is not supported yet", patternType)

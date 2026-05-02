@@ -1,0 +1,15 @@
+apiVersion: windosx.com/v1alpha1
+kind: AgentRun
+metadata:
+  generateName: ehs-tool-calling-smoke-
+  namespace: ehs
+spec:
+  agentRef:
+    name: ehs-tool-calling-hazard-agent
+  execution:
+    mode: sync
+    source: tool-calling-smoke-test
+  input:
+    task: identify_hazard
+    payload:
+      text: "配电箱门打开，地面有积水"

@@ -93,6 +93,17 @@ func (r EinoADKRunner) Run(ctx context.Context, request RunRequest) (contract.Wo
 		}
 	}
 
+	// Try tool_calling pattern (model → tool calls → model).
+	if isToolCallingPattern(request.Artifact) {
+		if result, ok, err := r.executeToolCallingLoop(ctx, request, runtimeInfo); err != nil {
+			return contract.WorkerResult{}, err
+		} else if ok {
+			result.StartedAt = startedAt
+			result.Artifacts = append(result.Artifacts, artifacts...)
+			return result, nil
+		}
+	}
+
 	// Try graph-based execution next.
 	if result, ok, err := r.tryGraphExecution(ctx, request, runtimeInfo); err != nil {
 		return contract.WorkerResult{}, err

@@ -54,7 +54,7 @@ Initial presets to support:
 | `router` | Classify task and route to specialized branch or SubAgent. | ✅ Implemented |
 | `reflection` | Generate, critique, and revise. | ✅ Implemented |
 | `plan_execute` | Planner creates steps, executor completes steps. | TODO |
-| `tool_calling` | Model-driven structured tool calls without full graph authoring. | TODO |
+| `tool_calling` | Model-driven structured tool calls without full graph authoring. | ✅ Implemented |
 | `workflow` | Deterministic graph/workflow compiled from explicit nodes. | TODO |
 
 ## Skill Support

@@ -1028,3 +1028,55 @@ func TestDetectSubAgentCyclesPassesForAcyclic(t *testing.T) {
 		t.Fatalf("expected no cycle, got %v", err)
 	}
 }
+
+func TestCompileAgentExpandsReflectionPattern(t *testing.T) {
+	agent := testAgent()
+	agent.Spec.Graph = apiv1alpha1.AgentGraphSpec{}
+	agent.Spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+		Type:          "reflection",
+		Version:       "v1",
+		ModelRef:      "planner",
+		MaxIterations: 3,
+	}
+
+	result, err := CompileAgent(agent, ReferenceIndex{
+		Prompts: set("ehs-hazard-identification-system"),
+		PromptTemplates: map[string]apiv1alpha1.PromptTemplateSpec{
+			"ehs-hazard-identification-system": promptTemplateSpec(),
+		},
+		KnowledgeBases: set("ehs-regulations", "ehs-hazard-cases"),
+		KnowledgeSpecs: map[string]apiv1alpha1.KnowledgeBaseSpec{
+			"ehs-regulations":  knowledgeSpec("法规库", 5, 0.72),
+			"ehs-hazard-cases": knowledgeSpec("案例库", 3, 0.68),
+		},
+		Tools: set("vision-inspection-tool", "rectify-ticket-api"),
+		ToolSpecs: map[string]apiv1alpha1.ToolProviderSpec{
+			"vision-inspection-tool": toolSpec("multimodal", "图片巡检工具"),
+			"rectify-ticket-api":     toolSpec("http", "整改工单接口"),
+		},
+		Skills:     set("ehs-risk-scoring-skill"),
+		SkillSpecs: map[string]apiv1alpha1.SkillSpec{"ehs-risk-scoring-skill": skillSpec()},
+		MCPServers: set("ehs-docs-mcp"),
+		Policies:   set("ehs-default-safety-policy"),
+	})
+	if err != nil {
+		t.Fatalf("CompileAgent returned error: %v", err)
+	}
+
+	runner := runnerArtifact(t, result.Artifact["runner"])
+	nodes, _ := runner.Graph["nodes"].([]interface{})
+	// Expected: 3 (generate, critique, revise) + 1 skill node = 4
+	if len(nodes) != 4 {
+		t.Fatalf("expected 4 graph nodes, got %d: %#v", len(nodes), runner.Graph)
+	}
+
+	edges, _ := runner.Graph["edges"].([]interface{})
+	// Expected: 4 reflection edges + 2 skill edges = 6
+	if len(edges) != 6 {
+		t.Fatalf("expected 6 graph edges, got %d: %#v", len(edges), runner.Graph)
+	}
+
+	if runner.Pattern["type"] != "reflection" {
+		t.Fatalf("expected runner pattern type reflection, got %#v", runner.Pattern)
+	}
+}

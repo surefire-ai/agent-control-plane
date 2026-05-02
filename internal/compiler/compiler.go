@@ -401,9 +401,34 @@ func expandPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1
 		return reactPatternGraph(pattern, graph, toolRefs, knowledgeRefs)
 	case "router":
 		return routerPatternGraph(pattern, graph)
+	case "reflection":
+		return reflectionPatternGraph(pattern, graph)
 	default:
 		return graph
 	}
+}
+
+func reflectionPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
+	modelRef := strings.TrimSpace(pattern.ModelRef)
+	if modelRef == "" {
+		modelRef = "planner"
+	}
+
+	nodes := []apiv1alpha1.AgentGraphNode{
+		{Name: "generate", Kind: "llm", ModelRef: modelRef},
+		{Name: "critique", Kind: "llm", ModelRef: modelRef},
+		{Name: "revise", Kind: "llm", ModelRef: modelRef},
+	}
+	edges := []apiv1alpha1.AgentGraphEdge{
+		{From: "START", To: "generate"},
+		{From: "generate", To: "critique"},
+		{From: "critique", To: "revise"},
+		{From: "revise", To: "END"},
+	}
+
+	graph.Nodes = nodes
+	graph.Edges = edges
+	return graph
 }
 
 func routerPatternGraph(pattern *apiv1alpha1.AgentPatternSpec, graph apiv1alpha1.AgentGraphSpec) apiv1alpha1.AgentGraphSpec {
@@ -585,6 +610,8 @@ func validatePattern(spec apiv1alpha1.AgentSpec) error {
 		return nil
 	case "router":
 		return validateRouterPattern(spec.Pattern)
+	case "reflection":
+		return nil
 	default:
 		return fmt.Errorf("pattern.type %q is not supported yet", patternType)
 	}

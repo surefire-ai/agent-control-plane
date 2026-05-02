@@ -10,6 +10,7 @@ resources:
   - ehs-hazard-identification-eval-v1.yaml
   - ehs-hazard-identification-system.yaml
   - ehs-hazard-run-20260416-0001.yaml
+  - ehs-react-hazard-agent.yaml
   - ehs-regulations.yaml
   - rectify-ticket-api.yaml
   - vision-inspection-tool.yaml

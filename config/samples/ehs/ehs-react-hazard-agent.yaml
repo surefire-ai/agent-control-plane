@@ -1,0 +1,85 @@
+apiVersion: windosx.com/v1alpha1
+kind: Agent
+metadata:
+  name: ehs-react-hazard-agent
+  namespace: ehs
+  labels:
+    app.kubernetes.io/name: ehs-react-hazard-agent
+    windosx.com/domain: ehs
+    windosx.com/pattern: react
+spec:
+  lifecycle:
+    desiredPhase: Published
+
+  runtime:
+    engine: eino
+    runnerClass: adk
+
+  models:
+    planner:
+      provider: openai
+      model: gpt-4.1
+      baseURL: http://mock-openai.ehs.svc.cluster.local:8080/v1
+      credentialRef:
+        name: openai-credentials
+        key: apiKey
+      temperature: 0.1
+      maxTokens: 4000
+      timeoutSeconds: 60
+
+  identity:
+    displayName: EHS ReAct 隐患识别智能体
+    role: 基于 ReAct 模式的安全巡检助手
+    description: 使用推理-行动循环动态调用工具完成隐患识别
+
+  promptRefs:
+    system: ehs-hazard-identification-system
+
+  knowledgeRefs:
+    - name: regulations
+      ref: ehs-regulations
+      retrieval:
+        topK: 5
+        scoreThreshold: 0.72
+
+  toolRefs:
+    - rectify-ticket-api
+
+  policyRef: ehs-default-safety-policy
+
+  pattern:
+    type: react
+    version: v1
+    modelRef: planner
+    toolRefs:
+      - rectify-ticket-api
+    maxIterations: 4
+    stopWhen: final_answer
+
+  interfaces:
+    input:
+      schema:
+        type: object
+        required: [task, payload]
+        properties:
+          task:
+            type: string
+          payload:
+            type: object
+            properties:
+              text:
+                type: string
+    output:
+      schema:
+        type: object
+        properties:
+          summary:
+            type: string
+          hazards:
+            type: array
+            items:
+              type: object
+          overallRiskLevel:
+            type: string
+          confidence:
+            type: number

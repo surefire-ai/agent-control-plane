@@ -139,10 +139,13 @@ type AgentPolicySpec struct {
 }
 
 type AgentRunSpec struct {
-	AgentRef     LocalObjectReference  `json:"agentRef"`
-	WorkspaceRef *LocalObjectReference `json:"workspaceRef,omitempty"`
-	Input        FreeformObject        `json:"input,omitempty"`
-	Execution    FreeformObject        `json:"execution,omitempty"`
+	AgentRef              LocalObjectReference  `json:"agentRef"`
+	WorkspaceRef          *LocalObjectReference `json:"workspaceRef,omitempty"`
+	Input                 FreeformObject        `json:"input,omitempty"`
+	Execution             FreeformObject        `json:"execution,omitempty"`
+	ActiveDeadlineSeconds *int64                `json:"activeDeadlineSeconds,omitempty"`
+	MaxRetries            *int32                `json:"maxRetries,omitempty"`
+	RetryBackoffSeconds   *int64                `json:"retryBackoffSeconds,omitempty"`
 }
 
 type AgentRunStatus struct {
@@ -155,6 +158,8 @@ type AgentRunStatus struct {
 	Ticket            FreeformObject `json:"ticket,omitempty"`
 	AgentRevision     string         `json:"agentRevision,omitempty"`
 	WorkspaceRef      string         `json:"workspaceRef,omitempty"`
+	RetryCount        int32          `json:"retryCount,omitempty"`
+	LastFailureReason string         `json:"lastFailureReason,omitempty"`
 }
 
 type AgentRunPhase string
@@ -164,6 +169,8 @@ const (
 	AgentRunPhaseRunning   AgentRunPhase = "Running"
 	AgentRunPhaseSucceeded AgentRunPhase = "Succeeded"
 	AgentRunPhaseFailed    AgentRunPhase = "Failed"
+	AgentRunPhaseCanceled  AgentRunPhase = "Canceled"
+	AgentRunPhaseRetrying  AgentRunPhase = "Retrying"
 )
 
 type AgentEvaluationSpec struct {

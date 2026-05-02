@@ -37,6 +37,9 @@ spec:
             type: object
           spec:
             properties:
+              activeDeadlineSeconds:
+                format: int64
+                type: integer
               agentRef:
                 properties:
                   name:
@@ -52,6 +55,12 @@ spec:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
                 type: object
+              maxRetries:
+                format: int32
+                type: integer
+              retryBackoffSeconds:
+                format: int64
+                type: integer
               workspaceRef:
                 properties:
                   name:
@@ -125,12 +134,17 @@ spec:
               finishedAt:
                 format: date-time
                 type: string
+              lastFailureReason:
+                type: string
               output:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
                 type: object
               phase:
                 type: string
+              retryCount:
+                format: int32
+                type: integer
               startedAt:
                 format: date-time
                 type: string

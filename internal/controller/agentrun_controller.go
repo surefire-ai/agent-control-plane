@@ -36,13 +36,37 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	// Terminal phases are done — nothing to do.
 	if isTerminalAgentRunPhase(run.Status.Phase) {
 		return ctrl.Result{}, nil
+	}
+
+	// ── Cancel: DeletionTimestamp set while non-terminal ──
+	if !run.DeletionTimestamp.IsZero() {
+		original := run.DeepCopy()
+		previousStatus := run.Status.DeepCopy()
+		now := r.now()
+		setAgentRunCanceled(&run, now, run.Status.WorkspaceRef, "AgentRun canceled by deletion")
+		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	}
 
 	original := run.DeepCopy()
 	previousStatus := run.Status.DeepCopy()
 	now := r.now()
+
+	// ── Timeout: elapsed time exceeds ActiveDeadlineSeconds ──
+	if run.Spec.ActiveDeadlineSeconds != nil && run.Status.StartedAt != nil {
+		deadline := time.Duration(*run.Spec.ActiveDeadlineSeconds) * time.Second
+		elapsed := now.Time.Sub(run.Status.StartedAt.Time)
+		if elapsed > deadline {
+			setAgentRunFailedWithReason(&run, now, run.Status.WorkspaceRef, "DeadlineExceeded",
+				fmt.Sprintf("AgentRun exceeded active deadline of %ds", *run.Spec.ActiveDeadlineSeconds))
+			return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+		}
+		// Requeue before deadline expires so we can detect it precisely.
+		remaining := deadline - elapsed
+		return ctrl.Result{RequeueAfter: remaining + time.Second}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+	}
 
 	var agent apiv1alpha1.Agent
 	agentKey := types.NamespacedName{
@@ -72,9 +96,11 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	case "":
 		setAgentRunPending(&run, now, workspaceRef, "AgentRun accepted")
 		return ctrl.Result{Requeue: true}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+
 	case string(apiv1alpha1.AgentRunPhasePending):
 		setAgentRunRunning(&run, agent, now, workspaceRef)
 		return ctrl.Result{Requeue: true}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+
 	case string(apiv1alpha1.AgentRunPhaseRunning):
 		result, err := r.runner().Execute(ctx, agentruntime.Request{
 			Agent: agent,
@@ -84,6 +110,10 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			if errors.Is(err, agentruntime.ErrRuntimeInProgress) {
 				setAgentRunRunning(&run, agent, now, workspaceRef)
 				return ctrl.Result{RequeueAfter: time.Second}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+			}
+			// ── Retry: check if retries are available ──
+			if r.shouldRetry(run) {
+				return ctrl.Result{}, r.handleRetry(ctx, &run, original, previousStatus, agent, now, workspaceRef, err)
 			}
 			var runtimeFailure agentruntime.Failure
 			if errors.As(err, &runtimeFailure) {
@@ -95,6 +125,20 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		setAgentRunSucceeded(&run, agent, now, workspaceRef, result)
 		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+
+	case string(apiv1alpha1.AgentRunPhaseRetrying):
+		// Back off before re-running.
+		backoff := r.retryBackoff(run)
+		if run.Status.FinishedAt != nil {
+			elapsed := now.Time.Sub(run.Status.FinishedAt.Time)
+			if elapsed < backoff {
+				return ctrl.Result{RequeueAfter: backoff - elapsed}, nil
+			}
+		}
+		// Backoff elapsed — transition back to Pending.
+		setAgentRunPending(&run, now, workspaceRef, fmt.Sprintf("retry attempt %d/%d", run.Status.RetryCount, r.maxRetries(run)))
+		return ctrl.Result{Requeue: true}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+
 	default:
 		setAgentRunFailed(&run, now, workspaceRef, "unsupported AgentRun phase "+run.Status.Phase)
 		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
@@ -129,10 +173,42 @@ func (r *AgentRunReconciler) runner() agentruntime.Runner {
 	return runtime
 }
 
+// ── Retry helpers ──
+
+func (r *AgentRunReconciler) maxRetries(run apiv1alpha1.AgentRun) int32 {
+	if run.Spec.MaxRetries != nil {
+		return *run.Spec.MaxRetries
+	}
+	return 0
+}
+
+func (r *AgentRunReconciler) retryBackoff(run apiv1alpha1.AgentRun) time.Duration {
+	if run.Spec.RetryBackoffSeconds != nil {
+		return time.Duration(*run.Spec.RetryBackoffSeconds) * time.Second
+	}
+	return 10 * time.Second
+}
+
+func (r *AgentRunReconciler) shouldRetry(run apiv1alpha1.AgentRun) bool {
+	return run.Spec.MaxRetries != nil && run.Status.RetryCount < *run.Spec.MaxRetries
+}
+
+func (r *AgentRunReconciler) handleRetry(ctx context.Context, run *apiv1alpha1.AgentRun, original *apiv1alpha1.AgentRun, previousStatus *apiv1alpha1.AgentRunStatus, agent apiv1alpha1.Agent, now metav1.Time, workspaceRef string, execErr error) error {
+	run.Status.RetryCount++
+	run.Status.LastFailureReason = execErr.Error()
+	setAgentRunRetrying(run, now, workspaceRef, execErr.Error())
+	return r.patchAgentRunStatusIfChanged(ctx, run, original, previousStatus)
+}
+
+// ── Terminal-phase predicate ──
+
 func isTerminalAgentRunPhase(phase string) bool {
 	return phase == string(apiv1alpha1.AgentRunPhaseSucceeded) ||
-		phase == string(apiv1alpha1.AgentRunPhaseFailed)
+		phase == string(apiv1alpha1.AgentRunPhaseFailed) ||
+		phase == string(apiv1alpha1.AgentRunPhaseCanceled)
 }
+
+// ── Predicates / helpers ──
 
 func isAgentReady(agent apiv1alpha1.Agent) bool {
 	if agent.Status.CompiledRevision == "" || len(agent.Status.CompiledArtifact) == 0 {
@@ -168,9 +244,13 @@ func resolveAgentRunWorkspace(run apiv1alpha1.AgentRun, agent apiv1alpha1.Agent)
 	return agentWorkspace, nil
 }
 
+// ── Status setters ──
+
 func setAgentRunPending(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRef string, message string) {
 	run.Status.Phase = string(apiv1alpha1.AgentRunPhasePending)
 	run.Status.WorkspaceRef = workspaceRef
+	run.Status.StartedAt = nil
+	run.Status.FinishedAt = nil
 	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
 		Type:               agentRunCompletedCondition,
 		Status:             metav1.ConditionFalse,
@@ -259,6 +339,35 @@ func setAgentRunRuntimeFailed(run *apiv1alpha1.AgentRun, agent apiv1alpha1.Agent
 		Status:             metav1.ConditionFalse,
 		Reason:             reason,
 		Message:            message,
+		ObservedGeneration: run.Generation,
+		LastTransitionTime: now,
+	})
+}
+
+func setAgentRunCanceled(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRef string, message string) {
+	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseCanceled)
+	run.Status.WorkspaceRef = workspaceRef
+	run.Status.FinishedAt = &now
+	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
+		Type:               agentRunCompletedCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             "Canceled",
+		Message:            message,
+		ObservedGeneration: run.Generation,
+		LastTransitionTime: now,
+	})
+}
+
+func setAgentRunRetrying(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRef string, failureReason string) {
+	run.Status.Phase = string(apiv1alpha1.AgentRunPhaseRetrying)
+	run.Status.WorkspaceRef = workspaceRef
+	run.Status.FinishedAt = &now
+	run.Status.LastFailureReason = failureReason
+	run.Status.Conditions = mergeCondition(run.Status.Conditions, metav1.Condition{
+		Type:               agentRunCompletedCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             "Retrying",
+		Message:            fmt.Sprintf("retry %d/%d scheduled after failure: %s", run.Status.RetryCount, run.Spec.MaxRetries, failureReason),
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,
 	})

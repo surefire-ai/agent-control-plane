@@ -30,6 +30,9 @@ type Server struct {
 	Client          client.Client
 	MaxRequestBytes int64
 	Clock           func() time.Time
+	AuthTokens      []string
+	RateLimit       float64
+	RateBurst       int
 }
 
 type InvokeRequest struct {
@@ -99,7 +102,11 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	return mux
+
+	var handler http.Handler = mux
+	handler = RateLimitMiddleware(NewRateLimiter(s.RateLimit, s.RateBurst))(handler)
+	handler = BearerTokenAuth(s.AuthTokens)(handler)
+	return handler
 }
 
 func (s Server) handleInvoke(w http.ResponseWriter, r *http.Request) {

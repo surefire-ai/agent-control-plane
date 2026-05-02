@@ -347,8 +347,8 @@ func wireEdges(g *compose.Graph[graphState, graphState], edgesRaw []interface{})
 
 	// Group edges by source node.
 	type edge struct {
-		to    string
-		when  string
+		to   string
+		when string
 	}
 	edgesBySource := make(map[string][]edge)
 	for _, raw := range edgesRaw {

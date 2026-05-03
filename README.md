@@ -68,6 +68,8 @@ Korus makes those concerns part of the platform contract.
 | Agent patterns | Six built-in orchestration patterns — `react`, `router`, `reflection`, `tool_calling`, `plan_execute`, and `workflow` — so users can declare common agent designs without hand-writing a full graph. |
 | SubAgent composition | Agents can reference other Agents as SubAgents with cycle detection, async invocation through the gateway, and result propagation. |
 | Eino runtime | Workers execute compiled artifacts through Eino graphs with real LLM calls, tool invocation, and streaming support. |
+| Manager API | Full CRUD REST API for tenants, workspaces, agents, evaluations, providers, and runs with PostgreSQL-backed storage and pagination. |
+| CRD sync | Best-effort sync layer that pushes Manager database state to Kubernetes CRDs (Tenant, Workspace, Agent, AgentEvaluation, ToolProvider) via controller-runtime. |
 
 ## Architecture
 
@@ -246,7 +248,7 @@ See [`web/README.md`](./web/README.md) for current scope and development notes.
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP with CRDs, compilation, gateway invocation, worker Jobs, GHCR images, and Helm skeleton. | First public development baseline is in place. |
 | Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | **Complete.** |
-| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | Scaffolded. |
+| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | In progress. Manager API CRUD and CRD sync layer complete; Web Console and evaluation UX next. |
 | Phase 4 | Distributed agent fabric with multi-runtime execution, autoscaling, SubAgent composition, and A2A interoperability. | Planned. |
 
 Detailed design notes:
@@ -284,6 +286,9 @@ web/                            future Web Console
 
 ```bash
 make test              # run Go tests
+make ci              # run full CI checks (fmt, tidy, vet, test, build)
+make fmt             # auto-format Go code
+make vet             # static analysis
 make build             # build controller-manager and worker
 make generate          # generate deepcopy code
 make manifests         # generate CRD manifests
@@ -307,7 +312,7 @@ Known alpha limits:
   complete;
 - cancellation, retry, timeout, and durable run artifact storage are not
   complete;
-- the Web Console and manager backend are scaffolds;
+- the Web Console is a scaffold; the Manager backend has full CRUD API and CRD sync but no UI yet;
 - Helm is still a development install path.
 
 ## Contributing
@@ -326,7 +331,7 @@ Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full contribution guide.
 Before opening a change, run:
 
 ```bash
-make test
+make ci
 git diff --check
 ```
 

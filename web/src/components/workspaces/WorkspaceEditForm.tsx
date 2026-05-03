@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Workspace, UpdateWorkspaceRequest } from "@/types/api";
 import { Button } from "@/components/shared/Button";
@@ -16,6 +17,10 @@ interface WorkspaceEditFormProps {
   isPending: boolean;
 }
 
+interface FormErrors {
+  displayName?: string;
+}
+
 export function WorkspaceEditForm({
   workspace,
   values,
@@ -25,6 +30,8 @@ export function WorkspaceEditForm({
   isPending,
 }: WorkspaceEditFormProps) {
   const { t } = useTranslation();
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitted, setSubmitted] = useState(false);
 
   const statusOptions = [
     { value: "active", label: t("status.active") },
@@ -32,23 +39,50 @@ export function WorkspaceEditForm({
     { value: "archived", label: t("status.archived") },
   ];
 
-  const set = (key: keyof UpdateWorkspaceRequest, value: string) =>
+  const set = (key: keyof UpdateWorkspaceRequest, value: string) => {
     onChange({ ...values, [key]: value });
+    if (submitted && key === "displayName") {
+      validateDisplayName(value);
+    }
+  };
+
+  const validateDisplayName = (value: string) => {
+    const newErrors = { ...errors };
+    if (!value.trim()) {
+      newErrors.displayName = t("validation.required");
+    } else {
+      delete newErrors.displayName;
+    }
+    setErrors(newErrors);
+  };
+
+  const validate = (): boolean => {
+    const displayName = values.displayName ?? workspace.displayName;
+    const newErrors: FormErrors = {};
+    if (!displayName.trim()) {
+      newErrors.displayName = t("validation.required");
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    if (validate()) {
+      onSubmit();
+    }
+  };
 
   return (
     <Card className="p-6">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit();
-        }}
-        className="space-y-6"
-      >
-        <Field label={t("workspace.fields.displayName")} htmlFor="displayName">
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+        <Field label={t("workspace.fields.displayName")} htmlFor="displayName" required error={errors.displayName}>
           <Input
             id="displayName"
             value={values.displayName ?? workspace.displayName}
             onChange={(e) => set("displayName", e.target.value)}
+            hasError={!!errors.displayName}
           />
         </Field>
 

@@ -189,5 +189,8 @@
   "pagination": {
     "showing": "显示第 {{start}}–{{end}} 条，共 {{total}} 条",
     "page": "第 {{page}} 页 / 共 {{lastPage}} 页"
+  },
+  "validation": {
+    "required": "此字段为必填项"
   }
 }

@@ -189,5 +189,8 @@
   "pagination": {
     "showing": "Showing {{start}}–{{end}} of {{total}}",
     "page": "Page {{page}} of {{lastPage}}"
+  },
+  "validation": {
+    "required": "This field is required"
   }
 }

@@ -156,9 +156,9 @@ func workspaceSpec(rec WorkspaceRecord) apiv1alpha1.WorkspaceSpec {
 
 func workspaceLabels(rec WorkspaceRecord) map[string]string {
 	return map[string]string{
-		"korus.io/managed-by":  "manager",
+		"korus.io/managed-by":   "manager",
 		"korus.io/workspace-id": rec.ID,
-		"korus.io/tenant-id":   rec.TenantID,
+		"korus.io/tenant-id":    rec.TenantID,
 	}
 }
 
@@ -317,11 +317,11 @@ func evaluationSpec(rec EvaluationRecord) apiv1alpha1.AgentEvaluationSpec {
 
 func evaluationLabels(rec EvaluationRecord) map[string]string {
 	return map[string]string{
-		"korus.io/managed-by":     "manager",
-		"korus.io/evaluation-id":  rec.ID,
-		"korus.io/agent-id":       rec.AgentID,
-		"korus.io/tenant-id":      rec.TenantID,
-		"korus.io/workspace-id":   rec.WorkspaceID,
+		"korus.io/managed-by":    "manager",
+		"korus.io/evaluation-id": rec.ID,
+		"korus.io/agent-id":      rec.AgentID,
+		"korus.io/tenant-id":     rec.TenantID,
+		"korus.io/workspace-id":  rec.WorkspaceID,
 	}
 }
 

@@ -420,8 +420,8 @@ func (s SQLTenantStore) ListTenants(ctx context.Context, page, limit int) ([]Ten
 }
 
 var tenantUpdatableColumns = map[string]string{
-	"display_name": "display_name",
-	"status":       "status",
+	"display_name":   "display_name",
+	"status":         "status",
 	"default_region": "default_region",
 }
 
@@ -609,15 +609,15 @@ func (s SQLAgentStore) listAgents(ctx context.Context, query string, total, page
 }
 
 var agentUpdatableColumns = map[string]string{
-	"display_name":     "display_name",
-	"description":      "description",
-	"status":           "status",
-	"pattern":          "pattern",
-	"runtime_engine":   "runtime_engine",
-	"runner_class":     "runner_class",
-	"model_provider":   "model_provider",
-	"model_name":       "model_name",
-	"latest_revision":  "latest_revision",
+	"display_name":    "display_name",
+	"description":     "description",
+	"status":          "status",
+	"pattern":         "pattern",
+	"runtime_engine":  "runtime_engine",
+	"runner_class":    "runner_class",
+	"model_provider":  "model_provider",
+	"model_name":      "model_name",
+	"latest_revision": "latest_revision",
 }
 
 func (s SQLAgentStore) CreateAgent(ctx context.Context, agent AgentRecord) error {
@@ -791,18 +791,18 @@ func (s SQLEvaluationStore) listEvaluations(ctx context.Context, query string, t
 }
 
 var evaluationUpdatableColumns = map[string]string{
-	"display_name":       "display_name",
-	"description":        "description",
-	"status":             "status",
-	"dataset_name":       "dataset_name",
-	"dataset_revision":   "dataset_revision",
-	"baseline_revision":  "baseline_revision",
-	"score":              "score",
-	"gate_passed":        "gate_passed",
-	"samples_total":      "samples_total",
-	"samples_evaluated":  "samples_evaluated",
-	"latest_run_id":      "latest_run_id",
-	"report_ref":         "report_ref",
+	"display_name":      "display_name",
+	"description":       "description",
+	"status":            "status",
+	"dataset_name":      "dataset_name",
+	"dataset_revision":  "dataset_revision",
+	"baseline_revision": "baseline_revision",
+	"score":             "score",
+	"gate_passed":       "gate_passed",
+	"samples_total":     "samples_total",
+	"samples_evaluated": "samples_evaluated",
+	"latest_run_id":     "latest_run_id",
+	"report_ref":        "report_ref",
 }
 
 func (s SQLEvaluationStore) CreateEvaluation(ctx context.Context, evaluation EvaluationRecord) error {
@@ -993,14 +993,14 @@ func (s SQLProviderStore) listProviders(ctx context.Context, query string, total
 }
 
 var providerUpdatableColumns = map[string]string{
-	"display_name":           "display_name",
-	"family":                 "family",
-	"base_url":               "base_url",
-	"credential_ref":         "credential_ref",
-	"status":                 "status",
-	"domestic":               "domestic",
-	"supports_json_schema":   "supports_json_schema",
-	"supports_tool_calling":  "supports_tool_calling",
+	"display_name":          "display_name",
+	"family":                "family",
+	"base_url":              "base_url",
+	"credential_ref":        "credential_ref",
+	"status":                "status",
+	"domestic":              "domestic",
+	"supports_json_schema":  "supports_json_schema",
+	"supports_tool_calling": "supports_tool_calling",
 }
 
 func (s SQLProviderStore) CreateProvider(ctx context.Context, provider ProviderRecord) error {
@@ -1189,11 +1189,11 @@ func (s SQLRunStore) listRuns(ctx context.Context, query string, total, page, li
 }
 
 var runUpdatableColumns = map[string]string{
-	"status":        "status",
-	"started_at":    "started_at",
-	"completed_at":  "completed_at",
-	"summary":       "summary",
-	"trace_ref":     "trace_ref",
+	"status":       "status",
+	"started_at":   "started_at",
+	"completed_at": "completed_at",
+	"summary":      "summary",
+	"trace_ref":    "trace_ref",
 }
 
 func (s SQLRunStore) CreateRun(ctx context.Context, run RunRecord) error {

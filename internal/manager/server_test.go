@@ -1902,9 +1902,9 @@ func TestManagerDeleteRun(t *testing.T) {
 // --- Syncer integration tests ---
 
 type trackingSyncer struct {
-	synced   []string
-	deleted  []string
-	syncErr  error
+	synced    []string
+	deleted   []string
+	syncErr   error
 	deleteErr error
 }
 

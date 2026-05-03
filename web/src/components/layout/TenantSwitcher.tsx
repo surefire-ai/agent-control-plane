@@ -30,11 +30,16 @@ export function TenantSwitcher() {
         className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 shadow-inner outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-400/30"
       >
         {!currentId && <option value="">{t("nav.selectTenant")}</option>}
-        {data?.tenants.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.displayName}
+        {data?.tenants.map((tenant) => (
+          <option key={tenant.id} value={tenant.id}>
+            {tenant.displayName}
           </option>
         ))}
+        {data && data.total > 50 && (
+          <option disabled value="">
+            ...{data.total - 50} more
+          </option>
+        )}
       </select>
     </div>
   );

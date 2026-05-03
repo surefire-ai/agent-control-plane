@@ -12,24 +12,25 @@ export function EvaluationTable({ evaluations }: EvaluationTableProps) {
   return (
     <div className="surface overflow-hidden rounded-lg">
       <table className="min-w-full divide-y divide-zinc-200/80">
+        <caption className="sr-only">{t("table.name")}</caption>
         <thead className="bg-zinc-50/80">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.name")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.dataset")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.score")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.gate")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.samples")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.status")}
             </th>
           </tr>

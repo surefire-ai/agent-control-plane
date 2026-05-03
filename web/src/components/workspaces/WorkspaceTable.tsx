@@ -15,18 +15,19 @@ export function WorkspaceTable({ workspaces }: WorkspaceTableProps) {
   return (
     <div className="surface overflow-hidden rounded-lg">
       <table className="min-w-full divide-y divide-zinc-200/80">
+        <caption className="sr-only">{t("table.name")}</caption>
         <thead className="bg-zinc-50/80">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.name")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.slug")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.status")}
             </th>
-            <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
               {t("table.namespace")}
             </th>
           </tr>
@@ -36,6 +37,9 @@ export function WorkspaceTable({ workspaces }: WorkspaceTableProps) {
             <tr
               key={ws.id}
               onClick={() => navigate(`/tenants/${tenantId}/workspaces/${ws.id}`)}
+              tabIndex={0}
+              role="link"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/tenants/${tenantId}/workspaces/${ws.id}`); } }}
               className="cursor-pointer transition-colors hover:bg-teal-50/70"
             >
               <td className="px-6 py-4">

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useProviders } from "@/api/providers";
@@ -13,9 +14,12 @@ const LIMIT = 10;
 
 export function ProviderListPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("provider.title"));
   const { tenantId } = useParams<{ tenantId: string }>();
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useProviders(page, LIMIT, tenantId);
+
+  useEffect(() => { setPage(1); }, [tenantId]);
 
   return (
     <div>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useEvaluations } from "@/api/evaluations";
@@ -13,9 +14,12 @@ const LIMIT = 10;
 
 export function EvaluationListPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("evaluation.title"));
   const { tenantId } = useParams<{ tenantId: string }>();
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useEvaluations(page, LIMIT, tenantId);
+
+  useEffect(() => { setPage(1); }, [tenantId]);
 
   return (
     <div>

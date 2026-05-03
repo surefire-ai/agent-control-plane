@@ -89,7 +89,7 @@ function SidebarLink({
 }) {
   if (!to) {
     return (
-      <span className="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-600">
+      <span aria-disabled="true" className="flex cursor-not-allowed items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-600">
         {icon}
         {children}
       </span>

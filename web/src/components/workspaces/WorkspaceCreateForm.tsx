@@ -22,6 +22,9 @@ interface FormErrors {
   displayName?: string;
 }
 
+const ID_RE = /^[a-z][a-z0-9_-]*$/;
+const SLUG_RE = /^[a-z][a-z0-9-]*$/;
+
 export function WorkspaceCreateForm({
   values,
   onChange,
@@ -47,11 +50,27 @@ export function WorkspaceCreateForm({
 
   const validateField = (key: string, value: string) => {
     const newErrors = { ...errors };
-    if (key === "id" || key === "slug" || key === "displayName") {
+    if (key === "id") {
       if (!value.trim()) {
-        newErrors[key as keyof FormErrors] = t("validation.required");
+        newErrors.id = t("validation.required");
+      } else if (!ID_RE.test(value)) {
+        newErrors.id = t("validation.idFormat", "小写字母开头，仅限小写字母、数字、下划线和连字符");
       } else {
-        delete newErrors[key as keyof FormErrors];
+        delete newErrors.id;
+      }
+    } else if (key === "slug") {
+      if (!value.trim()) {
+        newErrors.slug = t("validation.required");
+      } else if (!SLUG_RE.test(value)) {
+        newErrors.slug = t("validation.slugFormat", "小写字母开头，仅限小写字母、数字和连字符");
+      } else {
+        delete newErrors.slug;
+      }
+    } else if (key === "displayName") {
+      if (!value.trim()) {
+        newErrors.displayName = t("validation.required");
+      } else {
+        delete newErrors.displayName;
       }
     }
     setErrors(newErrors);
@@ -59,9 +78,19 @@ export function WorkspaceCreateForm({
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
-    if (!values.id.trim()) newErrors.id = t("validation.required");
-    if (!values.slug.trim()) newErrors.slug = t("validation.required");
-    if (!values.displayName.trim()) newErrors.displayName = t("validation.required");
+    if (!values.id.trim()) {
+      newErrors.id = t("validation.required");
+    } else if (!ID_RE.test(values.id)) {
+      newErrors.id = t("validation.idFormat", "小写字母开头，仅限小写字母、数字、下划线和连字符");
+    }
+    if (!values.slug.trim()) {
+      newErrors.slug = t("validation.required");
+    } else if (!SLUG_RE.test(values.slug)) {
+      newErrors.slug = t("validation.slugFormat", "小写字母开头，仅限小写字母、数字和连字符");
+    }
+    if (!values.displayName.trim()) {
+      newErrors.displayName = t("validation.required");
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };

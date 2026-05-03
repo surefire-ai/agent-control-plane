@@ -5,6 +5,7 @@ import { WorkspaceListPage } from "@/pages/WorkspaceListPage";
 import { WorkspaceDetailPage } from "@/pages/WorkspaceDetailPage";
 import { WorkspaceCreatePage } from "@/pages/WorkspaceCreatePage";
 import { ProductAreaPage } from "@/pages/ProductAreaPage";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 import { AgentListPage } from "@/pages/AgentListPage";
 import { EvaluationListPage } from "@/pages/EvaluationListPage";
 import { ProviderListPage } from "@/pages/ProviderListPage";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/runs", element: <RunListPage /> },
       { path: "tenants/:tenantId/providers", element: <ProviderListPage /> },
       { path: "tenants/:tenantId/settings", element: <ProductAreaPage area="settings" /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

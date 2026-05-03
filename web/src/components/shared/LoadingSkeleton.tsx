@@ -1,6 +1,6 @@
 export function LoadingSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
+    <div className="space-y-4 animate-pulse" role="status" aria-label="Loading">
       <div className="h-8 w-48 rounded bg-zinc-200" />
       <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (

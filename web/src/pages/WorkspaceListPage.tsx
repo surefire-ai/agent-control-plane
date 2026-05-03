@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useWorkspaces } from "@/api/workspaces";
@@ -14,9 +15,13 @@ const LIMIT = 10;
 
 export function WorkspaceListPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("workspace.listTitle"));
   const { tenantId } = useParams<{ tenantId: string }>();
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useWorkspaces(page, LIMIT, tenantId);
+
+  // Reset pagination when tenant changes
+  useEffect(() => { setPage(1); }, [tenantId]);
 
   return (
     <div>

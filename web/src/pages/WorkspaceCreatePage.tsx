@@ -1,3 +1,4 @@
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -9,6 +10,7 @@ import type { CreateWorkspaceRequest } from "@/types/api";
 
 export function WorkspaceCreatePage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("workspace.createTitle"));
   const { tenantId } = useParams<{ tenantId: string }>();
   const navigate = useNavigate();
   const createMutation = useCreateWorkspace();
@@ -22,7 +24,7 @@ export function WorkspaceCreatePage() {
   });
 
   const handleChange = (newValues: CreateWorkspaceRequest) => {
-    setValues({ ...newValues, tenantId: tenantId ?? "" });
+    setValues((prev) => ({ ...prev, ...newValues, tenantId: tenantId ?? "" }));
   };
 
   const handleSubmit = () => {

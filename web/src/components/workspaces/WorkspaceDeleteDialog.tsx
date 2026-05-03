@@ -27,8 +27,9 @@ export function WorkspaceDeleteDialog({
       onConfirm={onConfirm}
       title={t("workspace.deleteTitle")}
       message={t("workspace.deleteConfirm", { name: workspace.displayName, id: workspace.id })}
-      confirmLabel={isPending ? t("common.deleting") : t("workspace.deleteButton")}
+      confirmLabel={t("workspace.deleteButton")}
       isDestructive
+      isPending={isPending}
     />
   );
 }

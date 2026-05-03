@@ -27,6 +27,7 @@ i18next.use(initReactI18next).init({
 export function setLanguage(lang: "zh-CN" | "en-US") {
   localStorage.setItem(LANG_KEY, lang);
   i18next.changeLanguage(lang);
+  document.documentElement.lang = lang;
 }
 
 export { i18next };

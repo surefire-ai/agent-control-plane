@@ -1,3 +1,4 @@
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,7 @@ export function WorkspaceDetailPage() {
   const { tenantId, workspaceId } = useParams<{ tenantId: string; workspaceId: string }>();
   const navigate = useNavigate();
   const { data: workspace, isLoading, isError, error, refetch } = useWorkspace(workspaceId);
+  useDocumentTitle(workspace?.displayName);
   const updateMutation = useUpdateWorkspace();
   const deleteMutation = useDeleteWorkspace();
 

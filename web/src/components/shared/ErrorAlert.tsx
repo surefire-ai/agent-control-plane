@@ -18,7 +18,8 @@ export function ErrorAlert({ message, onRetry }: ErrorAlertProps) {
           {onRetry && (
             <button
               onClick={onRetry}
-              className="mt-2 text-sm font-semibold text-rose-700 hover:text-rose-600"
+              type="button"
+              className="mt-2 text-sm font-semibold text-rose-700 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 rounded"
             >
               {t("common.retry")}
             </button>

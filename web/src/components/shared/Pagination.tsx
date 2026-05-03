@@ -26,6 +26,7 @@ export function Pagination({ page, limit, total, onPageChange }: PaginationProps
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
+          aria-label={t("common.previous")}
           className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t("common.previous")}
@@ -36,6 +37,7 @@ export function Pagination({ page, limit, total, onPageChange }: PaginationProps
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= lastPage}
+          aria-label={t("common.next")}
           className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t("common.next")}

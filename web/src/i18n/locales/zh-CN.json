@@ -191,6 +191,13 @@
     "page": "第 {{page}} 页 / 共 {{lastPage}} 页"
   },
   "validation": {
-    "required": "此字段为必填项"
+    "required": "此字段为必填项",
+    "idFormat": "小写字母开头，仅限小写字母、数字、下划线和连字符",
+    "slugFormat": "小写字母开头，仅限小写字母、数字和连字符"
+  },
+  "notFound": {
+    "title": "页面未找到",
+    "description": "您访问的页面不存在或已被移除。",
+    "backToTenants": "返回租户列表"
   }
 }

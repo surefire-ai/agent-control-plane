@@ -191,6 +191,13 @@
     "page": "Page {{page}} of {{lastPage}}"
   },
   "validation": {
-    "required": "This field is required"
+    "required": "This field is required",
+    "idFormat": "Lowercase letter start, only lowercase letters, digits, underscores and hyphens",
+    "slugFormat": "Lowercase letter start, only lowercase letters, digits and hyphens"
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The page you visited does not exist or has been removed.",
+    "backToTenants": "Back to Tenants"
   }
 }

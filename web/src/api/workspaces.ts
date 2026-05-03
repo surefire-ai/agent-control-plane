@@ -43,9 +43,8 @@ export function useUpdateWorkspace() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & UpdateWorkspaceRequest) =>
       api.patch<Workspace>(`/workspaces/${id}`, data),
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-      queryClient.invalidateQueries({ queryKey: ["workspaces", variables.id] });
     },
   });
 }

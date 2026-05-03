@@ -1,3 +1,4 @@
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTenants } from "@/api/tenants";
@@ -12,6 +13,7 @@ const LIMIT = 10;
 
 export function TenantListPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t("tenant.title"));
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useTenants(page, LIMIT);
 

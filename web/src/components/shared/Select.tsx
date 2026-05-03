@@ -3,9 +3,10 @@ import type { SelectHTMLAttributes } from "react";
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   hasError?: boolean;
   options: { value: string; label: string }[];
+  placeholder?: string;
 }
 
-export function Select({ hasError, options, className = "", ...props }: SelectProps) {
+export function Select({ hasError, options, placeholder, className = "", ...props }: SelectProps) {
   return (
     <select
       className={`block w-full rounded-md border bg-white/90 px-3 py-2 text-sm text-zinc-950 outline-none transition focus:ring-2 focus:ring-offset-0 ${
@@ -15,6 +16,11 @@ export function Select({ hasError, options, className = "", ...props }: SelectPr
       } ${className}`}
       {...props}
     >
+      {placeholder && (
+        <option value="" disabled>
+          {placeholder}
+        </option>
+      )}
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}

@@ -241,7 +241,7 @@ npm run dev:fake
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP，包括 CRD、编译、gateway invoke、worker Job、GHCR 镜像和 Helm skeleton。 | 第一个公开开发基线已具备。 |
 | Phase 2 | 真实 Eino runtime、provider catalog、模型凭据流、policy check、pattern、持久 run artifact 和更强的 evaluation contract。 | **已完成。** |
-| Phase 3 | 基于 manager 的企业产品界面，包括 Web Console、tenant、workspace、可视化编排、发布流程、evaluation UX 和 provider 管理。 | 进行中。Manager API CRUD、CRD 同步、Agent/Evaluation 详情页、可视化编排工作台（6 种模式、图预览）已完成；Run 检查下一步。 |
+| Phase 3 | 基于 manager 的企业产品界面，包括 Web Console、tenant、workspace、可视化编排、发布流程、evaluation UX 和 provider 管理。 | 进行中。Manager API CRUD、CRD 同步、Agent/Evaluation/Run 详情页、可视化编排工作台已完成；Provider 管理下一步。 |
 | Phase 4 | 分布式 Agent Fabric，包括 multi-runtime execution、autoscaling、SubAgent composition 和 A2A 互操作。 | 规划中。 |
 
 详细设计：
@@ -302,7 +302,7 @@ Kubernetes smoke test。它还不是稳定生产版本。
 - Helm chart 尚未打包分发；
 - gateway 认证、鉴权、限流和幂等尚未完成；
 - 取消、重试、超时和持久 run artifact storage 尚未完成；
-- Web Console 已有 tenant/workspace CRUD、Agent/Evaluation 详情页、可视化编排工作台（6 种模式、图预览），但 Run 检查页尚未构建；
+- Web Console 已有 tenant/workspace CRUD、Agent/Evaluation/Run 详情页、可视化编排工作台（6 种模式），但 Provider 详情管理尚未构建；
 - Helm 仍是开发安装路径。
 
 ## 贡献

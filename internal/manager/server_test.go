@@ -1898,3 +1898,172 @@ func TestManagerDeleteRun(t *testing.T) {
 		t.Fatalf("expected run r_1 to be deleted")
 	}
 }
+
+// --- Syncer integration tests ---
+
+type trackingSyncer struct {
+	synced   []string
+	deleted  []string
+	syncErr  error
+	deleteErr error
+}
+
+func (s *trackingSyncer) SyncTenant(_ context.Context, r TenantRecord) error {
+	s.synced = append(s.synced, "tenant:"+r.ID)
+	return s.syncErr
+}
+func (s *trackingSyncer) DeleteTenant(_ context.Context, id string) error {
+	s.deleted = append(s.deleted, "tenant:"+id)
+	return s.deleteErr
+}
+func (s *trackingSyncer) SyncWorkspace(_ context.Context, r WorkspaceRecord) error {
+	s.synced = append(s.synced, "workspace:"+r.ID)
+	return s.syncErr
+}
+func (s *trackingSyncer) DeleteWorkspace(_ context.Context, id string) error {
+	s.deleted = append(s.deleted, "workspace:"+id)
+	return s.deleteErr
+}
+func (s *trackingSyncer) SyncAgent(_ context.Context, r AgentRecord) error {
+	s.synced = append(s.synced, "agent:"+r.ID)
+	return s.syncErr
+}
+func (s *trackingSyncer) DeleteAgent(_ context.Context, id string) error {
+	s.deleted = append(s.deleted, "agent:"+id)
+	return s.deleteErr
+}
+func (s *trackingSyncer) SyncEvaluation(_ context.Context, r EvaluationRecord) error {
+	s.synced = append(s.synced, "evaluation:"+r.ID)
+	return s.syncErr
+}
+func (s *trackingSyncer) DeleteEvaluation(_ context.Context, id string) error {
+	s.deleted = append(s.deleted, "evaluation:"+id)
+	return s.deleteErr
+}
+func (s *trackingSyncer) SyncProvider(_ context.Context, r ProviderRecord) error {
+	s.synced = append(s.synced, "provider:"+r.ID)
+	return s.syncErr
+}
+func (s *trackingSyncer) DeleteProvider(_ context.Context, id string) error {
+	s.deleted = append(s.deleted, "provider:"+id)
+	return s.deleteErr
+}
+
+func TestSyncerCalledOnTenantCreate(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{}, orderedIDs: []string{}}
+	syncer := &trackingSyncer{}
+	handler := Server{Stores: Stores{Tenants: store}, Syncer: syncer}.Handler()
+	body := `{"id":"t_sync","organizationId":"org_1","slug":"sync","displayName":"Sync"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", recorder.Code)
+	}
+	if len(syncer.synced) != 1 || syncer.synced[0] != "tenant:t_sync" {
+		t.Fatalf("expected syncer to be called with tenant:t_sync, got %v", syncer.synced)
+	}
+}
+
+func TestSyncerCalledOnTenantDelete(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{"t_1": {ID: "t_1"}}, orderedIDs: []string{"t_1"}}
+	syncer := &trackingSyncer{}
+	handler := Server{Stores: Stores{Tenants: store}, Syncer: syncer}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/tenants/t_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", recorder.Code)
+	}
+	if len(syncer.deleted) != 1 || syncer.deleted[0] != "tenant:t_1" {
+		t.Fatalf("expected syncer to be called with tenant:t_1, got %v", syncer.deleted)
+	}
+}
+
+func TestSyncerCalledOnWorkspaceCreate(t *testing.T) {
+	store := &fakeWorkspaceStore{records: map[string]WorkspaceRecord{}, orderedIDs: []string{}}
+	syncer := &trackingSyncer{}
+	handler := Server{Stores: Stores{Workspaces: store}, Syncer: syncer}.Handler()
+	body := `{"id":"ws_sync","tenantId":"t_1","slug":"sync","displayName":"Sync"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", recorder.Code)
+	}
+	if len(syncer.synced) != 1 || syncer.synced[0] != "workspace:ws_sync" {
+		t.Fatalf("expected syncer to be called with workspace:ws_sync, got %v", syncer.synced)
+	}
+}
+
+func TestSyncerCalledOnAgentUpdate(t *testing.T) {
+	store := &fakeAgentStore{records: map[string]AgentRecord{"a_1": {ID: "a_1", DisplayName: "Old"}}, orderedIDs: []string{"a_1"}}
+	syncer := &trackingSyncer{}
+	handler := Server{Stores: Stores{Agents: store}, Syncer: syncer}.Handler()
+	body := `{"displayName":"Updated"}`
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/agents/a_1", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
+	}
+	if len(syncer.synced) != 1 || syncer.synced[0] != "agent:a_1" {
+		t.Fatalf("expected syncer to be called with agent:a_1, got %v", syncer.synced)
+	}
+}
+
+func TestSyncerCalledOnRunDelete(t *testing.T) {
+	store := &fakeRunStore{records: map[string]RunRecord{"r_1": {ID: "r_1"}}, orderedIDs: []string{"r_1"}}
+	syncer := &trackingSyncer{}
+	handler := Server{Stores: Stores{Runs: store}, Syncer: syncer}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/runs/r_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", recorder.Code)
+	}
+	// Run has no CRD sync, so syncer should not be called
+	if len(syncer.deleted) != 0 {
+		t.Fatalf("expected syncer not to be called for run delete, got %v", syncer.deleted)
+	}
+}
+
+func TestSyncerErrorDoesNotFailRequest(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{}, orderedIDs: []string{}}
+	syncer := &trackingSyncer{syncErr: fmt.Errorf("k8s unavailable")}
+	handler := Server{Stores: Stores{Tenants: store}, Syncer: syncer}.Handler()
+	body := `{"id":"t_err","organizationId":"org_1","slug":"err","displayName":"Err"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	// Should still return 201 even though syncer failed
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected 201 despite syncer error, got %d", recorder.Code)
+	}
+	if _, ok := store.records["t_err"]; !ok {
+		t.Fatalf("expected tenant to be created in store despite syncer error")
+	}
+}
+
+func TestNoopSyncerDoesNothing(t *testing.T) {
+	noop := NoopCRDSyncer{}
+	ctx := context.Background()
+	if err := noop.SyncTenant(ctx, TenantRecord{ID: "t_1"}); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := noop.DeleteTenant(ctx, "t_1"); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := noop.SyncWorkspace(ctx, WorkspaceRecord{ID: "ws_1"}); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := noop.DeleteWorkspace(ctx, "ws_1"); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := noop.SyncAgent(ctx, AgentRecord{ID: "a_1"}); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := noop.DeleteAgent(ctx, "a_1"); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}

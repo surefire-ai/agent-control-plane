@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 type Server struct {
 	Config Config
 	Stores Stores
+	Syncer CRDSyncer
 }
 
 type InfoResponse struct {
@@ -290,6 +292,13 @@ type UpdateRunRequest struct {
 	TraceRef    *string `json:"traceRef,omitempty"`
 }
 
+func (s Server) syncer() CRDSyncer {
+	if s.Syncer == nil {
+		return NoopCRDSyncer{}
+	}
+	return s.Syncer
+}
+
 func (s Server) Start(ctx context.Context) error {
 	config := s.Config.normalized()
 	database, err := OpenDatabase(ctx, config)
@@ -503,6 +512,9 @@ func (s Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create workspace")
 		return
 	}
+	if err := s.syncer().SyncWorkspace(r.Context(), record); err != nil {
+		log.Printf("syncer: failed to sync workspace %s: %v", record.ID, err)
+	}
 	writeJSON(w, http.StatusCreated, workspaceResponseFromRecord(record))
 }
 
@@ -554,6 +566,9 @@ func (s Server) handleUpdateWorkspace(w http.ResponseWriter, r *http.Request, wo
 		writeError(w, http.StatusInternalServerError, "failed to update workspace")
 		return
 	}
+	if err := s.syncer().SyncWorkspace(r.Context(), *updated); err != nil {
+		log.Printf("syncer: failed to sync workspace %s: %v", updated.ID, err)
+	}
 	writeJSON(w, http.StatusOK, workspaceResponseFromRecord(*updated))
 }
 
@@ -561,6 +576,9 @@ func (s Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request, wo
 	if err := s.Stores.Workspaces.DeleteWorkspace(r.Context(), workspaceID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete workspace")
 		return
+	}
+	if err := s.syncer().DeleteWorkspace(r.Context(), workspaceID); err != nil {
+		log.Printf("syncer: failed to delete workspace %s: %v", workspaceID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -1100,6 +1118,9 @@ func (s Server) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create tenant")
 		return
 	}
+	if err := s.syncer().SyncTenant(r.Context(), record); err != nil {
+		log.Printf("syncer: failed to sync tenant %s: %v", record.ID, err)
+	}
 	writeJSON(w, http.StatusCreated, tenantResponseFromRecord(record))
 }
 
@@ -1132,6 +1153,9 @@ func (s Server) handleUpdateTenant(w http.ResponseWriter, r *http.Request, tenan
 		writeError(w, http.StatusInternalServerError, "failed to update tenant")
 		return
 	}
+	if err := s.syncer().SyncTenant(r.Context(), *updated); err != nil {
+		log.Printf("syncer: failed to sync tenant %s: %v", updated.ID, err)
+	}
 	writeJSON(w, http.StatusOK, tenantResponseFromRecord(*updated))
 }
 
@@ -1139,6 +1163,9 @@ func (s Server) handleDeleteTenant(w http.ResponseWriter, r *http.Request, tenan
 	if err := s.Stores.Tenants.DeleteTenant(r.Context(), tenantID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete tenant")
 		return
+	}
+	if err := s.syncer().DeleteTenant(r.Context(), tenantID); err != nil {
+		log.Printf("syncer: failed to delete tenant %s: %v", tenantID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -1187,6 +1214,9 @@ func (s Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create agent")
 		return
 	}
+	if err := s.syncer().SyncAgent(r.Context(), record); err != nil {
+		log.Printf("syncer: failed to sync agent %s: %v", record.ID, err)
+	}
 	writeJSON(w, http.StatusCreated, agentResponseFromRecord(record))
 }
 
@@ -1234,6 +1264,9 @@ func (s Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request, agentI
 		writeError(w, http.StatusInternalServerError, "failed to update agent")
 		return
 	}
+	if err := s.syncer().SyncAgent(r.Context(), *updated); err != nil {
+		log.Printf("syncer: failed to sync agent %s: %v", updated.ID, err)
+	}
 	writeJSON(w, http.StatusOK, agentResponseFromRecord(*updated))
 }
 
@@ -1241,6 +1274,9 @@ func (s Server) handleDeleteAgent(w http.ResponseWriter, r *http.Request, agentI
 	if err := s.Stores.Agents.DeleteAgent(r.Context(), agentID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete agent")
 		return
+	}
+	if err := s.syncer().DeleteAgent(r.Context(), agentID); err != nil {
+		log.Printf("syncer: failed to delete agent %s: %v", agentID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -1278,6 +1314,9 @@ func (s Server) handleCreateEvaluation(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create evaluation")
 		return
+	}
+	if err := s.syncer().SyncEvaluation(r.Context(), record); err != nil {
+		log.Printf("syncer: failed to sync evaluation %s: %v", record.ID, err)
 	}
 	writeJSON(w, http.StatusCreated, evaluationResponseFromRecord(record))
 }
@@ -1338,6 +1377,9 @@ func (s Server) handleUpdateEvaluation(w http.ResponseWriter, r *http.Request, e
 		writeError(w, http.StatusInternalServerError, "failed to update evaluation")
 		return
 	}
+	if err := s.syncer().SyncEvaluation(r.Context(), *updated); err != nil {
+		log.Printf("syncer: failed to sync evaluation %s: %v", updated.ID, err)
+	}
 	writeJSON(w, http.StatusOK, evaluationResponseFromRecord(*updated))
 }
 
@@ -1345,6 +1387,9 @@ func (s Server) handleDeleteEvaluation(w http.ResponseWriter, r *http.Request, e
 	if err := s.Stores.Evaluations.DeleteEvaluation(r.Context(), evaluationID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete evaluation")
 		return
+	}
+	if err := s.syncer().DeleteEvaluation(r.Context(), evaluationID); err != nil {
+		log.Printf("syncer: failed to delete evaluation %s: %v", evaluationID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -1383,6 +1428,9 @@ func (s Server) handleCreateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create provider")
 		return
+	}
+	if err := s.syncer().SyncProvider(r.Context(), record); err != nil {
+		log.Printf("syncer: failed to sync provider %s: %v", record.ID, err)
 	}
 	writeJSON(w, http.StatusCreated, providerResponseFromRecord(record))
 }
@@ -1431,6 +1479,9 @@ func (s Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request, pro
 		writeError(w, http.StatusInternalServerError, "failed to update provider")
 		return
 	}
+	if err := s.syncer().SyncProvider(r.Context(), *updated); err != nil {
+		log.Printf("syncer: failed to sync provider %s: %v", updated.ID, err)
+	}
 	writeJSON(w, http.StatusOK, providerResponseFromRecord(*updated))
 }
 
@@ -1438,6 +1489,9 @@ func (s Server) handleDeleteProvider(w http.ResponseWriter, r *http.Request, pro
 	if err := s.Stores.Providers.DeleteProvider(r.Context(), providerID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete provider")
 		return
+	}
+	if err := s.syncer().DeleteProvider(r.Context(), providerID); err != nil {
+		log.Printf("syncer: failed to delete provider %s: %v", providerID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

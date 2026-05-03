@@ -551,6 +551,16 @@ func (s fakeRunStore) ListRunsByAgent(ctx context.Context, agentID string, page,
 	return paginateTestRuns(filtered, page, limit), len(filtered), nil
 }
 
+func (s fakeRunStore) ListRunsByEvaluation(ctx context.Context, evaluationID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].EvaluationID == evaluationID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestRuns(filtered, page, limit), len(filtered), nil
+}
+
 func paginateTestRunsFromIDs(records map[string]RunRecord, orderedIDs []string, page, limit int) []RunRecord {
 	all := make([]RunRecord, 0, len(orderedIDs))
 	for _, id := range orderedIDs {

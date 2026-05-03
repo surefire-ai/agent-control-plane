@@ -598,6 +598,16 @@ func (s devRunStore) ListRunsByAgent(_ context.Context, agentID string, page, li
 	return paginateRuns(filtered, page, limit)
 }
 
+func (s devRunStore) ListRunsByEvaluation(_ context.Context, evaluationID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].EvaluationID == evaluationID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateRuns(filtered, page, limit)
+}
+
 func paginateRuns(records []RunRecord, page, limit int) ([]RunRecord, int, error) {
 	total := len(records)
 	start := (page - 1) * limit

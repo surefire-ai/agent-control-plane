@@ -9,6 +9,7 @@ import { NotFoundPage } from "@/pages/NotFoundPage";
 import { AgentListPage } from "@/pages/AgentListPage";
 import { AgentDetailPage } from "@/pages/AgentDetailPage";
 import { EvaluationListPage } from "@/pages/EvaluationListPage";
+import { EvaluationDetailPage } from "@/pages/EvaluationDetailPage";
 import { ProviderListPage } from "@/pages/ProviderListPage";
 import { RunListPage } from "@/pages/RunListPage";
 
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/agents", element: <AgentListPage /> },
       { path: "tenants/:tenantId/agents/:agentId", element: <AgentDetailPage /> },
       { path: "tenants/:tenantId/evaluations", element: <EvaluationListPage /> },
+      { path: "tenants/:tenantId/evaluations/:evaluationId", element: <EvaluationDetailPage /> },
       { path: "tenants/:tenantId/runs", element: <RunListPage /> },
       { path: "tenants/:tenantId/providers", element: <ProviderListPage /> },
       { path: "tenants/:tenantId/settings", element: <ProductAreaPage area="settings" /> },

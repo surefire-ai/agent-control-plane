@@ -154,6 +154,7 @@ type RunStore interface {
 	ListRunsByTenant(ctx context.Context, tenantID string, page, limit int) ([]RunRecord, int, error)
 	ListRunsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]RunRecord, int, error)
 	ListRunsByAgent(ctx context.Context, agentID string, page, limit int) ([]RunRecord, int, error)
+	ListRunsByEvaluation(ctx context.Context, evaluationID string, page, limit int) ([]RunRecord, int, error)
 	CreateRun(ctx context.Context, run RunRecord) error
 	UpdateRun(ctx context.Context, id string, fields map[string]string) (*RunRecord, error)
 	DeleteRun(ctx context.Context, id string) error
@@ -1180,6 +1181,21 @@ func (s SQLRunStore) ListRunsByAgent(ctx context.Context, agentID string, page, 
 	WHERE agent_id = $1
 	ORDER BY created_at DESC
 	LIMIT $2 OFFSET $3`, total, page, limit, agentID)
+}
+
+func (s SQLRunStore) ListRunsByEvaluation(ctx context.Context, evaluationID string, page, limit int) ([]RunRecord, int, error) {
+	if s.DB == nil {
+		return nil, 0, fmt.Errorf("manager database is required")
+	}
+	var total int
+	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM runs WHERE evaluation_id = $1", evaluationID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count manager runs by evaluation %q: %w", evaluationID, err)
+	}
+	return s.listRuns(ctx, `SELECT id, tenant_id, workspace_id, agent_id, evaluation_id, agent_revision, status, runtime_engine, runner_class, started_at, completed_at, summary, trace_ref
+	FROM runs
+	WHERE evaluation_id = $1
+	ORDER BY created_at DESC
+	LIMIT $2 OFFSET $3`, total, page, limit, evaluationID)
 }
 
 func (s SQLRunStore) listRuns(ctx context.Context, query string, total, page, limit int, filters ...any) ([]RunRecord, int, error) {

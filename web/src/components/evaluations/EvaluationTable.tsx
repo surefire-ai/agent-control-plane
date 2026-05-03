@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import type { Evaluation } from "@/types/api";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
@@ -8,6 +9,7 @@ interface EvaluationTableProps {
 
 export function EvaluationTable({ evaluations }: EvaluationTableProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <div className="surface overflow-hidden rounded-lg">
@@ -37,7 +39,19 @@ export function EvaluationTable({ evaluations }: EvaluationTableProps) {
         </thead>
         <tbody className="divide-y divide-zinc-200/80 bg-white/50">
           {evaluations.map((evaluation) => (
-            <tr key={evaluation.id} className="transition-colors hover:bg-teal-50/70">
+            <tr
+              key={evaluation.id}
+              className="cursor-pointer transition-colors hover:bg-teal-50/70"
+              onClick={() => navigate(`/tenants/${evaluation.tenantId}/evaluations/${evaluation.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/tenants/${evaluation.tenantId}/evaluations/${evaluation.id}`);
+                }
+              }}
+              tabIndex={0}
+              role="link"
+            >
               <td className="px-6 py-4">
                 <p className="text-sm font-semibold text-zinc-950">{evaluation.displayName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{evaluation.id}</p>

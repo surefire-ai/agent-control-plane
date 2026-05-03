@@ -921,10 +921,13 @@ func (s Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	tenantID := r.URL.Query().Get("tenantId")
 	workspaceID := r.URL.Query().Get("workspaceId")
 	agentID := r.URL.Query().Get("agentId")
+	evaluationID := r.URL.Query().Get("evaluationId")
 	var records []RunRecord
 	var total int
 	var err error
 	switch {
+	case evaluationID != "":
+		records, total, err = s.Stores.Runs.ListRunsByEvaluation(r.Context(), evaluationID, page, limit)
 	case agentID != "":
 		records, total, err = s.Stores.Runs.ListRunsByAgent(r.Context(), agentID, page, limit)
 	case workspaceID != "":

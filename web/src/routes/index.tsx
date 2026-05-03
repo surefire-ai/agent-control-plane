@@ -13,6 +13,7 @@ import { EvaluationListPage } from "@/pages/EvaluationListPage";
 import { EvaluationDetailPage } from "@/pages/EvaluationDetailPage";
 import { ProviderListPage } from "@/pages/ProviderListPage";
 import { RunListPage } from "@/pages/RunListPage";
+import { RunDetailPage } from "@/pages/RunDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/evaluations", element: <EvaluationListPage /> },
       { path: "tenants/:tenantId/evaluations/:evaluationId", element: <EvaluationDetailPage /> },
       { path: "tenants/:tenantId/runs", element: <RunListPage /> },
+      { path: "tenants/:tenantId/runs/:runId", element: <RunDetailPage /> },
       { path: "tenants/:tenantId/providers", element: <ProviderListPage /> },
       { path: "tenants/:tenantId/settings", element: <ProductAreaPage area="settings" /> },
       { path: "*", element: <NotFoundPage /> },

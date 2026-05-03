@@ -169,7 +169,24 @@
     "subtitle": "查看租户级执行历史、状态和 trace 引用",
     "loadError": "加载运行记录失败",
     "emptyTitle": "暂无运行记录",
-    "emptyDescription": "Agent 和评估执行记录会显示在这里。"
+    "emptyDescription": "Agent 和评估执行记录会显示在这里。",
+    "detailSubtitle": "运行执行详情、时间和 trace 引用",
+    "notFound": "未找到运行记录",
+    "fields": {
+      "id": "ID",
+      "tenantId": "租户 ID",
+      "workspaceId": "工作区 ID",
+      "agentId": "Agent",
+      "evaluationId": "评估",
+      "agentRevision": "Agent 版本",
+      "status": "状态",
+      "runtimeEngine": "运行时引擎",
+      "runnerClass": "Runner 类型",
+      "startedAt": "开始时间",
+      "completedAt": "完成时间",
+      "summary": "摘要",
+      "traceRef": "Trace 引用"
+    }
   },
   "provider": {
     "title": "模型供应商",

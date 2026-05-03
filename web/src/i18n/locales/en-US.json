@@ -169,7 +169,24 @@
     "subtitle": "Inspect tenant-scoped execution history, status, and trace references",
     "loadError": "Failed to load runs",
     "emptyTitle": "No runs",
-    "emptyDescription": "Agent and evaluation executions will appear here."
+    "emptyDescription": "Agent and evaluation executions will appear here.",
+    "detailSubtitle": "Run execution details, timing, and trace references",
+    "notFound": "Run not found",
+    "fields": {
+      "id": "ID",
+      "tenantId": "Tenant ID",
+      "workspaceId": "Workspace ID",
+      "agentId": "Agent",
+      "evaluationId": "Evaluation",
+      "agentRevision": "Agent Revision",
+      "status": "Status",
+      "runtimeEngine": "Runtime Engine",
+      "runnerClass": "Runner Class",
+      "startedAt": "Started At",
+      "completedAt": "Completed At",
+      "summary": "Summary",
+      "traceRef": "Trace Reference"
+    }
   },
   "provider": {
     "title": "Providers",

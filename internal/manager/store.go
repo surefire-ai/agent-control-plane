@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -47,6 +48,141 @@ type AgentRecord struct {
 	ModelProvider  string
 	ModelName      string
 	LatestRevision string
+	Spec           *AgentSpecData
+}
+
+// AgentSpecData mirrors the CRD AgentSpec for Manager-side storage.
+type AgentSpecData struct {
+	Runtime       RuntimeConfig          `json:"runtime,omitempty"`
+	Models        map[string]ModelConfig `json:"models,omitempty"`
+	Identity      IdentityConfig         `json:"identity,omitempty"`
+	Pattern       *PatternConfig         `json:"pattern,omitempty"`
+	PromptRefs    PromptRefsConfig       `json:"promptRefs,omitempty"`
+	KnowledgeRefs []KnowledgeBinding     `json:"knowledgeRefs,omitempty"`
+	ToolRefs      []string               `json:"toolRefs,omitempty"`
+	SkillRefs     []SkillBinding         `json:"skillRefs,omitempty"`
+	SubAgentRefs  []SubAgentBinding      `json:"subAgentRefs,omitempty"`
+	MCPRefs       []string               `json:"mcpRefs,omitempty"`
+	PolicyRef     string                 `json:"policyRef,omitempty"`
+	Interfaces    InterfaceConfig        `json:"interfaces,omitempty"`
+	Graph         *GraphConfig           `json:"graph,omitempty"`
+}
+
+type RuntimeConfig struct {
+	Engine      string `json:"engine,omitempty"`
+	RunnerClass string `json:"runnerClass,omitempty"`
+	Mode        string `json:"mode,omitempty"`
+	Entrypoint  string `json:"entrypoint,omitempty"`
+}
+
+type ModelConfig struct {
+	Provider       string  `json:"provider,omitempty"`
+	Model          string  `json:"model,omitempty"`
+	BaseURL        string  `json:"baseURL,omitempty"`
+	CredentialRef  string  `json:"credentialRef,omitempty"`
+	Temperature    float64 `json:"temperature,omitempty"`
+	MaxTokens      int32   `json:"maxTokens,omitempty"`
+	TimeoutSeconds int32   `json:"timeoutSeconds,omitempty"`
+}
+
+type IdentityConfig struct {
+	DisplayName string `json:"displayName,omitempty"`
+	Role        string `json:"role,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type PatternConfig struct {
+	Type          string         `json:"type,omitempty"`
+	Version       string         `json:"version,omitempty"`
+	ModelRef      string         `json:"modelRef,omitempty"`
+	ToolRefs      []string       `json:"toolRefs,omitempty"`
+	KnowledgeRefs []string       `json:"knowledgeRefs,omitempty"`
+	MaxIterations int32          `json:"maxIterations,omitempty"`
+	StopWhen      string         `json:"stopWhen,omitempty"`
+	Routes        []PatternRoute `json:"routes,omitempty"`
+}
+
+type PatternRoute struct {
+	Label    string `json:"label"`
+	AgentRef string `json:"agentRef,omitempty"`
+	ModelRef string `json:"modelRef,omitempty"`
+	Default  bool   `json:"default,omitempty"`
+}
+
+type PromptRefsConfig struct {
+	System string `json:"system,omitempty"`
+}
+
+type KnowledgeBinding struct {
+	Name           string  `json:"name"`
+	Ref            string  `json:"ref"`
+	TopK           int32   `json:"topK,omitempty"`
+	ScoreThreshold float64 `json:"scoreThreshold,omitempty"`
+}
+
+type SkillBinding struct {
+	Name string `json:"name"`
+	Ref  string `json:"ref"`
+}
+
+type SubAgentBinding struct {
+	Name      string `json:"name"`
+	Ref       string `json:"ref"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+type InterfaceConfig struct {
+	Input  SchemaConfig `json:"input,omitempty"`
+	Output SchemaConfig `json:"output,omitempty"`
+}
+
+type SchemaConfig struct {
+	Schema map[string]interface{} `json:"schema,omitempty"`
+}
+
+type GraphConfig struct {
+	Nodes []GraphNode `json:"nodes,omitempty"`
+	Edges []GraphEdge `json:"edges,omitempty"`
+}
+
+type GraphNode struct {
+	Name           string `json:"name"`
+	Kind           string `json:"kind"`
+	ModelRef       string `json:"modelRef,omitempty"`
+	ToolRef        string `json:"toolRef,omitempty"`
+	KnowledgeRef   string `json:"knowledgeRef,omitempty"`
+	AgentRef       string `json:"agentRef,omitempty"`
+	Implementation string `json:"implementation,omitempty"`
+}
+
+type GraphEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	When string `json:"when,omitempty"`
+}
+
+// agentColumns is the SELECT column list for agents including spec.
+const agentColumns = `id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision, spec`
+
+func scanAgent(scanner interface{ Scan(...any) error }) (AgentRecord, error) {
+	var rec AgentRecord
+	var specRaw []byte
+	err := scanner.Scan(
+		&rec.ID, &rec.TenantID, &rec.WorkspaceID, &rec.Slug,
+		&rec.DisplayName, &rec.Description, &rec.Status, &rec.Pattern,
+		&rec.RuntimeEngine, &rec.RunnerClass, &rec.ModelProvider,
+		&rec.ModelName, &rec.LatestRevision, &specRaw,
+	)
+	if err != nil {
+		return rec, err
+	}
+	if len(specRaw) > 0 {
+		rec.Spec = &AgentSpecData{}
+		if err := json.Unmarshal(specRaw, rec.Spec); err != nil {
+			return rec, fmt.Errorf("unmarshal agent spec: %w", err)
+		}
+	}
+	return rec, nil
 }
 
 type EvaluationRecord struct {
@@ -123,7 +259,7 @@ type AgentStore interface {
 	ListAgentsByTenant(ctx context.Context, tenantID string, page, limit int) ([]AgentRecord, int, error)
 	ListAgentsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error)
 	CreateAgent(ctx context.Context, agent AgentRecord) error
-	UpdateAgent(ctx context.Context, id string, fields map[string]string) (*AgentRecord, error)
+	UpdateAgent(ctx context.Context, id string, fields map[string]string, spec *AgentSpecData) (*AgentRecord, error)
 	DeleteAgent(ctx context.Context, id string) error
 }
 
@@ -502,31 +638,15 @@ func (s SQLAgentStore) GetAgent(ctx context.Context, id string) (*AgentRecord, e
 	if s.DB == nil {
 		return nil, fmt.Errorf("manager database is required")
 	}
-	var agent AgentRecord
-	err := s.DB.QueryRowContext(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
-	FROM agents
-	WHERE id = $1`, id).Scan(
-		&agent.ID,
-		&agent.TenantID,
-		&agent.WorkspaceID,
-		&agent.Slug,
-		&agent.DisplayName,
-		&agent.Description,
-		&agent.Status,
-		&agent.Pattern,
-		&agent.RuntimeEngine,
-		&agent.RunnerClass,
-		&agent.ModelProvider,
-		&agent.ModelName,
-		&agent.LatestRevision,
-	)
+	rec, err := scanAgent(s.DB.QueryRowContext(ctx,
+		fmt.Sprintf("SELECT %s FROM agents WHERE id = $1", agentColumns), id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get manager agent %q: %w", id, err)
 	}
-	return &agent, nil
+	return &rec, nil
 }
 
 func (s SQLAgentStore) ListAgents(ctx context.Context, page, limit int) ([]AgentRecord, int, error) {
@@ -537,10 +657,10 @@ func (s SQLAgentStore) ListAgents(ctx context.Context, page, limit int) ([]Agent
 	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM agents").Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count manager agents: %w", err)
 	}
-	return s.listAgents(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	return s.listAgents(ctx, fmt.Sprintf(`SELECT %s
 	FROM agents
 	ORDER BY created_at DESC
-	LIMIT $1 OFFSET $2`, total, page, limit)
+	LIMIT $1 OFFSET $2`, agentColumns), total, page, limit)
 }
 
 func (s SQLAgentStore) ListAgentsByTenant(ctx context.Context, tenantID string, page, limit int) ([]AgentRecord, int, error) {
@@ -551,11 +671,11 @@ func (s SQLAgentStore) ListAgentsByTenant(ctx context.Context, tenantID string, 
 	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM agents WHERE tenant_id = $1", tenantID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count manager agents by tenant %q: %w", tenantID, err)
 	}
-	return s.listAgents(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	return s.listAgents(ctx, fmt.Sprintf(`SELECT %s
 	FROM agents
 	WHERE tenant_id = $1
 	ORDER BY created_at DESC
-	LIMIT $2 OFFSET $3`, total, page, limit, tenantID)
+	LIMIT $2 OFFSET $3`, agentColumns), total, page, limit, tenantID)
 }
 
 func (s SQLAgentStore) ListAgentsByWorkspace(ctx context.Context, workspaceID string, page, limit int) ([]AgentRecord, int, error) {
@@ -566,11 +686,11 @@ func (s SQLAgentStore) ListAgentsByWorkspace(ctx context.Context, workspaceID st
 	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM agents WHERE workspace_id = $1", workspaceID).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count manager agents by workspace %q: %w", workspaceID, err)
 	}
-	return s.listAgents(ctx, `SELECT id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision
+	return s.listAgents(ctx, fmt.Sprintf(`SELECT %s
 	FROM agents
 	WHERE workspace_id = $1
 	ORDER BY created_at DESC
-	LIMIT $2 OFFSET $3`, total, page, limit, workspaceID)
+	LIMIT $2 OFFSET $3`, agentColumns), total, page, limit, workspaceID)
 }
 
 func (s SQLAgentStore) listAgents(ctx context.Context, query string, total, page, limit int, filters ...any) ([]AgentRecord, int, error) {
@@ -585,22 +705,8 @@ func (s SQLAgentStore) listAgents(ctx context.Context, query string, total, page
 
 	records := make([]AgentRecord, 0, limit)
 	for rows.Next() {
-		var rec AgentRecord
-		if err := rows.Scan(
-			&rec.ID,
-			&rec.TenantID,
-			&rec.WorkspaceID,
-			&rec.Slug,
-			&rec.DisplayName,
-			&rec.Description,
-			&rec.Status,
-			&rec.Pattern,
-			&rec.RuntimeEngine,
-			&rec.RunnerClass,
-			&rec.ModelProvider,
-			&rec.ModelName,
-			&rec.LatestRevision,
-		); err != nil {
+		rec, err := scanAgent(rows)
+		if err != nil {
 			return nil, 0, fmt.Errorf("scan manager agent: %w", err)
 		}
 		records = append(records, rec)
@@ -627,12 +733,20 @@ func (s SQLAgentStore) CreateAgent(ctx context.Context, agent AgentRecord) error
 	if s.DB == nil {
 		return fmt.Errorf("manager database is required")
 	}
-	_, err := s.DB.ExecContext(ctx, `INSERT INTO agents (id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+	var specJSON []byte
+	if agent.Spec != nil {
+		var err error
+		specJSON, err = json.Marshal(agent.Spec)
+		if err != nil {
+			return fmt.Errorf("marshal agent spec: %w", err)
+		}
+	}
+	_, err := s.DB.ExecContext(ctx, `INSERT INTO agents (id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision, spec)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
 		agent.ID, agent.TenantID, agent.WorkspaceID, agent.Slug,
 		agent.DisplayName, agent.Description, agent.Status, agent.Pattern,
 		agent.RuntimeEngine, agent.RunnerClass, agent.ModelProvider,
-		agent.ModelName, agent.LatestRevision,
+		agent.ModelName, agent.LatestRevision, specJSON,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -644,12 +758,12 @@ func (s SQLAgentStore) CreateAgent(ctx context.Context, agent AgentRecord) error
 	return nil
 }
 
-func (s SQLAgentStore) UpdateAgent(ctx context.Context, id string, fields map[string]string) (*AgentRecord, error) {
+func (s SQLAgentStore) UpdateAgent(ctx context.Context, id string, fields map[string]string, spec *AgentSpecData) (*AgentRecord, error) {
 	if s.DB == nil {
 		return nil, fmt.Errorf("manager database is required")
 	}
-	columns := make([]string, 0, len(fields))
-	values := make([]any, 0, len(fields)+1)
+	columns := make([]string, 0, len(fields)+1)
+	values := make([]any, 0, len(fields)+2)
 	values = append(values, id)
 	idx := 2
 	for key, value := range fields {
@@ -661,29 +775,32 @@ func (s SQLAgentStore) UpdateAgent(ctx context.Context, id string, fields map[st
 		values = append(values, value)
 		idx++
 	}
+	if spec != nil {
+		specJSON, err := json.Marshal(spec)
+		if err != nil {
+			return nil, fmt.Errorf("marshal agent spec: %w", err)
+		}
+		columns = append(columns, fmt.Sprintf("spec = $%d", idx))
+		values = append(values, specJSON)
+		idx++
+	}
 	if len(columns) == 0 {
 		return nil, fmt.Errorf("no valid fields to update for agent %q", id)
 	}
 
 	query := fmt.Sprintf(`UPDATE agents SET %s, updated_at = now()
 	WHERE id = $1
-	RETURNING id, tenant_id, workspace_id, slug, display_name, description, status, pattern, runtime_engine, runner_class, model_provider, model_name, latest_revision`,
-		joinStrings(columns, ", "))
+	RETURNING %s`,
+		joinStrings(columns, ", "), agentColumns)
 
-	var agent AgentRecord
-	err := s.DB.QueryRowContext(ctx, query, values...).Scan(
-		&agent.ID, &agent.TenantID, &agent.WorkspaceID, &agent.Slug,
-		&agent.DisplayName, &agent.Description, &agent.Status, &agent.Pattern,
-		&agent.RuntimeEngine, &agent.RunnerClass, &agent.ModelProvider,
-		&agent.ModelName, &agent.LatestRevision,
-	)
+	rec, err := scanAgent(s.DB.QueryRowContext(ctx, query, values...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("update manager agent %q: %w", id, err)
 	}
-	return &agent, nil
+	return &rec, nil
 }
 
 func (s SQLAgentStore) DeleteAgent(ctx context.Context, id string) error {

@@ -49,19 +49,20 @@ type TenantResponse struct {
 }
 
 type AgentResponse struct {
-	ID             string `json:"id"`
-	TenantID       string `json:"tenantId"`
-	WorkspaceID    string `json:"workspaceId"`
-	Slug           string `json:"slug"`
-	DisplayName    string `json:"displayName"`
-	Description    string `json:"description,omitempty"`
-	Status         string `json:"status"`
-	Pattern        string `json:"pattern"`
-	RuntimeEngine  string `json:"runtimeEngine"`
-	RunnerClass    string `json:"runnerClass"`
-	ModelProvider  string `json:"modelProvider,omitempty"`
-	ModelName      string `json:"modelName,omitempty"`
-	LatestRevision string `json:"latestRevision,omitempty"`
+	ID             string         `json:"id"`
+	TenantID       string         `json:"tenantId"`
+	WorkspaceID    string         `json:"workspaceId"`
+	Slug           string         `json:"slug"`
+	DisplayName    string         `json:"displayName"`
+	Description    string         `json:"description,omitempty"`
+	Status         string         `json:"status"`
+	Pattern        string         `json:"pattern"`
+	RuntimeEngine  string         `json:"runtimeEngine"`
+	RunnerClass    string         `json:"runnerClass"`
+	ModelProvider  string         `json:"modelProvider,omitempty"`
+	ModelName      string         `json:"modelName,omitempty"`
+	LatestRevision string         `json:"latestRevision,omitempty"`
+	Spec           *AgentSpecData `json:"spec,omitempty"`
 }
 
 type EvaluationResponse struct {
@@ -192,29 +193,31 @@ type UpdateTenantRequest struct {
 }
 
 type CreateAgentRequest struct {
-	ID            string `json:"id"`
-	TenantID      string `json:"tenantId"`
-	WorkspaceID   string `json:"workspaceId"`
-	Slug          string `json:"slug"`
-	DisplayName   string `json:"displayName"`
-	Description   string `json:"description,omitempty"`
-	Status        string `json:"status,omitempty"`
-	Pattern       string `json:"pattern,omitempty"`
-	RuntimeEngine string `json:"runtimeEngine,omitempty"`
-	RunnerClass   string `json:"runnerClass,omitempty"`
-	ModelProvider string `json:"modelProvider,omitempty"`
-	ModelName     string `json:"modelName,omitempty"`
+	ID            string         `json:"id"`
+	TenantID      string         `json:"tenantId"`
+	WorkspaceID   string         `json:"workspaceId"`
+	Slug          string         `json:"slug"`
+	DisplayName   string         `json:"displayName"`
+	Description   string         `json:"description,omitempty"`
+	Status        string         `json:"status,omitempty"`
+	Pattern       string         `json:"pattern,omitempty"`
+	RuntimeEngine string         `json:"runtimeEngine,omitempty"`
+	RunnerClass   string         `json:"runnerClass,omitempty"`
+	ModelProvider string         `json:"modelProvider,omitempty"`
+	ModelName     string         `json:"modelName,omitempty"`
+	Spec          *AgentSpecData `json:"spec,omitempty"`
 }
 
 type UpdateAgentRequest struct {
-	DisplayName   *string `json:"displayName,omitempty"`
-	Description   *string `json:"description,omitempty"`
-	Status        *string `json:"status,omitempty"`
-	Pattern       *string `json:"pattern,omitempty"`
-	RuntimeEngine *string `json:"runtimeEngine,omitempty"`
-	RunnerClass   *string `json:"runnerClass,omitempty"`
-	ModelProvider *string `json:"modelProvider,omitempty"`
-	ModelName     *string `json:"modelName,omitempty"`
+	DisplayName   *string        `json:"displayName,omitempty"`
+	Description   *string        `json:"description,omitempty"`
+	Status        *string        `json:"status,omitempty"`
+	Pattern       *string        `json:"pattern,omitempty"`
+	RuntimeEngine *string        `json:"runtimeEngine,omitempty"`
+	RunnerClass   *string        `json:"runnerClass,omitempty"`
+	ModelProvider *string        `json:"modelProvider,omitempty"`
+	ModelName     *string        `json:"modelName,omitempty"`
+	Spec          *AgentSpecData `json:"spec,omitempty"`
 }
 
 type CreateEvaluationRequest struct {
@@ -1027,6 +1030,7 @@ func agentResponseFromRecord(rec AgentRecord) AgentResponse {
 		ModelProvider:  rec.ModelProvider,
 		ModelName:      rec.ModelName,
 		LatestRevision: rec.LatestRevision,
+		Spec:           rec.Spec,
 	}
 }
 
@@ -1202,6 +1206,7 @@ func (s Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
 		RunnerClass:   req.RunnerClass,
 		ModelProvider: req.ModelProvider,
 		ModelName:     req.ModelName,
+		Spec:          req.Spec,
 	}
 	if record.Status == "" {
 		record.Status = "draft"
@@ -1260,11 +1265,11 @@ func (s Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request, agentI
 	if req.ModelName != nil {
 		fields["model_name"] = *req.ModelName
 	}
-	if len(fields) == 0 {
+	if len(fields) == 0 && req.Spec == nil {
 		writeError(w, http.StatusBadRequest, "at least one updatable field must be provided")
 		return
 	}
-	updated, err := s.Stores.Agents.UpdateAgent(r.Context(), agentID, fields)
+	updated, err := s.Stores.Agents.UpdateAgent(r.Context(), agentID, fields, req.Spec)
 	if errors.Is(err, ErrNotFound) {
 		writeError(w, http.StatusNotFound, "agent not found")
 		return

@@ -227,7 +227,7 @@ func (s *fakeAgentStore) CreateAgent(_ context.Context, agent AgentRecord) error
 	return nil
 }
 
-func (s *fakeAgentStore) UpdateAgent(_ context.Context, id string, fields map[string]string) (*AgentRecord, error) {
+func (s *fakeAgentStore) UpdateAgent(_ context.Context, id string, fields map[string]string, spec *AgentSpecData) (*AgentRecord, error) {
 	rec, ok := s.records[id]
 	if !ok {
 		return nil, ErrNotFound
@@ -258,6 +258,9 @@ func (s *fakeAgentStore) UpdateAgent(_ context.Context, id string, fields map[st
 	}
 	if v, ok := fields["latest_revision"]; ok {
 		rec.LatestRevision = v
+	}
+	if spec != nil {
+		rec.Spec = spec
 	}
 	s.records[id] = rec
 	return &rec, nil

@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
@@ -215,6 +216,11 @@ func (s *K8sCRDSyncer) DeleteAgent(ctx context.Context, id string) error {
 }
 
 func agentSpec(rec AgentRecord) apiv1alpha1.AgentSpec {
+	// If a full spec is stored, use it to build the CRD spec.
+	if rec.Spec != nil {
+		return agentSpecFromData(rec)
+	}
+	// Fallback: build a minimal spec from the flat record fields.
 	spec := apiv1alpha1.AgentSpec{
 		Identity: apiv1alpha1.AgentIdentitySpec{
 			DisplayName: rec.DisplayName,
@@ -240,6 +246,192 @@ func agentSpec(rec AgentRecord) apiv1alpha1.AgentSpec {
 				Model:    rec.ModelName,
 			},
 		}
+	}
+
+	return spec
+}
+
+// agentSpecFromData builds a full AgentSpec from the stored AgentSpecData,
+// overlaying record-level identity and workspace fields.
+func agentSpecFromData(rec AgentRecord) apiv1alpha1.AgentSpec {
+	spec := apiv1alpha1.AgentSpec{
+		Identity: apiv1alpha1.AgentIdentitySpec{
+			DisplayName: rec.DisplayName,
+			Description: rec.Description,
+		},
+		Runtime: apiv1alpha1.AgentRuntimeSpec{
+			Engine:      rec.RuntimeEngine,
+			RunnerClass: rec.RunnerClass,
+		},
+		WorkspaceRef: &apiv1alpha1.LocalObjectReference{Name: rec.WorkspaceID},
+	}
+
+	d := rec.Spec
+
+	if d.Runtime.Engine != "" {
+		spec.Runtime.Engine = d.Runtime.Engine
+	}
+	if d.Runtime.RunnerClass != "" {
+		spec.Runtime.RunnerClass = d.Runtime.RunnerClass
+	}
+	if d.Runtime.Mode != "" {
+		spec.Runtime.Mode = d.Runtime.Mode
+	}
+	if d.Runtime.Entrypoint != "" {
+		spec.Runtime.Entrypoint = d.Runtime.Entrypoint
+	}
+
+	if d.Identity.DisplayName != "" {
+		spec.Identity.DisplayName = d.Identity.DisplayName
+	}
+	if d.Identity.Description != "" {
+		spec.Identity.Description = d.Identity.Description
+	}
+	if d.Identity.Role != "" {
+		spec.Identity.Role = d.Identity.Role
+	}
+
+	if len(d.Models) > 0 {
+		spec.Models = make(map[string]apiv1alpha1.ModelSpec, len(d.Models))
+		for k, m := range d.Models {
+			ms := apiv1alpha1.ModelSpec{
+				Provider:       m.Provider,
+				Model:          m.Model,
+				BaseURL:        m.BaseURL,
+				Temperature:    m.Temperature,
+				MaxTokens:      m.MaxTokens,
+				TimeoutSeconds: m.TimeoutSeconds,
+			}
+			if m.CredentialRef != "" {
+				ms.CredentialRef = &apiv1alpha1.SecretKeyReference{Name: m.CredentialRef}
+			}
+			spec.Models[k] = ms
+		}
+	} else if rec.ModelProvider != "" || rec.ModelName != "" {
+		spec.Models = map[string]apiv1alpha1.ModelSpec{
+			"default": {
+				Provider: rec.ModelProvider,
+				Model:    rec.ModelName,
+			},
+		}
+	}
+
+	if d.Pattern != nil {
+		pat := &apiv1alpha1.AgentPatternSpec{
+			Type:          d.Pattern.Type,
+			Version:       d.Pattern.Version,
+			ModelRef:      d.Pattern.ModelRef,
+			ToolRefs:      d.Pattern.ToolRefs,
+			KnowledgeRefs: d.Pattern.KnowledgeRefs,
+			MaxIterations: d.Pattern.MaxIterations,
+			StopWhen:      d.Pattern.StopWhen,
+		}
+		if len(d.Pattern.Routes) > 0 {
+			pat.Routes = make([]apiv1alpha1.PatternRoute, len(d.Pattern.Routes))
+			for i, r := range d.Pattern.Routes {
+				pat.Routes[i] = apiv1alpha1.PatternRoute{
+					Label:    r.Label,
+					AgentRef: r.AgentRef,
+					ModelRef: r.ModelRef,
+					Default:  r.Default,
+				}
+			}
+		}
+		spec.Pattern = pat
+	} else if rec.Pattern != "" {
+		spec.Pattern = &apiv1alpha1.AgentPatternSpec{
+			Type: rec.Pattern,
+		}
+	}
+
+	if d.PromptRefs.System != "" {
+		spec.PromptRefs = apiv1alpha1.AgentPromptRefs{
+			System: d.PromptRefs.System,
+		}
+	}
+
+	if len(d.KnowledgeRefs) > 0 {
+		spec.KnowledgeRefs = make([]apiv1alpha1.KnowledgeBindingSpec, len(d.KnowledgeRefs))
+		for i, k := range d.KnowledgeRefs {
+			spec.KnowledgeRefs[i] = apiv1alpha1.KnowledgeBindingSpec{
+				Name: k.Name,
+				Ref:  k.Ref,
+			}
+		}
+	}
+
+	spec.ToolRefs = d.ToolRefs
+
+	if len(d.SkillRefs) > 0 {
+		spec.SkillRefs = make([]apiv1alpha1.SkillBindingSpec, len(d.SkillRefs))
+		for i, s := range d.SkillRefs {
+			spec.SkillRefs[i] = apiv1alpha1.SkillBindingSpec{
+				Name: s.Name,
+				Ref:  s.Ref,
+			}
+		}
+	}
+
+	if len(d.SubAgentRefs) > 0 {
+		spec.SubAgentRefs = make([]apiv1alpha1.SubAgentBindingSpec, len(d.SubAgentRefs))
+		for i, s := range d.SubAgentRefs {
+			spec.SubAgentRefs[i] = apiv1alpha1.SubAgentBindingSpec{
+				Name:      s.Name,
+				Ref:       s.Ref,
+				Namespace: s.Namespace,
+			}
+		}
+	}
+
+	spec.MCPRefs = d.MCPRefs
+	spec.PolicyRef = d.PolicyRef
+
+	if d.Graph != nil {
+		graph := apiv1alpha1.AgentGraphSpec{}
+		if len(d.Graph.Nodes) > 0 {
+			graph.Nodes = make([]apiv1alpha1.AgentGraphNode, len(d.Graph.Nodes))
+			for i, n := range d.Graph.Nodes {
+				graph.Nodes[i] = apiv1alpha1.AgentGraphNode{
+					Name:           n.Name,
+					Kind:           n.Kind,
+					ModelRef:       n.ModelRef,
+					ToolRef:        n.ToolRef,
+					KnowledgeRef:   n.KnowledgeRef,
+					AgentRef:       n.AgentRef,
+					Implementation: n.Implementation,
+				}
+			}
+		}
+		if len(d.Graph.Edges) > 0 {
+			graph.Edges = make([]apiv1alpha1.AgentGraphEdge, len(d.Graph.Edges))
+			for i, e := range d.Graph.Edges {
+				graph.Edges[i] = apiv1alpha1.AgentGraphEdge{
+					From: e.From,
+					To:   e.To,
+					When: e.When,
+				}
+			}
+		}
+		spec.Graph = graph
+	}
+
+	if len(d.Interfaces.Input.Schema) > 0 || len(d.Interfaces.Output.Schema) > 0 {
+		iface := apiv1alpha1.AgentInterfaceSpec{}
+		if len(d.Interfaces.Input.Schema) > 0 {
+			b, err := json.Marshal(d.Interfaces.Input.Schema)
+			if err == nil {
+				schema := apiv1alpha1.JSONSchema{Raw: b}
+				iface.Input = apiv1alpha1.SchemaEnvelope{Schema: schema}
+			}
+		}
+		if len(d.Interfaces.Output.Schema) > 0 {
+			b, err := json.Marshal(d.Interfaces.Output.Schema)
+			if err == nil {
+				schema := apiv1alpha1.JSONSchema{Raw: b}
+				iface.Output = apiv1alpha1.SchemaEnvelope{Schema: schema}
+			}
+		}
+		spec.Interfaces = iface
 	}
 
 	return spec

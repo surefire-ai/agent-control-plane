@@ -1,4 +1,5 @@
 import { Check, Minus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { ProviderAccount } from "@/types/api";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -9,6 +10,7 @@ interface ProviderTableProps {
 
 export function ProviderTable({ providers }: ProviderTableProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <div className="surface overflow-hidden rounded-lg">
@@ -35,7 +37,14 @@ export function ProviderTable({ providers }: ProviderTableProps) {
         </thead>
         <tbody className="divide-y divide-zinc-200/80 bg-white/50">
           {providers.map((provider) => (
-            <tr key={provider.id} className="transition-colors hover:bg-teal-50/70">
+            <tr
+              key={provider.id}
+              onClick={() => navigate(`/tenants/${provider.tenantId}/providers/${provider.id}`)}
+              tabIndex={0}
+              role="link"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/tenants/${provider.tenantId}/providers/${provider.id}`); } }}
+              className="cursor-pointer transition-colors hover:bg-teal-50/70"
+            >
               <td className="px-6 py-4">
                 <p className="text-sm font-semibold text-zinc-950">{provider.displayName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{provider.id}</p>

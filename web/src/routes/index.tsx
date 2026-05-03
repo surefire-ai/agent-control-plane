@@ -12,6 +12,7 @@ import { AgentStudioPage } from "@/pages/AgentStudioPage";
 import { EvaluationListPage } from "@/pages/EvaluationListPage";
 import { EvaluationDetailPage } from "@/pages/EvaluationDetailPage";
 import { ProviderListPage } from "@/pages/ProviderListPage";
+import { ProviderDetailPage } from "@/pages/ProviderDetailPage";
 import { RunListPage } from "@/pages/RunListPage";
 import { RunDetailPage } from "@/pages/RunDetailPage";
 
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/runs", element: <RunListPage /> },
       { path: "tenants/:tenantId/runs/:runId", element: <RunDetailPage /> },
       { path: "tenants/:tenantId/providers", element: <ProviderListPage /> },
+      { path: "tenants/:tenantId/providers/:providerId", element: <ProviderDetailPage /> },
       { path: "tenants/:tenantId/settings", element: <ProductAreaPage area="settings" /> },
       { path: "*", element: <NotFoundPage /> },
     ],

@@ -200,7 +200,23 @@
     "emptyWorkspaceDescription": "配置策略后，可将租户供应商账号绑定到此工作区。",
     "domestic": "国内",
     "jsonSchema": "JSON Schema",
-    "toolCalling": "工具调用"
+    "toolCalling": "工具调用",
+    "detailSubtitle": "供应商配置、能力与凭据引用",
+    "notFound": "未找到供应商",
+    "fields": {
+      "id": "ID",
+      "tenantId": "租户 ID",
+      "workspaceId": "工作区 ID",
+      "provider": "供应商",
+      "displayName": "显示名称",
+      "family": "系列",
+      "baseUrl": "Base URL",
+      "credentialRef": "凭据引用",
+      "status": "状态",
+      "domestic": "国内供应商",
+      "supportsJsonSchema": "JSON Schema 支持",
+      "supportsToolCalling": "工具调用支持"
+    }
   },
   "productAreas": {
     "tenantScope": "租户范围：{{tenantId}}",

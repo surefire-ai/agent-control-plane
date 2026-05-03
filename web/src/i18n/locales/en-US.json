@@ -200,7 +200,23 @@
     "emptyWorkspaceDescription": "Tenant provider accounts can be bound to this workspace when policy is configured.",
     "domestic": "Domestic",
     "jsonSchema": "JSON schema",
-    "toolCalling": "Tool calling"
+    "toolCalling": "Tool calling",
+    "detailSubtitle": "Provider configuration, capabilities, and credential references",
+    "notFound": "Provider not found",
+    "fields": {
+      "id": "ID",
+      "tenantId": "Tenant ID",
+      "workspaceId": "Workspace ID",
+      "provider": "Provider",
+      "displayName": "Display Name",
+      "family": "Family",
+      "baseUrl": "Base URL",
+      "credentialRef": "Credential Reference",
+      "status": "Status",
+      "domestic": "Domestic Provider",
+      "supportsJsonSchema": "JSON Schema Support",
+      "supportsToolCalling": "Tool Calling Support"
+    }
   },
   "productAreas": {
     "tenantScope": "Tenant scope: {{tenantId}}",

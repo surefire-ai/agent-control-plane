@@ -829,10 +829,13 @@ func (s Server) handleListEvaluations(w http.ResponseWriter, r *http.Request) {
 	page, limit := paginationFromQuery(r)
 	tenantID := r.URL.Query().Get("tenantId")
 	workspaceID := r.URL.Query().Get("workspaceId")
+	agentID := r.URL.Query().Get("agentId")
 	var records []EvaluationRecord
 	var total int
 	var err error
 	switch {
+	case agentID != "":
+		records, total, err = s.Stores.Evaluations.ListEvaluationsByAgent(r.Context(), agentID, page, limit)
 	case workspaceID != "":
 		records, total, err = s.Stores.Evaluations.ListEvaluationsByWorkspace(r.Context(), workspaceID, page, limit)
 	case tenantID != "":
@@ -917,10 +920,13 @@ func (s Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	page, limit := paginationFromQuery(r)
 	tenantID := r.URL.Query().Get("tenantId")
 	workspaceID := r.URL.Query().Get("workspaceId")
+	agentID := r.URL.Query().Get("agentId")
 	var records []RunRecord
 	var total int
 	var err error
 	switch {
+	case agentID != "":
+		records, total, err = s.Stores.Runs.ListRunsByAgent(r.Context(), agentID, page, limit)
 	case workspaceID != "":
 		records, total, err = s.Stores.Runs.ListRunsByWorkspace(r.Context(), workspaceID, page, limit)
 	case tenantID != "":

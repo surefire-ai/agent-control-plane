@@ -311,6 +311,16 @@ func (s fakeEvaluationStore) ListEvaluationsByWorkspace(ctx context.Context, wor
 	return paginateTestEvaluations(filtered, page, limit), len(filtered), nil
 }
 
+func (s fakeEvaluationStore) ListEvaluationsByAgent(ctx context.Context, agentID string, page, limit int) ([]EvaluationRecord, int, error) {
+	filtered := make([]EvaluationRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].AgentID == agentID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestEvaluations(filtered, page, limit), len(filtered), nil
+}
+
 func paginateTestEvaluationsFromIDs(records map[string]EvaluationRecord, orderedIDs []string, page, limit int) []EvaluationRecord {
 	all := make([]EvaluationRecord, 0, len(orderedIDs))
 	for _, id := range orderedIDs {
@@ -525,6 +535,16 @@ func (s fakeRunStore) ListRunsByWorkspace(ctx context.Context, workspaceID strin
 	filtered := make([]RunRecord, 0)
 	for _, id := range s.orderedIDs {
 		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateTestRuns(filtered, page, limit), len(filtered), nil
+}
+
+func (s fakeRunStore) ListRunsByAgent(ctx context.Context, agentID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].AgentID == agentID {
 			filtered = append(filtered, s.records[id])
 		}
 	}

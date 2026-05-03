@@ -108,7 +108,28 @@
     "subtitle": "设计、版本化并发布租户级 Agent",
     "loadError": "加载 Agents 失败",
     "emptyTitle": "暂无 Agent",
-    "emptyDescription": "工作区中创建的 Agent 会显示在这里。"
+    "emptyDescription": "工作区中创建的 Agent 会显示在这里。",
+    "detailSubtitle": "Agent 配置、运行时与修订历史",
+    "notFound": "未找到 Agent",
+    "fields": {
+      "id": "ID",
+      "slug": "标识",
+      "displayName": "显示名称",
+      "description": "描述",
+      "tenantId": "租户 ID",
+      "workspaceId": "工作区 ID",
+      "status": "状态",
+      "pattern": "范式",
+      "runtimeEngine": "运行时引擎",
+      "runnerClass": "Runner 类型",
+      "modelProvider": "模型供应商",
+      "modelName": "模型名称",
+      "latestRevision": "最新修订版本"
+    },
+    "linkedRuns": "关联运行记录",
+    "linkedRunsSubtitle": "此 Agent 的执行历史",
+    "linkedEvaluations": "关联评估",
+    "linkedEvaluationsSubtitle": "此 Agent 的评估结果"
   },
   "evaluation": {
     "title": "评估",

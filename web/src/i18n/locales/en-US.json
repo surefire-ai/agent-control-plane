@@ -108,7 +108,28 @@
     "subtitle": "Design, version, and publish tenant-scoped agents",
     "loadError": "Failed to load agents",
     "emptyTitle": "No agents",
-    "emptyDescription": "Agents created in workspaces will appear here."
+    "emptyDescription": "Agents created in workspaces will appear here.",
+    "detailSubtitle": "Agent configuration, runtime, and revision history",
+    "notFound": "Agent not found",
+    "fields": {
+      "id": "ID",
+      "slug": "Slug",
+      "displayName": "Display Name",
+      "description": "Description",
+      "tenantId": "Tenant ID",
+      "workspaceId": "Workspace ID",
+      "status": "Status",
+      "pattern": "Pattern",
+      "runtimeEngine": "Runtime Engine",
+      "runnerClass": "Runner Class",
+      "modelProvider": "Model Provider",
+      "modelName": "Model Name",
+      "latestRevision": "Latest Revision"
+    },
+    "linkedRuns": "Linked Runs",
+    "linkedRunsSubtitle": "Execution history for this agent",
+    "linkedEvaluations": "Linked Evaluations",
+    "linkedEvaluationsSubtitle": "Evaluation results for this agent"
   },
   "evaluation": {
     "title": "Evaluations",

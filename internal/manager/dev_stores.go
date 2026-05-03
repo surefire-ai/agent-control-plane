@@ -318,6 +318,16 @@ func (s devEvaluationStore) ListEvaluationsByWorkspace(_ context.Context, worksp
 	return paginateEvaluations(filtered, page, limit)
 }
 
+func (s devEvaluationStore) ListEvaluationsByAgent(_ context.Context, agentID string, page, limit int) ([]EvaluationRecord, int, error) {
+	filtered := make([]EvaluationRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].AgentID == agentID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateEvaluations(filtered, page, limit)
+}
+
 func paginateEvaluations(records []EvaluationRecord, page, limit int) ([]EvaluationRecord, int, error) {
 	total := len(records)
 	start := (page - 1) * limit
@@ -572,6 +582,16 @@ func (s devRunStore) ListRunsByWorkspace(_ context.Context, workspaceID string, 
 	filtered := make([]RunRecord, 0)
 	for _, id := range s.orderedIDs {
 		if s.records[id].WorkspaceID == workspaceID {
+			filtered = append(filtered, s.records[id])
+		}
+	}
+	return paginateRuns(filtered, page, limit)
+}
+
+func (s devRunStore) ListRunsByAgent(_ context.Context, agentID string, page, limit int) ([]RunRecord, int, error) {
+	filtered := make([]RunRecord, 0)
+	for _, id := range s.orderedIDs {
+		if s.records[id].AgentID == agentID {
 			filtered = append(filtered, s.records[id])
 		}
 	}

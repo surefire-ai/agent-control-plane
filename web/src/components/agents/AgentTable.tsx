@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { Agent } from "@/types/api";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -8,6 +9,7 @@ interface AgentTableProps {
 
 export function AgentTable({ agents }: AgentTableProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <div className="surface overflow-hidden rounded-lg">
@@ -37,7 +39,14 @@ export function AgentTable({ agents }: AgentTableProps) {
         </thead>
         <tbody className="divide-y divide-zinc-200/80 bg-white/50">
           {agents.map((agent) => (
-            <tr key={agent.id} className="transition-colors hover:bg-teal-50/70">
+            <tr
+              key={agent.id}
+              onClick={() => navigate(`/tenants/${agent.tenantId}/agents/${agent.id}`)}
+              tabIndex={0}
+              role="link"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/tenants/${agent.tenantId}/agents/${agent.id}`); } }}
+              className="cursor-pointer transition-colors hover:bg-teal-50/70"
+            >
               <td className="px-6 py-4">
                 <p className="text-sm font-semibold text-zinc-950">{agent.displayName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{agent.id}</p>

@@ -318,13 +318,14 @@ func agentSpecFromData(rec AgentRecord) apiv1alpha1.AgentSpec {
 
 	if d.Pattern != nil {
 		pat := &apiv1alpha1.AgentPatternSpec{
-			Type:          d.Pattern.Type,
-			Version:       d.Pattern.Version,
-			ModelRef:      d.Pattern.ModelRef,
-			ToolRefs:      d.Pattern.ToolRefs,
-			KnowledgeRefs: d.Pattern.KnowledgeRefs,
-			MaxIterations: d.Pattern.MaxIterations,
-			StopWhen:      d.Pattern.StopWhen,
+			Type:             d.Pattern.Type,
+			Version:          d.Pattern.Version,
+			ModelRef:         d.Pattern.ModelRef,
+			ExecutorModelRef: d.Pattern.ExecutorModelRef,
+			ToolRefs:         d.Pattern.ToolRefs,
+			KnowledgeRefs:    d.Pattern.KnowledgeRefs,
+			MaxIterations:    d.Pattern.MaxIterations,
+			StopWhen:         d.Pattern.StopWhen,
 		}
 		if len(d.Pattern.Routes) > 0 {
 			pat.Routes = make([]apiv1alpha1.PatternRoute, len(d.Pattern.Routes))

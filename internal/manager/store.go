@@ -92,14 +92,15 @@ type IdentityConfig struct {
 }
 
 type PatternConfig struct {
-	Type          string         `json:"type,omitempty"`
-	Version       string         `json:"version,omitempty"`
-	ModelRef      string         `json:"modelRef,omitempty"`
-	ToolRefs      []string       `json:"toolRefs,omitempty"`
-	KnowledgeRefs []string       `json:"knowledgeRefs,omitempty"`
-	MaxIterations int32          `json:"maxIterations,omitempty"`
-	StopWhen      string         `json:"stopWhen,omitempty"`
-	Routes        []PatternRoute `json:"routes,omitempty"`
+	Type             string         `json:"type,omitempty"`
+	Version          string         `json:"version,omitempty"`
+	ModelRef         string         `json:"modelRef,omitempty"`
+	ExecutorModelRef string         `json:"executorModelRef,omitempty"`
+	ToolRefs         []string       `json:"toolRefs,omitempty"`
+	KnowledgeRefs    []string       `json:"knowledgeRefs,omitempty"`
+	MaxIterations    int32          `json:"maxIterations,omitempty"`
+	StopWhen         string         `json:"stopWhen,omitempty"`
+	Routes           []PatternRoute `json:"routes,omitempty"`
 }
 
 type PatternRoute struct {

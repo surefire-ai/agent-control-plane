@@ -189,6 +189,8 @@ spec:
                 type: object
               pattern:
                 properties:
+                  executorModelRef:
+                    type: string
                   knowledgeRefs:
                     items:
                       type: string

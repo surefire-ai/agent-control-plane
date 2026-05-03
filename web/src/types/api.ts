@@ -66,6 +66,7 @@ export interface PatternConfig {
   type?: string;
   version?: string;
   modelRef?: string;
+  executorModelRef?: string;
   toolRefs?: string[];
   knowledgeRefs?: string[];
   maxIterations?: number;

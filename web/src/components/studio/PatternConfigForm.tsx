@@ -194,7 +194,7 @@ export function PatternConfigForm({ pattern, config, onChange }: PatternConfigFo
         {pattern === "plan_execute" && (
           <>
             <ModelRefField value={config.modelRef ?? ""} onChange={(v) => updateConfig({ modelRef: v })} label={t("studio.config.plannerModel")} />
-            <ModelRefField value={""} onChange={() => {}} label={t("studio.config.executorModel")} />
+            <ModelRefField value={config.executorModelRef ?? ""} onChange={(v) => updateConfig({ executorModelRef: v })} label={t("studio.config.executorModel")} />
           </>
         )}
 

@@ -32,6 +32,14 @@ uninstall:
 fmt:
 	$(GO) fmt ./...
 
+.PHONY: tidy-check
+tidy-check:
+	$(GO) mod tidy
+	@git diff --exit-code go.mod go.sum || (echo "go.mod or go.sum is dirty — run 'go mod tidy' and commit"; exit 1)
+
+.PHONY: ci
+ci: fmt tidy-check vet test build
+
 .PHONY: build
 build:
 	$(GO) build ./cmd/controller-manager ./cmd/manager ./cmd/worker

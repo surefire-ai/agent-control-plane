@@ -32,13 +32,17 @@ uninstall:
 fmt:
 	$(GO) fmt ./...
 
+.PHONY: fmt-check
+fmt-check:
+	@test -z "$$(gofmt -l .)" || (echo "gofmt check failed — run 'make fmt' and commit:"; gofmt -l .; exit 1)
+
 .PHONY: tidy-check
 tidy-check:
 	$(GO) mod tidy
 	@git diff --exit-code go.mod go.sum || (echo "go.mod or go.sum is dirty — run 'go mod tidy' and commit"; exit 1)
 
 .PHONY: ci
-ci: fmt tidy-check vet test build
+ci: fmt-check tidy-check vet test build
 
 .PHONY: build
 build:

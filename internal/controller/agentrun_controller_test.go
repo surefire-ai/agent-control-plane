@@ -378,6 +378,62 @@ func TestAgentRunCanceledIsTerminal(t *testing.T) {
 	}
 }
 
+func TestAgentRunReconcilerCancelsOnSpecCancel(t *testing.T) {
+	scheme := testScheme(t)
+	cancel := true
+	run := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "run-1",
+			Namespace:  "ehs",
+			Generation: 1,
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "agent-1"},
+			Cancel:   &cancel,
+		},
+		Status: apiv1alpha1.AgentRunStatus{
+			Phase:        string(apiv1alpha1.AgentRunPhaseRunning),
+			WorkspaceRef: "ws",
+		},
+	}
+	agent := readyAgent("agent-1", "ehs", "sha256:agent")
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&apiv1alpha1.AgentRun{}).
+		WithObjects(run, agent).
+		Build()
+	reconciler := &AgentRunReconciler{
+		Client:  kubeClient,
+		Scheme:  scheme,
+		Clock:   fixedClock(),
+		Runtime: agentruntime.NewMockRuntime(),
+	}
+	request := reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "ehs", Name: "run-1"}}
+
+	result, err := reconciler.Reconcile(context.Background(), request)
+	if err != nil {
+		t.Fatalf("reconcile returned error: %v", err)
+	}
+	if result.Requeue || result.RequeueAfter > 0 {
+		t.Fatalf("expected no requeue for canceled run, got %+v", result)
+	}
+
+	var canceled apiv1alpha1.AgentRun
+	if err := kubeClient.Get(context.Background(), request.NamespacedName, &canceled); err != nil {
+		t.Fatalf("get AgentRun returned error: %v", err)
+	}
+	if canceled.Status.Phase != string(apiv1alpha1.AgentRunPhaseCanceled) {
+		t.Fatalf("expected Canceled phase, got %q", canceled.Status.Phase)
+	}
+	if canceled.Status.Conditions[0].Message != "AgentRun canceled by user request" {
+		t.Fatalf("expected user-requested cancel message, got %q", canceled.Status.Conditions[0].Message)
+	}
+	if canceled.Status.FinishedAt == nil {
+		t.Fatalf("expected FinishedAt to be set on canceled run")
+	}
+}
+
 // ── Timeout tests ──
 
 func TestAgentRunReconcilerTimesOut(t *testing.T) {

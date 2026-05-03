@@ -111,13 +111,61 @@ func (s Server) Handler() http.Handler {
 
 // handleNamespacePath routes requests to the correct handler based on method and path structure.
 func (s Server) handleNamespacePath(w http.ResponseWriter, r *http.Request) {
-	// If the path matches /agentruns/{name} and method is GET, serve status.
+	// Cancel endpoint: POST .../agentruns/{name}:cancel
+	if _, _, ok := parseAgentRunCancelPath(r.URL.Path); ok && r.Method == http.MethodPost {
+		s.handleCancelAgentRun(w, r)
+		return
+	}
+	// Status endpoint: GET .../agentruns/{name}
 	if _, _, ok := parseAgentRunPath(r.URL.Path); ok && r.Method == http.MethodGet {
 		s.handleGetAgentRun(w, r)
 		return
 	}
 	// Everything else goes to the invoke handler (POST-only).
 	s.handleInvoke(w, r)
+}
+
+// handleCancelAgentRun sets spec.cancel=true on an AgentRun.
+func (s Server) handleCancelAgentRun(w http.ResponseWriter, r *http.Request) {
+	namespace, name, ok := parseAgentRunCancelPath(r.URL.Path)
+	if !ok {
+		writeError(w, http.StatusNotFound, "cancel path not found")
+		return
+	}
+
+	var agentRun apiv1alpha1.AgentRun
+	key := types.NamespacedName{Namespace: namespace, Name: name}
+	if err := s.Client.Get(r.Context(), key, &agentRun); err != nil {
+		if apierrors.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "agentrun not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to read agentrun")
+		return
+	}
+
+	// Already terminal — nothing to do.
+	if agentRun.Status.Phase == string(apiv1alpha1.AgentRunPhaseCanceled) ||
+		agentRun.Status.Phase == string(apiv1alpha1.AgentRunPhaseSucceeded) ||
+		agentRun.Status.Phase == string(apiv1alpha1.AgentRunPhaseFailed) {
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status":   "already " + strings.ToLower(agentRun.Status.Phase),
+			"agentRun": agentRun.Name,
+		})
+		return
+	}
+
+	cancel := true
+	agentRun.Spec.Cancel = &cancel
+	if err := s.Client.Update(r.Context(), &agentRun); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to cancel agentrun: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status":   "cancel_requested",
+		"agentRun": agentRun.Name,
+	})
 }
 
 // handleGetAgentRun returns the current status of an AgentRun.
@@ -147,6 +195,27 @@ func (s Server) handleGetAgentRun(w http.ResponseWriter, r *http.Request) {
 		"status": agentRun.Status,
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func parseAgentRunCancelPath(path string) (string, string, bool) {
+	prefix := "/apis/" + apiv1alpha1.Group + "/" + apiv1alpha1.Version + "/namespaces/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", "", false
+	}
+	rest := strings.TrimPrefix(path, prefix)
+	parts := strings.Split(rest, "/")
+	if len(parts) != 3 || parts[1] != "agentruns" || !strings.HasSuffix(parts[2], ":cancel") {
+		return "", "", false
+	}
+	namespace, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	name, err := url.PathUnescape(strings.TrimSuffix(parts[2], ":cancel"))
+	if err != nil {
+		return "", "", false
+	}
+	return namespace, name, namespace != "" && name != ""
 }
 
 func parseAgentRunPath(path string) (string, string, bool) {

@@ -47,6 +47,12 @@ spec:
                 required:
                 - name
                 type: object
+              cancel:
+                description: |-
+                  Cancel requests cancellation of a running AgentRun without deleting it.
+                  Set to true to gracefully stop execution. Once the run reaches the
+                  Canceled terminal phase, this field is no longer consulted.
+                type: boolean
               execution:
                 additionalProperties:
                   x-kubernetes-preserve-unknown-fields: true
@@ -75,6 +81,24 @@ spec:
             properties:
               agentRevision:
                 type: string
+              artifactRefs:
+                items:
+                  description: |-
+                    ArtifactRef identifies an external resource (e.g. ConfigMap data key)
+                    that stores durable worker artifacts. Namespace and Name identify the
+                    ConfigMap; Key is the data key within it.
+                  properties:
+                    key:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  type: object
+                type: array
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

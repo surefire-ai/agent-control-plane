@@ -9,6 +9,7 @@ import (
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
 	agentruntime "github.com/surefire-ai/korus/internal/runtime"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +47,18 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		original := run.DeepCopy()
 		previousStatus := run.Status.DeepCopy()
 		now := r.now()
+		r.deleteWorkerJob(ctx, run)
 		setAgentRunCanceled(&run, now, run.Status.WorkspaceRef, "AgentRun canceled by deletion")
+		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
+	}
+
+	// ── Explicit cancel: spec.cancel set to true ──
+	if run.Spec.Cancel != nil && *run.Spec.Cancel {
+		original := run.DeepCopy()
+		previousStatus := run.Status.DeepCopy()
+		now := r.now()
+		r.deleteWorkerJob(ctx, run)
+		setAgentRunCanceled(&run, now, run.Status.WorkspaceRef, "AgentRun canceled by user request")
 		return ctrl.Result{}, r.patchAgentRunStatusIfChanged(ctx, &run, original, previousStatus)
 	}
 
@@ -372,4 +384,13 @@ func setAgentRunRetrying(run *apiv1alpha1.AgentRun, now metav1.Time, workspaceRe
 		ObservedGeneration: run.Generation,
 		LastTransitionTime: now,
 	})
+}
+
+func (r *AgentRunReconciler) deleteWorkerJob(ctx context.Context, run apiv1alpha1.AgentRun) {
+	jobName := agentruntime.JobNameForRun(run)
+	job := &batchv1.Job{}
+	job.Namespace = run.Namespace
+	job.Name = jobName
+	// Ignore not-found — the Job may never have been created.
+	_ = r.Delete(ctx, job)
 }

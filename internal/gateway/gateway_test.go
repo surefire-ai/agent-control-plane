@@ -331,6 +331,262 @@ func TestGatewayGetAgentRunStatus(t *testing.T) {
 	}
 }
 
+func TestParseAgentRunCancelPath(t *testing.T) {
+	tests := []struct {
+		name          string
+		path          string
+		wantNamespace string
+		wantName      string
+		wantOk        bool
+	}{
+		{
+			name:          "valid cancel path",
+			path:          "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/my-run:cancel",
+			wantNamespace: "ehs",
+			wantName:      "my-run",
+			wantOk:        true,
+		},
+		{
+			name:   "agentrun path without :cancel suffix is not cancel",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/my-run",
+			wantOk: false,
+		},
+		{
+			name:   "agent invoke path is not cancel",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agents/ehs-agent:invoke",
+			wantOk: false,
+		},
+		{
+			name:   "missing namespace in cancel path",
+			path:   "/apis/windosx.com/v1alpha1/namespaces//agentruns/my-run:cancel",
+			wantOk: false,
+		},
+		{
+			name:   "missing name in cancel path",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/:cancel",
+			wantOk: false,
+		},
+		{
+			name:   "wrong prefix in cancel path",
+			path:   "/api/v1/namespaces/ehs/agentruns/my-run:cancel",
+			wantOk: false,
+		},
+		{
+			name:   "too many segments in cancel path",
+			path:   "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/my-run/extra:cancel",
+			wantOk: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ns, name, ok := parseAgentRunCancelPath(tt.path)
+			if ok != tt.wantOk {
+				t.Fatalf("parseAgentRunCancelPath(%q) ok = %v, want %v", tt.path, ok, tt.wantOk)
+			}
+			if ok {
+				if ns != tt.wantNamespace {
+					t.Errorf("namespace = %q, want %q", ns, tt.wantNamespace)
+				}
+				if name != tt.wantName {
+					t.Errorf("name = %q, want %q", name, tt.wantName)
+				}
+			}
+		})
+	}
+}
+
+func TestGatewayCancelAgentRun(t *testing.T) {
+	scheme := testScheme(t)
+
+	tests := []struct {
+		name       string
+		run        *apiv1alpha1.AgentRun
+		wantStatus int
+		wantCancel bool
+		wantBody   string
+	}{
+		{
+			name: "cancel running agentrun",
+			run: &apiv1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "running-run",
+					Namespace: "ehs",
+				},
+				Spec: apiv1alpha1.AgentRunSpec{
+					AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+				},
+				Status: apiv1alpha1.AgentRunStatus{Phase: "Running"},
+			},
+			wantStatus: http.StatusOK,
+			wantCancel: true,
+			wantBody:   "cancel_requested",
+		},
+		{
+			name: "cancel pending agentrun",
+			run: &apiv1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pending-run",
+					Namespace: "ehs",
+				},
+				Spec: apiv1alpha1.AgentRunSpec{
+					AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+				},
+				Status: apiv1alpha1.AgentRunStatus{Phase: "Pending"},
+			},
+			wantStatus: http.StatusOK,
+			wantCancel: true,
+			wantBody:   "cancel_requested",
+		},
+		{
+			name: "cancel already canceled agentrun",
+			run: &apiv1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "canceled-run",
+					Namespace: "ehs",
+				},
+				Spec: apiv1alpha1.AgentRunSpec{
+					AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+				},
+				Status: apiv1alpha1.AgentRunStatus{Phase: "Canceled"},
+			},
+			wantStatus: http.StatusOK,
+			wantCancel: false,
+			wantBody:   "already canceled",
+		},
+		{
+			name: "cancel already succeeded agentrun",
+			run: &apiv1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "succeeded-run",
+					Namespace: "ehs",
+				},
+				Spec: apiv1alpha1.AgentRunSpec{
+					AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+				},
+				Status: apiv1alpha1.AgentRunStatus{Phase: "Succeeded"},
+			},
+			wantStatus: http.StatusOK,
+			wantCancel: false,
+			wantBody:   "already succeeded",
+		},
+		{
+			name: "cancel already failed agentrun",
+			run: &apiv1alpha1.AgentRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "failed-run",
+					Namespace: "ehs",
+				},
+				Spec: apiv1alpha1.AgentRunSpec{
+					AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+				},
+				Status: apiv1alpha1.AgentRunStatus{Phase: "Failed"},
+			},
+			wantStatus: http.StatusOK,
+			wantCancel: false,
+			wantBody:   "already failed",
+		},
+		{
+			name:       "cancel nonexistent agentrun",
+			run:        nil,
+			wantStatus: http.StatusNotFound,
+			wantBody:   "agentrun not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := fake.NewClientBuilder().WithScheme(scheme)
+			runName := "does-not-exist"
+			if tt.run != nil {
+				builder = builder.WithObjects(tt.run).WithStatusSubresource(tt.run)
+				runName = tt.run.Name
+			}
+			kubeClient := builder.Build()
+			server := Server{Client: kubeClient}
+
+			recorder := httptest.NewRecorder()
+			path := "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/" + runName + ":cancel"
+			request := httptest.NewRequest(http.MethodPost, path, nil)
+			server.Handler().ServeHTTP(recorder, request)
+
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d: %s", tt.wantStatus, recorder.Code, recorder.Body.String())
+			}
+
+			body := recorder.Body.String()
+			if tt.wantBody != "" && !bytes.Contains(recorder.Body.Bytes(), []byte(tt.wantBody)) {
+				t.Fatalf("expected body to contain %q, got %s", tt.wantBody, body)
+			}
+
+			// Verify cancel field on the object.
+			if tt.run != nil && tt.wantCancel {
+				var updated apiv1alpha1.AgentRun
+				key := types.NamespacedName{Namespace: tt.run.Namespace, Name: tt.run.Name}
+				if err := kubeClient.Get(context.Background(), key, &updated); err != nil {
+					t.Fatalf("failed to read updated agentrun: %v", err)
+				}
+				if updated.Spec.Cancel == nil || !*updated.Spec.Cancel {
+					t.Fatalf("expected spec.cancel=true, got %v", updated.Spec.Cancel)
+				}
+			}
+		})
+	}
+}
+
+func TestGatewayCancelAgentRunMethodRouting(t *testing.T) {
+	scheme := testScheme(t)
+
+	existingRun := &apiv1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cancel-test-run",
+			Namespace: "ehs",
+		},
+		Spec: apiv1alpha1.AgentRunSpec{
+			AgentRef: apiv1alpha1.LocalObjectReference{Name: "ehs-agent"},
+		},
+		Status: apiv1alpha1.AgentRunStatus{Phase: "Running"},
+	}
+
+	kubeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existingRun).
+		WithStatusSubresource(existingRun).
+		Build()
+
+	server := Server{Client: kubeClient}
+
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		wantStatus int
+	}{
+		{
+			name:       "POST cancel sets cancel flag",
+			method:     http.MethodPost,
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/cancel-test-run:cancel",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "GET cancel path falls through to get handler (404)",
+			method:     http.MethodGet,
+			path:       "/apis/windosx.com/v1alpha1/namespaces/ehs/agentruns/cancel-test-run:cancel",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(tt.method, tt.path, nil)
+			server.Handler().ServeHTTP(recorder, request)
+
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d: %s", tt.wantStatus, recorder.Code, recorder.Body.String())
+			}
+		})
+	}
+}
+
 func TestGatewayGetAgentRunMethodRouting(t *testing.T) {
 	scheme := testScheme(t)
 

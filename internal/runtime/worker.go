@@ -111,6 +111,14 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 	ttlSecondsAfterFinished := int32(300)
 	runAsUser := int64(65532)
 	runAsGroup := int64(65532)
+
+	// Propagate ActiveDeadlineSeconds from AgentRun spec to the Job with a
+	// 60-second buffer so the controller can detect the timeout first.
+	var activeDeadlineSeconds *int64
+	if request.Run.Spec.ActiveDeadlineSeconds != nil {
+		buffered := *request.Run.Spec.ActiveDeadlineSeconds + 60
+		activeDeadlineSeconds = &buffered
+	}
 	env := []corev1.EnvVar{
 		{Name: "AGENT_NAME", Value: request.Agent.Name},
 		{Name: "AGENT_RUN_NAME", Value: request.Run.Name},
@@ -143,6 +151,7 @@ func (r WorkerRuntime) buildJob(request Request, name string) batchv1.Job {
 		},
 		Spec: batchv1.JobSpec{
 			BackoffLimit:            &backoffLimit,
+			ActiveDeadlineSeconds:   activeDeadlineSeconds,
 			TTLSecondsAfterFinished: &ttlSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -461,6 +470,11 @@ func fallbackWorkerJobResult(request Request, job batchv1.Job) Result {
 }
 
 func jobNameForRun(run apiv1alpha1.AgentRun) string {
+	return JobNameForRun(run)
+}
+
+// JobNameForRun is the exported version of jobNameForRun for use by controllers.
+func JobNameForRun(run apiv1alpha1.AgentRun) string {
 	hash := sha256.Sum256([]byte(run.Namespace + "/" + run.Name))
 	suffix := hex.EncodeToString(hash[:])[:10]
 	prefix := dnsLabelPrefix("agentrun-" + run.Name)

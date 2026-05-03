@@ -146,6 +146,10 @@ type AgentRunSpec struct {
 	ActiveDeadlineSeconds *int64                `json:"activeDeadlineSeconds,omitempty"`
 	MaxRetries            *int32                `json:"maxRetries,omitempty"`
 	RetryBackoffSeconds   *int64                `json:"retryBackoffSeconds,omitempty"`
+	// Cancel requests cancellation of a running AgentRun without deleting it.
+	// Set to true to gracefully stop execution. Once the run reaches the
+	// Canceled terminal phase, this field is no longer consulted.
+	Cancel *bool `json:"cancel,omitempty"`
 }
 
 type AgentRunStatus struct {

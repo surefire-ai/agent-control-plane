@@ -246,5 +246,78 @@
     "title": "Page Not Found",
     "description": "The page you visited does not exist or has been removed.",
     "backToTenants": "Back to Tenants"
+  },
+  "studio": {
+    "title": "Orchestration Studio",
+    "subtitle": "Configure agent pattern, models, tools, and knowledge",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "openStudio": "Open Studio",
+    "tabs": {
+      "pattern": "Pattern",
+      "models": "Models & Bindings",
+      "preview": "Preview"
+    },
+    "pattern": {
+      "select": "Select Pattern",
+      "react": "ReAct",
+      "reactDesc": "Iterative reason-act-observe loop",
+      "router": "Router",
+      "routerDesc": "Classify task and route to SubAgent",
+      "reflection": "Reflection",
+      "reflectionDesc": "Generate-critique-revise loop",
+      "toolCalling": "Tool Calling",
+      "toolCallingDesc": "Model-driven structured tool calls",
+      "planExecute": "Plan & Execute",
+      "planExecuteDesc": "Planner creates steps, executor completes",
+      "workflow": "Workflow",
+      "workflowDesc": "Deterministic DAG execution"
+    },
+    "config": {
+      "modelRef": "Model Reference",
+      "maxIterations": "Max Iterations",
+      "stopWhen": "Stop Condition",
+      "version": "Version",
+      "plannerModel": "Planner Model",
+      "executorModel": "Executor Model"
+    },
+    "models": {
+      "title": "Model Configuration",
+      "add": "Add Model",
+      "provider": "Provider",
+      "modelName": "Model Name",
+      "temperature": "Temperature",
+      "maxTokens": "Max Tokens"
+    },
+    "bindings": {
+      "tools": "Tools",
+      "toolsDesc": "Bind tool providers to this agent",
+      "addTool": "Add Tool",
+      "knowledge": "Knowledge",
+      "knowledgeDesc": "Bind knowledge bases for retrieval",
+      "addKnowledge": "Add Knowledge",
+      "skills": "Skills",
+      "skillsDesc": "Bind reusable skill packages",
+      "addSkill": "Add Skill",
+      "subAgents": "Sub-Agents",
+      "subAgentsDesc": "Bind other agents as sub-agents",
+      "addSubAgent": "Add Sub-Agent"
+    },
+    "preview": {
+      "title": "Graph Preview",
+      "noGraph": "No graph to preview. Select a pattern or define custom nodes.",
+      "node": "Node",
+      "edge": "Edge"
+    },
+    "routes": {
+      "title": "Routes",
+      "add": "Add Route",
+      "label": "Label",
+      "agentRef": "Agent Ref",
+      "modelRef": "Model Ref",
+      "default": "Default"
+    }
   }
 }

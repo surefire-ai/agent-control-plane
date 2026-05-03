@@ -1,5 +1,5 @@
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAgent } from "@/api/agents";
 import { useRuns } from "@/api/runs";
@@ -12,12 +12,15 @@ import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { ErrorAlert } from "@/components/shared/ErrorAlert";
 import { Card } from "@/components/shared/Card";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/shared/Button";
+import { Settings } from "lucide-react";
 
 const LINKED_LIMIT = 5;
 
 export function AgentDetailPage() {
   const { t } = useTranslation();
   const { tenantId, agentId } = useParams<{ tenantId: string; agentId: string }>();
+  const navigate = useNavigate();
   const { data: agent, isLoading, isError, error, refetch } = useAgent(agentId);
   useDocumentTitle(agent?.displayName);
 
@@ -44,6 +47,15 @@ export function AgentDetailPage() {
       <PageHeader
         title={agent.displayName}
         subtitle={t("agent.detailSubtitle")}
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() => navigate(`/tenants/${tenantId}/agents/${agentId}/studio`)}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            {t("studio.openStudio")}
+          </Button>
+        }
       />
 
       <AgentDetailCard agent={agent} />

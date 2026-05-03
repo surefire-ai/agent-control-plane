@@ -8,6 +8,7 @@ import { ProductAreaPage } from "@/pages/ProductAreaPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { AgentListPage } from "@/pages/AgentListPage";
 import { AgentDetailPage } from "@/pages/AgentDetailPage";
+import { AgentStudioPage } from "@/pages/AgentStudioPage";
 import { EvaluationListPage } from "@/pages/EvaluationListPage";
 import { EvaluationDetailPage } from "@/pages/EvaluationDetailPage";
 import { ProviderListPage } from "@/pages/ProviderListPage";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "tenants/:tenantId/workspaces/:workspaceId", element: <WorkspaceDetailPage /> },
       { path: "tenants/:tenantId/agents", element: <AgentListPage /> },
       { path: "tenants/:tenantId/agents/:agentId", element: <AgentDetailPage /> },
+      { path: "tenants/:tenantId/agents/:agentId/studio", element: <AgentStudioPage /> },
       { path: "tenants/:tenantId/evaluations", element: <EvaluationListPage /> },
       { path: "tenants/:tenantId/evaluations/:evaluationId", element: <EvaluationDetailPage /> },
       { path: "tenants/:tenantId/runs", element: <RunListPage /> },

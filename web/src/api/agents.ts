@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Agent, PaginatedAgentsResponse } from "@/types/api";
 import { api } from "./client";
 
@@ -18,5 +18,16 @@ export function useAgent(id: string | undefined) {
     queryKey: ["agents", id],
     queryFn: () => api.get<Agent>(`/agents/${id}`),
     enabled: !!id,
+  });
+}
+
+export function useUpdateAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & Partial<Agent>) =>
+      api.patch<Agent>(`/agents/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agents"] });
+    },
   });
 }

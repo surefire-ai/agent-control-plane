@@ -174,6 +174,122 @@ type UpdateWorkspaceRequest struct {
 	KubernetesWorkspaceName *string `json:"kubernetesWorkspaceName,omitempty"`
 }
 
+type CreateTenantRequest struct {
+	ID             string `json:"id"`
+	OrganizationID string `json:"organizationId"`
+	Slug           string `json:"slug"`
+	DisplayName    string `json:"displayName"`
+	Status         string `json:"status,omitempty"`
+	DefaultRegion  string `json:"defaultRegion,omitempty"`
+}
+
+type UpdateTenantRequest struct {
+	DisplayName   *string `json:"displayName,omitempty"`
+	Status        *string `json:"status,omitempty"`
+	DefaultRegion *string `json:"defaultRegion,omitempty"`
+}
+
+type CreateAgentRequest struct {
+	ID            string `json:"id"`
+	TenantID      string `json:"tenantId"`
+	WorkspaceID   string `json:"workspaceId"`
+	Slug          string `json:"slug"`
+	DisplayName   string `json:"displayName"`
+	Description   string `json:"description,omitempty"`
+	Status        string `json:"status,omitempty"`
+	Pattern       string `json:"pattern,omitempty"`
+	RuntimeEngine string `json:"runtimeEngine,omitempty"`
+	RunnerClass   string `json:"runnerClass,omitempty"`
+	ModelProvider string `json:"modelProvider,omitempty"`
+	ModelName     string `json:"modelName,omitempty"`
+}
+
+type UpdateAgentRequest struct {
+	DisplayName   *string `json:"displayName,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	Status        *string `json:"status,omitempty"`
+	Pattern       *string `json:"pattern,omitempty"`
+	RuntimeEngine *string `json:"runtimeEngine,omitempty"`
+	RunnerClass   *string `json:"runnerClass,omitempty"`
+	ModelProvider *string `json:"modelProvider,omitempty"`
+	ModelName     *string `json:"modelName,omitempty"`
+}
+
+type CreateEvaluationRequest struct {
+	ID               string `json:"id"`
+	TenantID         string `json:"tenantId"`
+	WorkspaceID      string `json:"workspaceId"`
+	AgentID          string `json:"agentId"`
+	Slug             string `json:"slug"`
+	DisplayName      string `json:"displayName"`
+	Description      string `json:"description,omitempty"`
+	Status           string `json:"status,omitempty"`
+	DatasetName      string `json:"datasetName,omitempty"`
+	DatasetRevision  string `json:"datasetRevision,omitempty"`
+	BaselineRevision string `json:"baselineRevision,omitempty"`
+}
+
+type UpdateEvaluationRequest struct {
+	DisplayName      *string  `json:"displayName,omitempty"`
+	Description      *string  `json:"description,omitempty"`
+	Status           *string  `json:"status,omitempty"`
+	DatasetName      *string  `json:"datasetName,omitempty"`
+	DatasetRevision  *string  `json:"datasetRevision,omitempty"`
+	BaselineRevision *string  `json:"baselineRevision,omitempty"`
+	Score            *float64 `json:"score,omitempty"`
+	GatePassed       *bool    `json:"gatePassed,omitempty"`
+	SamplesTotal     *int     `json:"samplesTotal,omitempty"`
+	SamplesEvaluated *int     `json:"samplesEvaluated,omitempty"`
+	LatestRunID      *string  `json:"latestRunId,omitempty"`
+	ReportRef        *string  `json:"reportRef,omitempty"`
+}
+
+type CreateProviderRequest struct {
+	ID                  string `json:"id"`
+	TenantID            string `json:"tenantId"`
+	WorkspaceID         string `json:"workspaceId,omitempty"`
+	Provider            string `json:"provider"`
+	DisplayName         string `json:"displayName"`
+	Family              string `json:"family,omitempty"`
+	BaseURL             string `json:"baseUrl,omitempty"`
+	CredentialRef       string `json:"credentialRef,omitempty"`
+	Status              string `json:"status,omitempty"`
+	Domestic            bool   `json:"domestic,omitempty"`
+	SupportsJSONSchema  bool   `json:"supportsJsonSchema,omitempty"`
+	SupportsToolCalling bool   `json:"supportsToolCalling,omitempty"`
+}
+
+type UpdateProviderRequest struct {
+	DisplayName         *string `json:"displayName,omitempty"`
+	Family              *string `json:"family,omitempty"`
+	BaseURL             *string `json:"baseUrl,omitempty"`
+	CredentialRef       *string `json:"credentialRef,omitempty"`
+	Status              *string `json:"status,omitempty"`
+	Domestic            *bool   `json:"domestic,omitempty"`
+	SupportsJSONSchema  *bool   `json:"supportsJsonSchema,omitempty"`
+	SupportsToolCalling *bool   `json:"supportsToolCalling,omitempty"`
+}
+
+type CreateRunRequest struct {
+	ID            string `json:"id"`
+	TenantID      string `json:"tenantId"`
+	WorkspaceID   string `json:"workspaceId"`
+	AgentID       string `json:"agentId"`
+	EvaluationID  string `json:"evaluationId,omitempty"`
+	AgentRevision string `json:"agentRevision,omitempty"`
+	Status        string `json:"status,omitempty"`
+	RuntimeEngine string `json:"runtimeEngine,omitempty"`
+	RunnerClass   string `json:"runnerClass,omitempty"`
+}
+
+type UpdateRunRequest struct {
+	Status      *string `json:"status,omitempty"`
+	StartedAt   *string `json:"startedAt,omitempty"`
+	CompletedAt *string `json:"completedAt,omitempty"`
+	Summary     *string `json:"summary,omitempty"`
+	TraceRef    *string `json:"traceRef,omitempty"`
+}
+
 func (s Server) Start(ctx context.Context) error {
 	config := s.Config.normalized()
 	database, err := OpenDatabase(ctx, config)
@@ -458,11 +574,14 @@ func (s Server) handleTenant(w http.ResponseWriter, r *http.Request) {
 	tenantID = strings.TrimSpace(tenantID)
 
 	if tenantID == "" {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-			return
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListTenants(w, r)
+		case http.MethodPost:
+			s.handleCreateTenant(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET or POST")
 		}
-		s.handleListTenants(w, r)
 		return
 	}
 
@@ -471,11 +590,16 @@ func (s Server) handleTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-		return
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetTenant(w, r, tenantID)
+	case http.MethodPatch:
+		s.handleUpdateTenant(w, r, tenantID)
+	case http.MethodDelete:
+		s.handleDeleteTenant(w, r, tenantID)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET, PATCH, or DELETE")
 	}
-	s.handleGetTenant(w, r, tenantID)
 }
 
 func (s Server) handleAgent(w http.ResponseWriter, r *http.Request) {
@@ -487,11 +611,14 @@ func (s Server) handleAgent(w http.ResponseWriter, r *http.Request) {
 	agentID = strings.TrimSpace(agentID)
 
 	if agentID == "" {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-			return
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListAgents(w, r)
+		case http.MethodPost:
+			s.handleCreateAgent(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET or POST")
 		}
-		s.handleListAgents(w, r)
 		return
 	}
 
@@ -500,11 +627,16 @@ func (s Server) handleAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-		return
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetAgent(w, r, agentID)
+	case http.MethodPatch:
+		s.handleUpdateAgent(w, r, agentID)
+	case http.MethodDelete:
+		s.handleDeleteAgent(w, r, agentID)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET, PATCH, or DELETE")
 	}
-	s.handleGetAgent(w, r, agentID)
 }
 
 func (s Server) handleEvaluation(w http.ResponseWriter, r *http.Request) {
@@ -516,11 +648,14 @@ func (s Server) handleEvaluation(w http.ResponseWriter, r *http.Request) {
 	evaluationID = strings.TrimSpace(evaluationID)
 
 	if evaluationID == "" {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-			return
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListEvaluations(w, r)
+		case http.MethodPost:
+			s.handleCreateEvaluation(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET or POST")
 		}
-		s.handleListEvaluations(w, r)
 		return
 	}
 
@@ -529,11 +664,16 @@ func (s Server) handleEvaluation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-		return
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetEvaluation(w, r, evaluationID)
+	case http.MethodPatch:
+		s.handleUpdateEvaluation(w, r, evaluationID)
+	case http.MethodDelete:
+		s.handleDeleteEvaluation(w, r, evaluationID)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET, PATCH, or DELETE")
 	}
-	s.handleGetEvaluation(w, r, evaluationID)
 }
 
 func (s Server) handleProvider(w http.ResponseWriter, r *http.Request) {
@@ -545,11 +685,14 @@ func (s Server) handleProvider(w http.ResponseWriter, r *http.Request) {
 	providerID = strings.TrimSpace(providerID)
 
 	if providerID == "" {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-			return
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListProviders(w, r)
+		case http.MethodPost:
+			s.handleCreateProvider(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET or POST")
 		}
-		s.handleListProviders(w, r)
 		return
 	}
 
@@ -558,11 +701,16 @@ func (s Server) handleProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-		return
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetProvider(w, r, providerID)
+	case http.MethodPatch:
+		s.handleUpdateProvider(w, r, providerID)
+	case http.MethodDelete:
+		s.handleDeleteProvider(w, r, providerID)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET, PATCH, or DELETE")
 	}
-	s.handleGetProvider(w, r, providerID)
 }
 
 func (s Server) handleRun(w http.ResponseWriter, r *http.Request) {
@@ -574,11 +722,14 @@ func (s Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	runID = strings.TrimSpace(runID)
 
 	if runID == "" {
-		if r.Method != http.MethodGet {
-			writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-			return
+		switch r.Method {
+		case http.MethodGet:
+			s.handleListRuns(w, r)
+		case http.MethodPost:
+			s.handleCreateRun(w, r)
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method must be GET or POST")
 		}
-		s.handleListRuns(w, r)
 		return
 	}
 
@@ -587,11 +738,16 @@ func (s Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method must be GET")
-		return
+	switch r.Method {
+	case http.MethodGet:
+		s.handleGetRun(w, r, runID)
+	case http.MethodPatch:
+		s.handleUpdateRun(w, r, runID)
+	case http.MethodDelete:
+		s.handleDeleteRun(w, r, runID)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method must be GET, PATCH, or DELETE")
 	}
-	s.handleGetRun(w, r, runID)
 }
 
 func (s Server) handleGetAgent(w http.ResponseWriter, r *http.Request, agentID string) {
@@ -902,6 +1058,469 @@ func runResponseFromRecord(rec RunRecord) RunResponse {
 		Summary:       rec.Summary,
 		TraceRef:      rec.TraceRef,
 	}
+}
+
+func tenantResponseFromRecord(rec TenantRecord) TenantResponse {
+	return TenantResponse{
+		ID:             rec.ID,
+		OrganizationID: rec.OrganizationID,
+		Slug:           rec.Slug,
+		DisplayName:    rec.DisplayName,
+		Status:         rec.Status,
+		DefaultRegion:  rec.DefaultRegion,
+	}
+}
+
+func (s Server) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
+	var req CreateTenantRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ID == "" || req.OrganizationID == "" || req.Slug == "" || req.DisplayName == "" {
+		writeError(w, http.StatusBadRequest, "id, organizationId, slug, and displayName are required")
+		return
+	}
+	record := TenantRecord{
+		ID:             req.ID,
+		OrganizationID: req.OrganizationID,
+		Slug:           req.Slug,
+		DisplayName:    req.DisplayName,
+		Status:         req.Status,
+		DefaultRegion:  req.DefaultRegion,
+	}
+	if record.Status == "" {
+		record.Status = "active"
+	}
+	if err := s.Stores.Tenants.CreateTenant(r.Context(), record); err != nil {
+		if errors.Is(err, ErrConflict) {
+			writeError(w, http.StatusConflict, "tenant already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to create tenant")
+		return
+	}
+	writeJSON(w, http.StatusCreated, tenantResponseFromRecord(record))
+}
+
+func (s Server) handleUpdateTenant(w http.ResponseWriter, r *http.Request, tenantID string) {
+	var req UpdateTenantRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	fields := map[string]string{}
+	if req.DisplayName != nil {
+		fields["display_name"] = *req.DisplayName
+	}
+	if req.Status != nil {
+		fields["status"] = *req.Status
+	}
+	if req.DefaultRegion != nil {
+		fields["default_region"] = *req.DefaultRegion
+	}
+	if len(fields) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one updatable field must be provided")
+		return
+	}
+	updated, err := s.Stores.Tenants.UpdateTenant(r.Context(), tenantID, fields)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "tenant not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update tenant")
+		return
+	}
+	writeJSON(w, http.StatusOK, tenantResponseFromRecord(*updated))
+}
+
+func (s Server) handleDeleteTenant(w http.ResponseWriter, r *http.Request, tenantID string) {
+	if err := s.Stores.Tenants.DeleteTenant(r.Context(), tenantID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete tenant")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s Server) handleCreateAgent(w http.ResponseWriter, r *http.Request) {
+	var req CreateAgentRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ID == "" || req.TenantID == "" || req.WorkspaceID == "" || req.Slug == "" || req.DisplayName == "" {
+		writeError(w, http.StatusBadRequest, "id, tenantId, workspaceId, slug, and displayName are required")
+		return
+	}
+	record := AgentRecord{
+		ID:            req.ID,
+		TenantID:      req.TenantID,
+		WorkspaceID:   req.WorkspaceID,
+		Slug:          req.Slug,
+		DisplayName:   req.DisplayName,
+		Description:   req.Description,
+		Status:        req.Status,
+		Pattern:       req.Pattern,
+		RuntimeEngine: req.RuntimeEngine,
+		RunnerClass:   req.RunnerClass,
+		ModelProvider: req.ModelProvider,
+		ModelName:     req.ModelName,
+	}
+	if record.Status == "" {
+		record.Status = "draft"
+	}
+	if record.Pattern == "" {
+		record.Pattern = "react"
+	}
+	if record.RuntimeEngine == "" {
+		record.RuntimeEngine = "eino"
+	}
+	if record.RunnerClass == "" {
+		record.RunnerClass = "adk"
+	}
+	if err := s.Stores.Agents.CreateAgent(r.Context(), record); err != nil {
+		if errors.Is(err, ErrConflict) {
+			writeError(w, http.StatusConflict, "agent already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to create agent")
+		return
+	}
+	writeJSON(w, http.StatusCreated, agentResponseFromRecord(record))
+}
+
+func (s Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request, agentID string) {
+	var req UpdateAgentRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	fields := map[string]string{}
+	if req.DisplayName != nil {
+		fields["display_name"] = *req.DisplayName
+	}
+	if req.Description != nil {
+		fields["description"] = *req.Description
+	}
+	if req.Status != nil {
+		fields["status"] = *req.Status
+	}
+	if req.Pattern != nil {
+		fields["pattern"] = *req.Pattern
+	}
+	if req.RuntimeEngine != nil {
+		fields["runtime_engine"] = *req.RuntimeEngine
+	}
+	if req.RunnerClass != nil {
+		fields["runner_class"] = *req.RunnerClass
+	}
+	if req.ModelProvider != nil {
+		fields["model_provider"] = *req.ModelProvider
+	}
+	if req.ModelName != nil {
+		fields["model_name"] = *req.ModelName
+	}
+	if len(fields) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one updatable field must be provided")
+		return
+	}
+	updated, err := s.Stores.Agents.UpdateAgent(r.Context(), agentID, fields)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update agent")
+		return
+	}
+	writeJSON(w, http.StatusOK, agentResponseFromRecord(*updated))
+}
+
+func (s Server) handleDeleteAgent(w http.ResponseWriter, r *http.Request, agentID string) {
+	if err := s.Stores.Agents.DeleteAgent(r.Context(), agentID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete agent")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s Server) handleCreateEvaluation(w http.ResponseWriter, r *http.Request) {
+	var req CreateEvaluationRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ID == "" || req.TenantID == "" || req.WorkspaceID == "" || req.AgentID == "" || req.Slug == "" || req.DisplayName == "" {
+		writeError(w, http.StatusBadRequest, "id, tenantId, workspaceId, agentId, slug, and displayName are required")
+		return
+	}
+	record := EvaluationRecord{
+		ID:               req.ID,
+		TenantID:         req.TenantID,
+		WorkspaceID:      req.WorkspaceID,
+		AgentID:          req.AgentID,
+		Slug:             req.Slug,
+		DisplayName:      req.DisplayName,
+		Description:      req.Description,
+		Status:           req.Status,
+		DatasetName:      req.DatasetName,
+		DatasetRevision:  req.DatasetRevision,
+		BaselineRevision: req.BaselineRevision,
+	}
+	if record.Status == "" {
+		record.Status = "pending"
+	}
+	if err := s.Stores.Evaluations.CreateEvaluation(r.Context(), record); err != nil {
+		if errors.Is(err, ErrConflict) {
+			writeError(w, http.StatusConflict, "evaluation already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to create evaluation")
+		return
+	}
+	writeJSON(w, http.StatusCreated, evaluationResponseFromRecord(record))
+}
+
+func (s Server) handleUpdateEvaluation(w http.ResponseWriter, r *http.Request, evaluationID string) {
+	var req UpdateEvaluationRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	fields := map[string]string{}
+	if req.DisplayName != nil {
+		fields["display_name"] = *req.DisplayName
+	}
+	if req.Description != nil {
+		fields["description"] = *req.Description
+	}
+	if req.Status != nil {
+		fields["status"] = *req.Status
+	}
+	if req.DatasetName != nil {
+		fields["dataset_name"] = *req.DatasetName
+	}
+	if req.DatasetRevision != nil {
+		fields["dataset_revision"] = *req.DatasetRevision
+	}
+	if req.BaselineRevision != nil {
+		fields["baseline_revision"] = *req.BaselineRevision
+	}
+	if req.Score != nil {
+		fields["score"] = strconv.FormatFloat(*req.Score, 'f', -1, 64)
+	}
+	if req.GatePassed != nil {
+		fields["gate_passed"] = strconv.FormatBool(*req.GatePassed)
+	}
+	if req.SamplesTotal != nil {
+		fields["samples_total"] = strconv.Itoa(*req.SamplesTotal)
+	}
+	if req.SamplesEvaluated != nil {
+		fields["samples_evaluated"] = strconv.Itoa(*req.SamplesEvaluated)
+	}
+	if req.LatestRunID != nil {
+		fields["latest_run_id"] = *req.LatestRunID
+	}
+	if req.ReportRef != nil {
+		fields["report_ref"] = *req.ReportRef
+	}
+	if len(fields) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one updatable field must be provided")
+		return
+	}
+	updated, err := s.Stores.Evaluations.UpdateEvaluation(r.Context(), evaluationID, fields)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "evaluation not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update evaluation")
+		return
+	}
+	writeJSON(w, http.StatusOK, evaluationResponseFromRecord(*updated))
+}
+
+func (s Server) handleDeleteEvaluation(w http.ResponseWriter, r *http.Request, evaluationID string) {
+	if err := s.Stores.Evaluations.DeleteEvaluation(r.Context(), evaluationID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete evaluation")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s Server) handleCreateProvider(w http.ResponseWriter, r *http.Request) {
+	var req CreateProviderRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ID == "" || req.TenantID == "" || req.Provider == "" || req.DisplayName == "" {
+		writeError(w, http.StatusBadRequest, "id, tenantId, provider, and displayName are required")
+		return
+	}
+	record := ProviderRecord{
+		ID:                  req.ID,
+		TenantID:            req.TenantID,
+		WorkspaceID:         req.WorkspaceID,
+		Provider:            req.Provider,
+		DisplayName:         req.DisplayName,
+		Family:              req.Family,
+		BaseURL:             req.BaseURL,
+		CredentialRef:       req.CredentialRef,
+		Status:              req.Status,
+		Domestic:            req.Domestic,
+		SupportsJSONSchema:  req.SupportsJSONSchema,
+		SupportsToolCalling: req.SupportsToolCalling,
+	}
+	if record.Status == "" {
+		record.Status = "active"
+	}
+	if err := s.Stores.Providers.CreateProvider(r.Context(), record); err != nil {
+		if errors.Is(err, ErrConflict) {
+			writeError(w, http.StatusConflict, "provider already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to create provider")
+		return
+	}
+	writeJSON(w, http.StatusCreated, providerResponseFromRecord(record))
+}
+
+func (s Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request, providerID string) {
+	var req UpdateProviderRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	fields := map[string]string{}
+	if req.DisplayName != nil {
+		fields["display_name"] = *req.DisplayName
+	}
+	if req.Family != nil {
+		fields["family"] = *req.Family
+	}
+	if req.BaseURL != nil {
+		fields["base_url"] = *req.BaseURL
+	}
+	if req.CredentialRef != nil {
+		fields["credential_ref"] = *req.CredentialRef
+	}
+	if req.Status != nil {
+		fields["status"] = *req.Status
+	}
+	if req.Domestic != nil {
+		fields["domestic"] = strconv.FormatBool(*req.Domestic)
+	}
+	if req.SupportsJSONSchema != nil {
+		fields["supports_json_schema"] = strconv.FormatBool(*req.SupportsJSONSchema)
+	}
+	if req.SupportsToolCalling != nil {
+		fields["supports_tool_calling"] = strconv.FormatBool(*req.SupportsToolCalling)
+	}
+	if len(fields) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one updatable field must be provided")
+		return
+	}
+	updated, err := s.Stores.Providers.UpdateProvider(r.Context(), providerID, fields)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "provider not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update provider")
+		return
+	}
+	writeJSON(w, http.StatusOK, providerResponseFromRecord(*updated))
+}
+
+func (s Server) handleDeleteProvider(w http.ResponseWriter, r *http.Request, providerID string) {
+	if err := s.Stores.Providers.DeleteProvider(r.Context(), providerID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete provider")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s Server) handleCreateRun(w http.ResponseWriter, r *http.Request) {
+	var req CreateRunRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.ID == "" || req.TenantID == "" || req.WorkspaceID == "" || req.AgentID == "" {
+		writeError(w, http.StatusBadRequest, "id, tenantId, workspaceId, and agentId are required")
+		return
+	}
+	record := RunRecord{
+		ID:            req.ID,
+		TenantID:      req.TenantID,
+		WorkspaceID:   req.WorkspaceID,
+		AgentID:       req.AgentID,
+		EvaluationID:  req.EvaluationID,
+		AgentRevision: req.AgentRevision,
+		Status:        req.Status,
+		RuntimeEngine: req.RuntimeEngine,
+		RunnerClass:   req.RunnerClass,
+	}
+	if record.Status == "" {
+		record.Status = "pending"
+	}
+	if err := s.Stores.Runs.CreateRun(r.Context(), record); err != nil {
+		if errors.Is(err, ErrConflict) {
+			writeError(w, http.StatusConflict, "run already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to create run")
+		return
+	}
+	writeJSON(w, http.StatusCreated, runResponseFromRecord(record))
+}
+
+func (s Server) handleUpdateRun(w http.ResponseWriter, r *http.Request, runID string) {
+	var req UpdateRunRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	fields := map[string]string{}
+	if req.Status != nil {
+		fields["status"] = *req.Status
+	}
+	if req.StartedAt != nil {
+		fields["started_at"] = *req.StartedAt
+	}
+	if req.CompletedAt != nil {
+		fields["completed_at"] = *req.CompletedAt
+	}
+	if req.Summary != nil {
+		fields["summary"] = *req.Summary
+	}
+	if req.TraceRef != nil {
+		fields["trace_ref"] = *req.TraceRef
+	}
+	if len(fields) == 0 {
+		writeError(w, http.StatusBadRequest, "at least one updatable field must be provided")
+		return
+	}
+	updated, err := s.Stores.Runs.UpdateRun(r.Context(), runID, fields)
+	if errors.Is(err, ErrNotFound) {
+		writeError(w, http.StatusNotFound, "run not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update run")
+		return
+	}
+	writeJSON(w, http.StatusOK, runResponseFromRecord(*updated))
+}
+
+func (s Server) handleDeleteRun(w http.ResponseWriter, r *http.Request, runID string) {
+	if err := s.Stores.Runs.DeleteRun(r.Context(), runID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete run")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func paginationFromQuery(r *http.Request) (page, limit int) {

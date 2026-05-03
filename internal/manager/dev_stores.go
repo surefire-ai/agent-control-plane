@@ -1,6 +1,10 @@
 package manager
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strconv"
+)
 
 type devWorkspaceStore struct {
 	records    map[string]WorkspaceRecord
@@ -116,6 +120,44 @@ func (s devTenantStore) ListTenants(_ context.Context, page, limit int) ([]Tenan
 	return result, total, nil
 }
 
+func (s *devTenantStore) CreateTenant(_ context.Context, tenant TenantRecord) error {
+	if _, exists := s.records[tenant.ID]; exists {
+		return ErrConflict
+	}
+	s.records[tenant.ID] = tenant
+	s.orderedIDs = append(s.orderedIDs, tenant.ID)
+	return nil
+}
+
+func (s *devTenantStore) UpdateTenant(_ context.Context, id string, fields map[string]string) (*TenantRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["default_region"]; ok {
+		rec.DefaultRegion = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *devTenantStore) DeleteTenant(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 type devAgentStore struct {
 	records    map[string]AgentRecord
 	orderedIDs []string
@@ -171,6 +213,62 @@ func paginateAgents(records []AgentRecord, page, limit int) ([]AgentRecord, int,
 	}
 	end := min(start+limit, total)
 	return records[start:end], total, nil
+}
+
+func (s *devAgentStore) CreateAgent(_ context.Context, agent AgentRecord) error {
+	if _, exists := s.records[agent.ID]; exists {
+		return ErrConflict
+	}
+	s.records[agent.ID] = agent
+	s.orderedIDs = append(s.orderedIDs, agent.ID)
+	return nil
+}
+
+func (s *devAgentStore) UpdateAgent(_ context.Context, id string, fields map[string]string) (*AgentRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["description"]; ok {
+		rec.Description = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["pattern"]; ok {
+		rec.Pattern = v
+	}
+	if v, ok := fields["runtime_engine"]; ok {
+		rec.RuntimeEngine = v
+	}
+	if v, ok := fields["runner_class"]; ok {
+		rec.RunnerClass = v
+	}
+	if v, ok := fields["model_provider"]; ok {
+		rec.ModelProvider = v
+	}
+	if v, ok := fields["model_name"]; ok {
+		rec.ModelName = v
+	}
+	if v, ok := fields["latest_revision"]; ok {
+		rec.LatestRevision = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *devAgentStore) DeleteAgent(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
 }
 
 type devEvaluationStore struct {
@@ -230,6 +328,87 @@ func paginateEvaluations(records []EvaluationRecord, page, limit int) ([]Evaluat
 	return records[start:end], total, nil
 }
 
+func (s *devEvaluationStore) CreateEvaluation(_ context.Context, eval EvaluationRecord) error {
+	if _, exists := s.records[eval.ID]; exists {
+		return ErrConflict
+	}
+	s.records[eval.ID] = eval
+	s.orderedIDs = append(s.orderedIDs, eval.ID)
+	return nil
+}
+
+func (s *devEvaluationStore) UpdateEvaluation(_ context.Context, id string, fields map[string]string) (*EvaluationRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["description"]; ok {
+		rec.Description = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["dataset_name"]; ok {
+		rec.DatasetName = v
+	}
+	if v, ok := fields["dataset_revision"]; ok {
+		rec.DatasetRevision = v
+	}
+	if v, ok := fields["baseline_revision"]; ok {
+		rec.BaselineRevision = v
+	}
+	if v, ok := fields["score"]; ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			rec.Score = f
+		} else {
+			return nil, fmt.Errorf("invalid score %q: %w", v, err)
+		}
+	}
+	if v, ok := fields["gate_passed"]; ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			rec.GatePassed = b
+		} else {
+			return nil, fmt.Errorf("invalid gate_passed %q: %w", v, err)
+		}
+	}
+	if v, ok := fields["samples_total"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			rec.SamplesTotal = n
+		} else {
+			return nil, fmt.Errorf("invalid samples_total %q: %w", v, err)
+		}
+	}
+	if v, ok := fields["samples_evaluated"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			rec.SamplesEvaluated = n
+		} else {
+			return nil, fmt.Errorf("invalid samples_evaluated %q: %w", v, err)
+		}
+	}
+	if v, ok := fields["latest_run_id"]; ok {
+		rec.LatestRunID = v
+	}
+	if v, ok := fields["report_ref"]; ok {
+		rec.ReportRef = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *devEvaluationStore) DeleteEvaluation(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 type devProviderStore struct {
 	records    map[string]ProviderRecord
 	orderedIDs []string
@@ -287,6 +466,71 @@ func paginateProviders(records []ProviderRecord, page, limit int) ([]ProviderRec
 	return records[start:end], total, nil
 }
 
+func (s *devProviderStore) CreateProvider(_ context.Context, provider ProviderRecord) error {
+	if _, exists := s.records[provider.ID]; exists {
+		return ErrConflict
+	}
+	s.records[provider.ID] = provider
+	s.orderedIDs = append(s.orderedIDs, provider.ID)
+	return nil
+}
+
+func (s *devProviderStore) UpdateProvider(_ context.Context, id string, fields map[string]string) (*ProviderRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["family"]; ok {
+		rec.Family = v
+	}
+	if v, ok := fields["base_url"]; ok {
+		rec.BaseURL = v
+	}
+	if v, ok := fields["credential_ref"]; ok {
+		rec.CredentialRef = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["domestic"]; ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			rec.Domestic = b
+		} else {
+			return nil, fmt.Errorf("invalid domestic %q: %w", v, err)
+		}
+	}
+	if v, ok := fields["supports_json_schema"]; ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			rec.SupportsJSONSchema = b
+		} else {
+			return nil, fmt.Errorf("invalid supports_json_schema %q: %w", v, err)
+		}
+	}
+	if v, ok := fields["supports_tool_calling"]; ok {
+		if b, err := strconv.ParseBool(v); err == nil {
+			rec.SupportsToolCalling = b
+		} else {
+			return nil, fmt.Errorf("invalid supports_tool_calling %q: %w", v, err)
+		}
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *devProviderStore) DeleteProvider(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 type devRunStore struct {
 	records    map[string]RunRecord
 	orderedIDs []string
@@ -342,6 +586,50 @@ func paginateRuns(records []RunRecord, page, limit int) ([]RunRecord, int, error
 	}
 	end := min(start+limit, total)
 	return records[start:end], total, nil
+}
+
+func (s *devRunStore) CreateRun(_ context.Context, run RunRecord) error {
+	if _, exists := s.records[run.ID]; exists {
+		return ErrConflict
+	}
+	s.records[run.ID] = run
+	s.orderedIDs = append(s.orderedIDs, run.ID)
+	return nil
+}
+
+func (s *devRunStore) UpdateRun(_ context.Context, id string, fields map[string]string) (*RunRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["started_at"]; ok {
+		rec.StartedAt = v
+	}
+	if v, ok := fields["completed_at"]; ok {
+		rec.CompletedAt = v
+	}
+	if v, ok := fields["summary"]; ok {
+		rec.Summary = v
+	}
+	if v, ok := fields["trace_ref"]; ok {
+		rec.TraceRef = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *devRunStore) DeleteRun(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
 }
 
 func NewFakeStores() Stores {

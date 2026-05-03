@@ -124,6 +124,44 @@ func (s fakeTenantStore) ListTenants(ctx context.Context, page, limit int) ([]Te
 	return result, total, nil
 }
 
+func (s *fakeTenantStore) CreateTenant(_ context.Context, tenant TenantRecord) error {
+	if _, exists := s.records[tenant.ID]; exists {
+		return ErrConflict
+	}
+	s.records[tenant.ID] = tenant
+	s.orderedIDs = append(s.orderedIDs, tenant.ID)
+	return nil
+}
+
+func (s *fakeTenantStore) UpdateTenant(_ context.Context, id string, fields map[string]string) (*TenantRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["default_region"]; ok {
+		rec.DefaultRegion = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *fakeTenantStore) DeleteTenant(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 type fakeAgentStore struct {
 	records    map[string]AgentRecord
 	orderedIDs []string
@@ -180,6 +218,62 @@ func paginateTestAgents(records []AgentRecord, page, limit int) []AgentRecord {
 	return records[start:end]
 }
 
+func (s *fakeAgentStore) CreateAgent(_ context.Context, agent AgentRecord) error {
+	if _, exists := s.records[agent.ID]; exists {
+		return ErrConflict
+	}
+	s.records[agent.ID] = agent
+	s.orderedIDs = append(s.orderedIDs, agent.ID)
+	return nil
+}
+
+func (s *fakeAgentStore) UpdateAgent(_ context.Context, id string, fields map[string]string) (*AgentRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["description"]; ok {
+		rec.Description = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["pattern"]; ok {
+		rec.Pattern = v
+	}
+	if v, ok := fields["runtime_engine"]; ok {
+		rec.RuntimeEngine = v
+	}
+	if v, ok := fields["runner_class"]; ok {
+		rec.RunnerClass = v
+	}
+	if v, ok := fields["model_provider"]; ok {
+		rec.ModelProvider = v
+	}
+	if v, ok := fields["model_name"]; ok {
+		rec.ModelName = v
+	}
+	if v, ok := fields["latest_revision"]; ok {
+		rec.LatestRevision = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *fakeAgentStore) DeleteAgent(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 type fakeEvaluationStore struct {
 	records    map[string]EvaluationRecord
 	orderedIDs []string
@@ -232,6 +326,59 @@ func paginateTestEvaluations(records []EvaluationRecord, page, limit int) []Eval
 	}
 	end := min(start+limit, len(records))
 	return records[start:end]
+}
+
+func (s *fakeEvaluationStore) CreateEvaluation(_ context.Context, evaluation EvaluationRecord) error {
+	if _, exists := s.records[evaluation.ID]; exists {
+		return ErrConflict
+	}
+	s.records[evaluation.ID] = evaluation
+	s.orderedIDs = append(s.orderedIDs, evaluation.ID)
+	return nil
+}
+
+func (s *fakeEvaluationStore) UpdateEvaluation(_ context.Context, id string, fields map[string]string) (*EvaluationRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["description"]; ok {
+		rec.Description = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["dataset_name"]; ok {
+		rec.DatasetName = v
+	}
+	if v, ok := fields["dataset_revision"]; ok {
+		rec.DatasetRevision = v
+	}
+	if v, ok := fields["baseline_revision"]; ok {
+		rec.BaselineRevision = v
+	}
+	if v, ok := fields["latest_run_id"]; ok {
+		rec.LatestRunID = v
+	}
+	if v, ok := fields["report_ref"]; ok {
+		rec.ReportRef = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *fakeEvaluationStore) DeleteEvaluation(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
 }
 
 type fakeProviderStore struct {
@@ -288,6 +435,65 @@ func paginateTestProviders(records []ProviderRecord, page, limit int) []Provider
 	return records[start:end]
 }
 
+func (s *fakeProviderStore) CreateProvider(_ context.Context, provider ProviderRecord) error {
+	if _, exists := s.records[provider.ID]; exists {
+		return ErrConflict
+	}
+	s.records[provider.ID] = provider
+	s.orderedIDs = append(s.orderedIDs, provider.ID)
+	return nil
+}
+
+func (s *fakeProviderStore) UpdateProvider(_ context.Context, id string, fields map[string]string) (*ProviderRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["display_name"]; ok {
+		rec.DisplayName = v
+	}
+	if v, ok := fields["family"]; ok {
+		rec.Family = v
+	}
+	if v, ok := fields["base_url"]; ok {
+		rec.BaseURL = v
+	}
+	if v, ok := fields["credential_ref"]; ok {
+		rec.CredentialRef = v
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["domestic"]; ok {
+		if v == "true" {
+			rec.Domestic = true
+		}
+	}
+	if v, ok := fields["supports_json_schema"]; ok {
+		if v == "true" {
+			rec.SupportsJSONSchema = true
+		}
+	}
+	if v, ok := fields["supports_tool_calling"]; ok {
+		if v == "true" {
+			rec.SupportsToolCalling = true
+		}
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *fakeProviderStore) DeleteProvider(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 type fakeRunStore struct {
 	records    map[string]RunRecord
 	orderedIDs []string
@@ -340,6 +546,50 @@ func paginateTestRuns(records []RunRecord, page, limit int) []RunRecord {
 	}
 	end := min(start+limit, len(records))
 	return records[start:end]
+}
+
+func (s *fakeRunStore) CreateRun(_ context.Context, run RunRecord) error {
+	if _, exists := s.records[run.ID]; exists {
+		return ErrConflict
+	}
+	s.records[run.ID] = run
+	s.orderedIDs = append(s.orderedIDs, run.ID)
+	return nil
+}
+
+func (s *fakeRunStore) UpdateRun(_ context.Context, id string, fields map[string]string) (*RunRecord, error) {
+	rec, ok := s.records[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	if v, ok := fields["status"]; ok {
+		rec.Status = v
+	}
+	if v, ok := fields["started_at"]; ok {
+		rec.StartedAt = v
+	}
+	if v, ok := fields["completed_at"]; ok {
+		rec.CompletedAt = v
+	}
+	if v, ok := fields["summary"]; ok {
+		rec.Summary = v
+	}
+	if v, ok := fields["trace_ref"]; ok {
+		rec.TraceRef = v
+	}
+	s.records[id] = rec
+	return &rec, nil
+}
+
+func (s *fakeRunStore) DeleteRun(_ context.Context, id string) error {
+	delete(s.records, id)
+	for i, oid := range s.orderedIDs {
+		if oid == id {
+			s.orderedIDs = append(s.orderedIDs[:i], s.orderedIDs[i+1:]...)
+			break
+		}
+	}
+	return nil
 }
 
 func TestManagerHealthAndReadiness(t *testing.T) {
@@ -858,7 +1108,7 @@ func TestManagerTenantRejectsUnsupportedMethod(t *testing.T) {
 			Tenants: &fakeTenantStore{records: map[string]TenantRecord{}, orderedIDs: []string{}},
 		},
 	}.Handler()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/", nil)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/tenants/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {
@@ -972,7 +1222,7 @@ func TestManagerAgentRejectsUnsupportedMethod(t *testing.T) {
 			Agents: &fakeAgentStore{records: map[string]AgentRecord{}, orderedIDs: []string{}},
 		},
 	}.Handler()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/agents/", nil)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/agents/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {
@@ -1056,7 +1306,7 @@ func TestManagerEvaluationRejectsUnsupportedMethod(t *testing.T) {
 			Evaluations: &fakeEvaluationStore{records: map[string]EvaluationRecord{}, orderedIDs: []string{}},
 		},
 	}.Handler()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations/", nil)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/evaluations/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {
@@ -1139,7 +1389,7 @@ func TestManagerProviderRejectsUnsupportedMethod(t *testing.T) {
 			Providers: &fakeProviderStore{records: map[string]ProviderRecord{}, orderedIDs: []string{}},
 		},
 	}.Handler()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/providers/", nil)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/providers/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {
@@ -1221,10 +1471,430 @@ func TestManagerRunRejectsUnsupportedMethod(t *testing.T) {
 			Runs: &fakeRunStore{records: map[string]RunRecord{}, orderedIDs: []string{}},
 		},
 	}.Handler()
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs/", nil)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/runs/", nil)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("expected status 405, got %d", recorder.Code)
+	}
+}
+
+// --- Tenant CRUD tests ---
+
+func TestManagerCreateTenant(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Tenants: store}}.Handler()
+	body := `{"id":"t_new","organizationId":"org_1","slug":"new-tenant","displayName":"New Tenant"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp TenantResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "active" {
+		t.Fatalf("expected default status 'active', got %q", resp.Status)
+	}
+	if _, ok := store.records["t_new"]; !ok {
+		t.Fatalf("expected tenant t_new to be stored")
+	}
+}
+
+func TestManagerCreateTenantMissingFields(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Tenants: store}}.Handler()
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"missing id", `{"organizationId":"org_1","slug":"t","displayName":"T"}`},
+		{"missing organizationId", `{"id":"t_1","slug":"t","displayName":"T"}`},
+		{"missing slug", `{"id":"t_1","organizationId":"org_1","displayName":"T"}`},
+		{"missing displayName", `{"id":"t_1","organizationId":"org_1","slug":"t"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/", strings.NewReader(tt.body))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", recorder.Code)
+			}
+		})
+	}
+}
+
+func TestManagerCreateTenantConflict(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{"t_1": {ID: "t_1"}}, orderedIDs: []string{"t_1"}}
+	handler := Server{Stores: Stores{Tenants: store}}.Handler()
+	body := `{"id":"t_1","organizationId":"org_1","slug":"dup","displayName":"Dup"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected status 409, got %d", recorder.Code)
+	}
+}
+
+func TestManagerUpdateTenant(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{"t_1": {ID: "t_1", DisplayName: "Old", Status: "active"}}, orderedIDs: []string{"t_1"}}
+	handler := Server{Stores: Stores{Tenants: store}}.Handler()
+	body := `{"displayName":"New Name","status":"inactive"}`
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/tenants/t_1", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp TenantResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.DisplayName != "New Name" {
+		t.Fatalf("expected displayName 'New Name', got %q", resp.DisplayName)
+	}
+	if resp.Status != "inactive" {
+		t.Fatalf("expected status 'inactive', got %q", resp.Status)
+	}
+}
+
+func TestManagerDeleteTenant(t *testing.T) {
+	store := &fakeTenantStore{records: map[string]TenantRecord{"t_1": {ID: "t_1"}}, orderedIDs: []string{"t_1"}}
+	handler := Server{Stores: Stores{Tenants: store}}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/tenants/t_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", recorder.Code)
+	}
+	if _, ok := store.records["t_1"]; ok {
+		t.Fatalf("expected tenant t_1 to be deleted")
+	}
+}
+
+// --- Agent CRUD tests ---
+
+func TestManagerCreateAgent(t *testing.T) {
+	store := &fakeAgentStore{records: map[string]AgentRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Agents: store}}.Handler()
+	body := `{"id":"agent_new","tenantId":"t_1","workspaceId":"ws_1","slug":"new-agent","displayName":"New Agent"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/agents/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp AgentResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "draft" {
+		t.Fatalf("expected default status 'draft', got %q", resp.Status)
+	}
+	if resp.Pattern != "react" {
+		t.Fatalf("expected default pattern 'react', got %q", resp.Pattern)
+	}
+}
+
+func TestManagerCreateAgentMissingFields(t *testing.T) {
+	store := &fakeAgentStore{records: map[string]AgentRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Agents: store}}.Handler()
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"missing id", `{"tenantId":"t_1","workspaceId":"ws_1","slug":"a","displayName":"A"}`},
+		{"missing tenantId", `{"id":"a_1","workspaceId":"ws_1","slug":"a","displayName":"A"}`},
+		{"missing workspaceId", `{"id":"a_1","tenantId":"t_1","slug":"a","displayName":"A"}`},
+		{"missing slug", `{"id":"a_1","tenantId":"t_1","workspaceId":"ws_1","displayName":"A"}`},
+		{"missing displayName", `{"id":"a_1","tenantId":"t_1","workspaceId":"ws_1","slug":"a"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/agents/", strings.NewReader(tt.body))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", recorder.Code)
+			}
+		})
+	}
+}
+
+func TestManagerUpdateAgent(t *testing.T) {
+	store := &fakeAgentStore{records: map[string]AgentRecord{"a_1": {ID: "a_1", DisplayName: "Old"}}, orderedIDs: []string{"a_1"}}
+	handler := Server{Stores: Stores{Agents: store}}.Handler()
+	body := `{"displayName":"Updated Agent","modelName":"gpt-4"}`
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/agents/a_1", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp AgentResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.DisplayName != "Updated Agent" {
+		t.Fatalf("expected displayName 'Updated Agent', got %q", resp.DisplayName)
+	}
+}
+
+func TestManagerDeleteAgent(t *testing.T) {
+	store := &fakeAgentStore{records: map[string]AgentRecord{"a_1": {ID: "a_1"}}, orderedIDs: []string{"a_1"}}
+	handler := Server{Stores: Stores{Agents: store}}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/agents/a_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", recorder.Code)
+	}
+	if _, ok := store.records["a_1"]; ok {
+		t.Fatalf("expected agent a_1 to be deleted")
+	}
+}
+
+// --- Evaluation CRUD tests ---
+
+func TestManagerCreateEvaluation(t *testing.T) {
+	store := &fakeEvaluationStore{records: map[string]EvaluationRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Evaluations: store}}.Handler()
+	body := `{"id":"eval_new","tenantId":"t_1","workspaceId":"ws_1","agentId":"a_1","slug":"new-eval","displayName":"New Eval"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp EvaluationResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "pending" {
+		t.Fatalf("expected default status 'pending', got %q", resp.Status)
+	}
+}
+
+func TestManagerCreateEvaluationMissingFields(t *testing.T) {
+	store := &fakeEvaluationStore{records: map[string]EvaluationRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Evaluations: store}}.Handler()
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"missing id", `{"tenantId":"t_1","workspaceId":"ws_1","agentId":"a_1","slug":"e","displayName":"E"}`},
+		{"missing tenantId", `{"id":"e_1","workspaceId":"ws_1","agentId":"a_1","slug":"e","displayName":"E"}`},
+		{"missing workspaceId", `{"id":"e_1","tenantId":"t_1","agentId":"a_1","slug":"e","displayName":"E"}`},
+		{"missing agentId", `{"id":"e_1","tenantId":"t_1","workspaceId":"ws_1","slug":"e","displayName":"E"}`},
+		{"missing slug", `{"id":"e_1","tenantId":"t_1","workspaceId":"ws_1","agentId":"a_1","displayName":"E"}`},
+		{"missing displayName", `{"id":"e_1","tenantId":"t_1","workspaceId":"ws_1","agentId":"a_1","slug":"e"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations/", strings.NewReader(tt.body))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", recorder.Code)
+			}
+		})
+	}
+}
+
+func TestManagerUpdateEvaluation(t *testing.T) {
+	store := &fakeEvaluationStore{records: map[string]EvaluationRecord{"e_1": {ID: "e_1", DisplayName: "Old"}}, orderedIDs: []string{"e_1"}}
+	handler := Server{Stores: Stores{Evaluations: store}}.Handler()
+	body := `{"displayName":"Updated Eval","status":"passed"}`
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/evaluations/e_1", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp EvaluationResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.DisplayName != "Updated Eval" {
+		t.Fatalf("expected displayName 'Updated Eval', got %q", resp.DisplayName)
+	}
+	if resp.Status != "passed" {
+		t.Fatalf("expected status 'passed', got %q", resp.Status)
+	}
+}
+
+func TestManagerDeleteEvaluation(t *testing.T) {
+	store := &fakeEvaluationStore{records: map[string]EvaluationRecord{"e_1": {ID: "e_1"}}, orderedIDs: []string{"e_1"}}
+	handler := Server{Stores: Stores{Evaluations: store}}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/evaluations/e_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", recorder.Code)
+	}
+	if _, ok := store.records["e_1"]; ok {
+		t.Fatalf("expected evaluation e_1 to be deleted")
+	}
+}
+
+// --- Provider CRUD tests ---
+
+func TestManagerCreateProvider(t *testing.T) {
+	store := &fakeProviderStore{records: map[string]ProviderRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Providers: store}}.Handler()
+	body := `{"id":"p_new","tenantId":"t_1","provider":"openai","displayName":"New Provider"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/providers/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp ProviderResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "active" {
+		t.Fatalf("expected default status 'active', got %q", resp.Status)
+	}
+}
+
+func TestManagerCreateProviderMissingFields(t *testing.T) {
+	store := &fakeProviderStore{records: map[string]ProviderRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Providers: store}}.Handler()
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"missing id", `{"tenantId":"t_1","provider":"openai","displayName":"P"}`},
+		{"missing tenantId", `{"id":"p_1","provider":"openai","displayName":"P"}`},
+		{"missing provider", `{"id":"p_1","tenantId":"t_1","displayName":"P"}`},
+		{"missing displayName", `{"id":"p_1","tenantId":"t_1","provider":"openai"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/providers/", strings.NewReader(tt.body))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", recorder.Code)
+			}
+		})
+	}
+}
+
+func TestManagerUpdateProvider(t *testing.T) {
+	store := &fakeProviderStore{records: map[string]ProviderRecord{"p_1": {ID: "p_1", DisplayName: "Old"}}, orderedIDs: []string{"p_1"}}
+	handler := Server{Stores: Stores{Providers: store}}.Handler()
+	body := `{"displayName":"Updated Provider","status":"inactive"}`
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/providers/p_1", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp ProviderResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.DisplayName != "Updated Provider" {
+		t.Fatalf("expected displayName 'Updated Provider', got %q", resp.DisplayName)
+	}
+}
+
+func TestManagerDeleteProvider(t *testing.T) {
+	store := &fakeProviderStore{records: map[string]ProviderRecord{"p_1": {ID: "p_1"}}, orderedIDs: []string{"p_1"}}
+	handler := Server{Stores: Stores{Providers: store}}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/providers/p_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", recorder.Code)
+	}
+	if _, ok := store.records["p_1"]; ok {
+		t.Fatalf("expected provider p_1 to be deleted")
+	}
+}
+
+// --- Run CRUD tests ---
+
+func TestManagerCreateRun(t *testing.T) {
+	store := &fakeRunStore{records: map[string]RunRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Runs: store}}.Handler()
+	body := `{"id":"run_new","tenantId":"t_1","workspaceId":"ws_1","agentId":"a_1"}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs/", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp RunResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "pending" {
+		t.Fatalf("expected default status 'pending', got %q", resp.Status)
+	}
+}
+
+func TestManagerCreateRunMissingFields(t *testing.T) {
+	store := &fakeRunStore{records: map[string]RunRecord{}, orderedIDs: []string{}}
+	handler := Server{Stores: Stores{Runs: store}}.Handler()
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"missing id", `{"tenantId":"t_1","workspaceId":"ws_1","agentId":"a_1"}`},
+		{"missing tenantId", `{"id":"r_1","workspaceId":"ws_1","agentId":"a_1"}`},
+		{"missing workspaceId", `{"id":"r_1","tenantId":"t_1","agentId":"a_1"}`},
+		{"missing agentId", `{"id":"r_1","tenantId":"t_1","workspaceId":"ws_1"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/runs/", strings.NewReader(tt.body))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("expected status 400, got %d", recorder.Code)
+			}
+		})
+	}
+}
+
+func TestManagerUpdateRun(t *testing.T) {
+	store := &fakeRunStore{records: map[string]RunRecord{"r_1": {ID: "r_1", Status: "pending"}}, orderedIDs: []string{"r_1"}}
+	handler := Server{Stores: Stores{Runs: store}}.Handler()
+	body := `{"status":"succeeded","summary":"done"}`
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/runs/r_1", strings.NewReader(body))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var resp RunResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "succeeded" {
+		t.Fatalf("expected status 'succeeded', got %q", resp.Status)
+	}
+	if resp.Summary != "done" {
+		t.Fatalf("expected summary 'done', got %q", resp.Summary)
+	}
+}
+
+func TestManagerDeleteRun(t *testing.T) {
+	store := &fakeRunStore{records: map[string]RunRecord{"r_1": {ID: "r_1"}}, orderedIDs: []string{"r_1"}}
+	handler := Server{Stores: Stores{Runs: store}}.Handler()
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/runs/r_1", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d", recorder.Code)
+	}
+	if _, ok := store.records["r_1"]; ok {
+		t.Fatalf("expected run r_1 to be deleted")
 	}
 }

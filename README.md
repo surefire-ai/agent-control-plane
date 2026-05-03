@@ -248,7 +248,7 @@ See [`web/README.md`](./web/README.md) for current scope and development notes.
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP with CRDs, compilation, gateway invocation, worker Jobs, GHCR images, and Helm skeleton. | First public development baseline is in place. |
 | Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | **Complete.** |
-| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | In progress. Manager API CRUD, CRD sync, Agent detail page, Evaluation detail page with linked runs complete; visual orchestration studio next. |
+| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, release workflows, evaluation UX, and provider management. | In progress. Manager API CRUD, CRD sync, Agent/Evaluation detail pages, Visual Orchestration Studio (6 patterns, graph preview) complete; Run inspection next. |
 | Phase 4 | Distributed agent fabric with multi-runtime execution, autoscaling, SubAgent composition, and A2A interoperability. | Planned. |
 
 Detailed design notes:
@@ -312,7 +312,7 @@ Known alpha limits:
   complete;
 - cancellation, retry, timeout, and durable run artifact storage are not
   complete;
-- the Web Console has tenant/workspace CRUD, agent and evaluation detail pages with linked runs, but visual orchestration studio is not yet built;
+- the Web Console has tenant/workspace CRUD, agent/evaluation detail pages, and a visual orchestration studio with 6 pattern support and graph preview, but Run inspection is not yet built;
 - Helm is still a development install path.
 
 ## Contributing

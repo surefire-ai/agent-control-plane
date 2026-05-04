@@ -147,13 +147,19 @@ type GraphConfig struct {
 }
 
 type GraphNode struct {
-	Name           string `json:"name"`
-	Kind           string `json:"kind"`
-	ModelRef       string `json:"modelRef,omitempty"`
-	ToolRef        string `json:"toolRef,omitempty"`
-	KnowledgeRef   string `json:"knowledgeRef,omitempty"`
-	AgentRef       string `json:"agentRef,omitempty"`
-	Implementation string `json:"implementation,omitempty"`
+	Name           string        `json:"name"`
+	Kind           string        `json:"kind"`
+	ModelRef       string        `json:"modelRef,omitempty"`
+	ToolRef        string        `json:"toolRef,omitempty"`
+	KnowledgeRef   string        `json:"knowledgeRef,omitempty"`
+	AgentRef       string        `json:"agentRef,omitempty"`
+	Implementation string        `json:"implementation,omitempty"`
+	Position       *NodePosition `json:"position,omitempty"`
+}
+
+type NodePosition struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type GraphEdge struct {

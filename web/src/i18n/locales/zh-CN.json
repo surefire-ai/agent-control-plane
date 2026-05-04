@@ -2,6 +2,7 @@
   "common": {
     "cancel": "取消",
     "save": "保存",
+    "dismiss": "知道了",
     "saveChanges": "保存更改",
     "delete": "删除",
     "edit": "编辑",
@@ -292,7 +293,8 @@
     "tabs": {
       "pattern": "模式",
       "models": "模型与绑定",
-      "preview": "预览"
+      "preview": "预览",
+      "workflow": "工作流" 
     },
     "pattern": {
       "select": "选择模式",
@@ -397,6 +399,15 @@
       "implementation": "实现",
       "implementationHint": "Go 包路径，例如 pkg/custom.MyNode",
       "deleteNode": "删除节点",
+      "nodeId": "节点 ID",
+      "nodeIdHint": "节点的唯一标识符，由名称自动生成",
+      "autoLayout": "自动布局",
+      "fitView": "适应画布",
+      "clearCanvas": "清空画布",
+      "emptyTitle": "从左侧面板拖拽组件到画布",
+      "emptyHint": "点击或拖拽来创建节点，然后连线形成工作流",
+      "validationErrors": "验证错误",
+      "hintMultiSelect": "多选节点",
       "kind": {
         "start": "开始",
         "end": "结束",

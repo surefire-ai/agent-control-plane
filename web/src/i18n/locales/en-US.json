@@ -2,6 +2,7 @@
   "common": {
     "cancel": "Cancel",
     "save": "Save",
+    "dismiss": "Dismiss",
     "saveChanges": "Save Changes",
     "delete": "Delete",
     "edit": "Edit",
@@ -292,7 +293,8 @@
     "tabs": {
       "pattern": "Pattern",
       "models": "Models & Bindings",
-      "preview": "Preview"
+      "preview": "Preview",
+      "workflow": "Workflow" 
     },
     "pattern": {
       "select": "Select Pattern",
@@ -397,6 +399,15 @@
       "implementation": "Implementation",
       "implementationHint": "Go package path, e.g. pkg/custom.MyNode",
       "deleteNode": "Delete Node",
+      "nodeId": "Node ID",
+      "nodeIdHint": "Unique identifier, auto-generated from name",
+      "autoLayout": "Auto Layout",
+      "fitView": "Fit View",
+      "clearCanvas": "Clear Canvas",
+      "emptyTitle": "Drag components from the left panel",
+      "emptyHint": "Click or drag to create nodes, then connect them",
+      "validationErrors": "Validation Errors",
+      "hintMultiSelect": "multi-select nodes",
       "kind": {
         "start": "Start",
         "end": "End",

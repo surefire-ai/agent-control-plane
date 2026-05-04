@@ -63,8 +63,8 @@ Korus makes those concerns part of the platform contract.
 | Model credentials | Agents reference Kubernetes Secrets; secret values are not written into status, artifacts, or logs. |
 | Provider strategy | The compiler validates model providers against a catalog and currently routes OpenAI-compatible providers through the shared chat path. |
 | Evaluation first | `AgentEvaluation` and `Dataset` support reusable samples, expected values, baseline comparison, metrics, and threshold gates. |
-| Enterprise scope | `Tenant` and `Workspace` CRDs act as lightweight runtime-scope bridge resources while the future manager owns product state in a database. |
-| Web Console direction | The `web/` scaffold is the start of a UX-first console for visual orchestration, evaluations, releases, providers, and governance. |
+| Enterprise scope | `Tenant` and `Workspace` CRDs act as lightweight runtime-scope bridge resources while the manager owns canonical product state in a database. |
+| Web Console | The `web/` console is the UX-first product surface for visual orchestration, evaluations, releases, providers, and governance. |
 | Agent patterns | Six built-in orchestration patterns — `react`, `router`, `reflection`, `tool_calling`, `plan_execute`, and `workflow` — so users can declare common agent designs without hand-writing a full graph. |
 | SubAgent composition | Agents can reference other Agents as SubAgents with cycle detection, async invocation through the gateway, and result propagation. |
 | Eino runtime | Workers execute compiled artifacts through Eino graphs with real LLM calls, tool invocation, and streaming support. |
@@ -112,7 +112,7 @@ Read more in
 Optional:
 
 - Helm, for chart validation and installs
-- Node.js, for the Web Console scaffold
+- Node.js, for the Web Console
 
 ### Run Tests
 
@@ -220,12 +220,12 @@ pattern maps to an Eino graph with real LLM calls and tool invocation.
 
 ## Web Console
 
-The Web Console scaffold lives in [`web/`](./web).
-
-It is intended to become the primary enterprise product surface for:
+The Web Console lives in [`web/`](./web) and is the current enterprise product surface for:
 
 - tenant and workspace navigation
-- visual agent orchestration
+- visual agent orchestration with six supported patterns and a React Flow workflow canvas
+- tool/knowledge binding, including retrieval controls such as `topK` and `scoreThreshold`
+- model configuration, including `baseURL`, Secret `credentialRef.name/key`, temperature, max tokens, and timeout
 - run debugging
 - evaluation comparison
 - release gates
@@ -248,7 +248,7 @@ See [`web/README.md`](./web/README.md) for current scope and development notes.
 | --- | --- | --- |
 | Phase 1 | Kubernetes-native MVP with CRDs, compilation, gateway invocation, worker Jobs, GHCR images, and Helm skeleton. | First public development baseline is in place. |
 | Phase 2 | Real Eino runtime, provider catalog, model credential flow, policy checks, patterns, durable run artifacts, and stronger evaluation contracts. | **Complete.** |
-| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, evaluation UX, and provider management. | **Complete.** Manager API CRUD, CRD sync, Agent/Evaluation/Run/Provider detail pages, Visual Orchestration Studio with 6 patterns (react, router, reflection, tool_calling, plan_execute, workflow). Workflow editor: interactive node+edge editor with kind-based config fields. |
+| Phase 3 | Manager-backed enterprise product surface with Web Console, tenants, workspaces, visual orchestration, evaluation UX, and provider management. | **Complete.** Manager API CRUD, CRD sync, Agent/Evaluation/Run/Provider detail pages, Visual Orchestration Studio with 6 patterns (react, router, reflection, tool_calling, plan_execute, workflow), and an interactive React Flow workflow canvas with kind-based node config fields. |
 | Phase 4 | Release workflows, distributed agent fabric with multi-runtime execution, autoscaling, SubAgent composition, and A2A interoperability. | Planned. |
 
 Detailed design notes:
@@ -276,10 +276,10 @@ docs/phase3/                    console, tenancy, and product UX design
 internal/compiler/              agent compiler and validation
 internal/controller/            Kubernetes reconcilers
 internal/gateway/               invoke gateway
-internal/manager/               manager backend scaffold
+internal/manager/               manager backend
 internal/runtime/               runtime backend abstraction
 internal/worker/                worker and runner boundary
-web/                            future Web Console
+web/                            Web Console
 ```
 
 ## Development Commands
@@ -308,10 +308,9 @@ Known alpha limits:
 
 - the Eino runners cover six patterns with durable artifact storage and 8 evaluation metrics, but advanced features (streaming, parallel tool calls) are still evolving;
 - the Helm chart is not yet packaged for distribution;
-- gateway authentication, authorization, rate limiting, and idempotency are not
-  complete;
-- cancellation, retry, timeout, and durable run artifact storage are not
-  complete;
+- gateway Bearer authentication and token-bucket rate limiting are implemented;
+  fine-grained authorization and request idempotency are still evolving;
+- AgentRun cancellation, retry, timeout handling, and durable artifact storage are implemented, while long-term trace storage after Pod cleanup remains an alpha limitation;
 - the Web Console has full CRUD for tenants, workspaces, and detail pages for agents, evaluations, runs, and providers, plus a visual orchestration studio with 6 pattern support;
 - Helm is still a development install path.
 

@@ -1,6 +1,6 @@
 # Phase 2 Eino Runtime Design
 
-Phase 2 replaces the structured placeholder worker with a real Eino-based
+Phase 2 replaced the structured placeholder worker with a real Eino-based
 runtime while keeping the Kubernetes-native control-plane contract stable.
 
 ## Goals
@@ -63,13 +63,13 @@ flowchart LR
   Controller --> Status["AgentRun.status"]
 ```
 
-The Phase 1 `EinoADKPlaceholderRunner` remains useful as a fallback and as a
-contract test fixture. The real runner should live behind the same
-`internal/worker.Runner` interface.
+The Phase 1 `EinoADKPlaceholderRunner` remains useful in historical fixtures and
+contract tests. The real Eino ADK runner lives behind the same worker runner
+boundary.
 
 ## Eino Runner Layers
 
-The first implementation should split the worker runtime into narrow layers:
+The implementation splits the worker runtime into narrow layers:
 
 | Layer | Responsibility |
 | --- | --- |
@@ -81,8 +81,8 @@ The first implementation should split the worker runtime into narrow layers:
 | Execution adapter | Execute the EHS happy path and normalize output. |
 | Result writer | Emit `WorkerResult` and preserve Phase 1 compatibility. |
 
-The first production code change should add typed artifact decoding and tests
-before importing the Eino SDK. That gives us a stable boundary for the SDK work.
+The production path keeps typed artifact decoding and tests ahead of runner
+integration changes so the SDK boundary stays stable.
 
 ## Compiled Artifact v1 Draft
 

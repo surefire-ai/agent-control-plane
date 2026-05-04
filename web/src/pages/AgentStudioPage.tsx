@@ -251,8 +251,6 @@ export function AgentStudioPage() {
                 pattern={spec.pattern?.type ?? "react"}
                 config={spec.pattern ?? {}}
                 onChange={handlePatternConfigChange}
-                graph={spec.graph}
-                onGraphChange={handleGraphChange}
               />
             )}
           </div>
@@ -268,7 +266,7 @@ export function AgentStudioPage() {
               addLabel={t("studio.bindings.addTool")}
               items={spec.toolRefs ?? []}
               onChange={handleToolRefsChange}
-              placeholder="e.g. web-search, calculator"
+              placeholder={t("studio.bindings.toolsPlaceholder")}
             />
             <hr className="border-zinc-200" />
             <BindingPanel
@@ -282,8 +280,16 @@ export function AgentStudioPage() {
                 const kb = item as KnowledgeBinding;
                 return (
                   <div className="flex gap-2">
-                    <Input value={kb.name} placeholder="Name" onChange={(e) => handleKnowledgeChange(index, "name", e.target.value)} />
-                    <Input value={kb.ref} placeholder="Ref" onChange={(e) => handleKnowledgeChange(index, "ref", e.target.value)} />
+                    <Input
+                      value={kb.name}
+                      placeholder={t("studio.bindings.namePlaceholder")}
+                      onChange={(e) => handleKnowledgeChange(index, "name", e.target.value)}
+                    />
+                    <Input
+                      value={kb.ref}
+                      placeholder={t("studio.bindings.refPlaceholder")}
+                      onChange={(e) => handleKnowledgeChange(index, "ref", e.target.value)}
+                    />
                   </div>
                 );
               }}
@@ -300,8 +306,16 @@ export function AgentStudioPage() {
                 const skill = item as SkillBinding;
                 return (
                   <div className="flex gap-2">
-                    <Input value={skill.name} placeholder="Name" onChange={(e) => handleSkillChange(index, "name", e.target.value)} />
-                    <Input value={skill.ref} placeholder="Ref" onChange={(e) => handleSkillChange(index, "ref", e.target.value)} />
+                    <Input
+                      value={skill.name}
+                      placeholder={t("studio.bindings.namePlaceholder")}
+                      onChange={(e) => handleSkillChange(index, "name", e.target.value)}
+                    />
+                    <Input
+                      value={skill.ref}
+                      placeholder={t("studio.bindings.refPlaceholder")}
+                      onChange={(e) => handleSkillChange(index, "ref", e.target.value)}
+                    />
                   </div>
                 );
               }}
@@ -318,20 +332,28 @@ export function AgentStudioPage() {
                 const sa = item as SubAgentBinding;
                 return (
                   <div className="flex gap-2">
-                    <Input value={sa.name} placeholder="Name" onChange={(e) => handleSubAgentChange(index, "name", e.target.value)} />
-                    <Input value={sa.ref} placeholder="Ref" onChange={(e) => handleSubAgentChange(index, "ref", e.target.value)} />
+                    <Input
+                      value={sa.name}
+                      placeholder={t("studio.bindings.namePlaceholder")}
+                      onChange={(e) => handleSubAgentChange(index, "name", e.target.value)}
+                    />
+                    <Input
+                      value={sa.ref}
+                      placeholder={t("studio.bindings.refPlaceholder")}
+                      onChange={(e) => handleSubAgentChange(index, "ref", e.target.value)}
+                    />
                   </div>
                 );
               }}
             />
             <hr className="border-zinc-200" />
             <StringArrayBindingPanel
-              title="MCP Servers"
-              description="Bind MCP server references"
-              addLabel="Add MCP Server"
+              title={t("studio.bindings.mcpServers")}
+              description={t("studio.bindings.mcpServersDesc")}
+              addLabel={t("studio.bindings.addMcpServer")}
               items={spec.mcpRefs ?? []}
               onChange={handleMcpRefsChange}
-              placeholder="e.g. filesystem-mcp"
+              placeholder={t("studio.bindings.mcpServersPlaceholder")}
             />
           </div>
         )}

@@ -15,6 +15,7 @@
     "deleting": "Deleting...",
     "previous": "Previous",
     "next": "Next",
+    "viewAll": "View all",
     "productEyebrow": "Korus"
   },
   "nav": {
@@ -324,13 +325,23 @@
       "add": "Add Model",
       "provider": "Provider",
       "modelName": "Model Name",
+      "baseURL": "Base URL",
+      "credentialName": "Credential Secret",
+      "credentialKey": "Credential Key",
       "temperature": "Temperature",
-      "maxTokens": "Max Tokens"
+      "maxTokens": "Max Tokens",
+      "timeoutSeconds": "Timeout Seconds",
+      "providerPlaceholder": "e.g. openai",
+      "modelNamePlaceholder": "e.g. gpt-4o",
+      "baseURLPlaceholder": "https://api.openai.com/v1",
+      "credentialNamePlaceholder": "e.g. openai-credentials",
+      "credentialKeyPlaceholder": "e.g. apiKey"
     },
     "bindings": {
       "tools": "Tools",
       "toolsDesc": "Bind tool providers to this agent",
       "addTool": "Add Tool",
+      "toolsPlaceholder": "e.g. web-search, calculator",
       "knowledge": "Knowledge",
       "knowledgeDesc": "Bind knowledge bases for retrieval",
       "addKnowledge": "Add Knowledge",
@@ -339,7 +350,13 @@
       "addSkill": "Add Skill",
       "subAgents": "Sub-Agents",
       "subAgentsDesc": "Bind other agents as sub-agents",
-      "addSubAgent": "Add Sub-Agent"
+      "addSubAgent": "Add Sub-Agent",
+      "mcpServers": "MCP Servers",
+      "mcpServersDesc": "Bind MCP server references",
+      "addMcpServer": "Add MCP Server",
+      "mcpServersPlaceholder": "e.g. filesystem-mcp",
+      "namePlaceholder": "Name",
+      "refPlaceholder": "Ref"
     },
     "preview": {
       "title": "Graph Preview",

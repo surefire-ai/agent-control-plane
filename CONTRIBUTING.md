@@ -17,7 +17,7 @@ Keep the four component boundaries clear:
   input.
 - `runner`: pluggable agent execution engine boundary, starting with Eino.
 
-Evaluation, provider governance, tenancy, and the future Web Console are core
+Evaluation, provider governance, tenancy, and the Web Console are core
 product concerns, not secondary add-ons.
 
 ## Good First Contribution Areas
@@ -44,7 +44,7 @@ Install the usual Kubernetes operator toolchain:
 Optional:
 
 - Helm
-- Node.js for the Web Console scaffold
+- Node.js for the Web Console
 
 ## Common Commands
 

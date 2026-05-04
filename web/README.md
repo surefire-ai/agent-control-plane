@@ -1,6 +1,6 @@
 # Korus Web Console
 
-This directory contains the Korus Web Console scaffold.
+This directory contains the Korus Web Console.
 
 Relevant product backend design docs:
 
@@ -19,11 +19,12 @@ support:
 - agent build, evaluation, publish, and release workflows
 - run debugging and artifact inspection
 - provider management and model selection
+- knowledge binding retrieval controls (`topK`, `scoreThreshold`)
 - governance, approval, and collaboration workflows
 
 ## Current Status
 
-The first Web Console scaffold is in place:
+The Web Console is in place:
 
 - Vite + React + TypeScript application shell
 - Tailwind CSS styling entrypoint
@@ -33,14 +34,17 @@ The first Web Console scaffold is in place:
 - Playwright e2e coverage for tenant and workspace flows
 - `lucide-react` for open-source, componentized icons
 
-The current UI is intentionally a product console shell rather than a landing
-page. The first implemented surface covers tenant navigation, workspace lists,
+The current UI is a product console rather than a landing page. It covers tenant navigation, workspace lists,
 workspace detail, workspace creation, workspace editing, and workspace deletion
-confirmation. Agents, Evaluations, and Providers now have tenant-scoped list
-views backed by manager API contracts. Runs now expose a tenant-scoped execution
-history list with status, runtime, and trace references. The sidebar also
-reserves Settings so the console information architecture stays aligned with
-the enterprise roadmap while that backend is implemented.
+confirmation. Agents, Evaluations, Runs, and Providers have tenant-scoped list
+and detail pages backed by manager API contracts. The Visual Orchestration
+Studio supports six agent patterns, a React Flow workflow canvas, model cards
+with `baseURL` and structured Secret `credentialRef.name/key`, and
+knowledge-binding retrieval controls (`topK`, `scoreThreshold`). Runs expose a
+tenant-scoped execution history list and detail view with status, runtime, and
+trace references. The sidebar also reserves Settings so the console information
+architecture stays aligned with the enterprise roadmap while that backend is
+implemented.
 
 Generated frontend artifacts are ignored by git:
 
@@ -50,7 +54,7 @@ Generated frontend artifacts are ignored by git:
 - `test-results/`
 - `tsconfig.tsbuildinfo`
 
-Keep this directory focused on the future console implementation. Control-plane
+Keep this directory focused on the console implementation. Control-plane
 API types, controllers, compiler behavior, and worker runtime code should stay
 in the existing Go packages.
 
@@ -60,7 +64,7 @@ not as direct CRD-only state.
 
 ## Implementation Direction
 
-The first implementation should prioritize the build, evaluate, and release
+The implementation prioritizes the build, evaluate, and release
 loop inside a workspace:
 
 1. Tenant and workspace shell

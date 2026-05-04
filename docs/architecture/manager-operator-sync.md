@@ -194,6 +194,30 @@ When an evaluation is started from the console:
 4. The operator writes status, gates, and deltas.
 5. The manager stores durable report metadata and product history.
 
+## Agent Knowledge Binding Sync
+
+When the manager renders an `Agent` from `AgentSpecData`, knowledge binding
+retrieval controls are preserved in the CRD freeform retrieval section:
+
+- `knowledgeRefs[].name` -> `spec.knowledgeRefs[].name`
+- `knowledgeRefs[].ref` -> `spec.knowledgeRefs[].ref`
+- `knowledgeRefs[].topK` -> `spec.knowledgeRefs[].retrieval.topK`
+- `knowledgeRefs[].scoreThreshold` -> `spec.knowledgeRefs[].retrieval.scoreThreshold`
+
+Empty retrieval controls are omitted so the operator can apply runtime defaults.
+
+## Provider Sync
+
+Provider account records sync to `ToolProvider` CRDs without copying secret
+values. The manager owns product metadata and maps runtime-relevant fields as:
+
+- `provider` -> `spec.type`
+- `display_name` -> `spec.description`
+- `base_url` -> `spec.http.baseURL`
+- `credential_ref` -> `spec.http.credentialRef`
+- `family` and `domestic` -> `spec.runtime.family` and `spec.runtime.domestic`
+- capability flags -> `spec.runtime.capabilities`
+
 ## Audit Sync
 
 The manager should record durable audit events for:
@@ -211,12 +235,11 @@ enterprise audit history belongs in manager storage.
 
 ## Initial Implementation Recommendation
 
-The repository now includes a minimal manager HTTP scaffold in `cmd/manager`
-and `internal/manager`. It exposes `/healthz`, `/readyz`, and `/api/v1/info`
-before any database-backed product APIs are added. It also includes optional
-database configuration and embedded migration files for the first manager-owned
-product tables. PostgreSQL support is wired through pgx, and built-in
-migrations run at startup only when the operator explicitly enables
+The repository includes the manager HTTP backend in `cmd/manager`
+and `internal/manager`. It exposes health/readiness endpoints, product CRUD
+APIs, CRD sync, optional database configuration, and embedded migration files
+for manager-owned product tables. PostgreSQL support is wired through pgx, and
+built-in migrations run at startup only when the operator explicitly enables
 `--migrate-on-start` or `MANAGER_MIGRATE_ON_START=true`.
 
 Start with a one-way manager-to-Kubernetes write path and a simple

@@ -39,11 +39,16 @@ export interface RuntimeConfig {
   entrypoint?: string;
 }
 
+export interface SecretKeyReference {
+  name: string;
+  key: string;
+}
+
 export interface ModelConfig {
   provider?: string;
   model?: string;
   baseURL?: string;
-  credentialRef?: string;
+  credentialRef?: SecretKeyReference | string;
   temperature?: number;
   maxTokens?: number;
   timeoutSeconds?: number;

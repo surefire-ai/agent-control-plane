@@ -15,6 +15,7 @@
     "deleting": "删除中...",
     "previous": "上一页",
     "next": "下一页",
+    "viewAll": "查看全部",
     "productEyebrow": "Korus"
   },
   "nav": {
@@ -324,13 +325,23 @@
       "add": "添加模型",
       "provider": "供应商",
       "modelName": "模型名称",
+      "baseURL": "基础 URL",
+      "credentialName": "凭据 Secret",
+      "credentialKey": "凭据 Key",
       "temperature": "温度",
-      "maxTokens": "最大 Token 数"
+      "maxTokens": "最大 Token 数",
+      "timeoutSeconds": "超时时间（秒）",
+      "providerPlaceholder": "例如 openai",
+      "modelNamePlaceholder": "例如 gpt-4o",
+      "baseURLPlaceholder": "https://api.openai.com/v1",
+      "credentialNamePlaceholder": "例如 openai-credentials",
+      "credentialKeyPlaceholder": "例如 apiKey"
     },
     "bindings": {
       "tools": "工具",
       "toolsDesc": "为此 Agent 绑定工具供应商",
       "addTool": "添加工具",
+      "toolsPlaceholder": "例如 web-search、calculator",
       "knowledge": "知识库",
       "knowledgeDesc": "绑定知识库用于检索",
       "addKnowledge": "添加知识库",
@@ -339,7 +350,13 @@
       "addSkill": "添加 Skill",
       "subAgents": "子 Agent",
       "subAgentsDesc": "绑定其他 Agent 作为子 Agent",
-      "addSubAgent": "添加子 Agent"
+      "addSubAgent": "添加子 Agent",
+      "mcpServers": "MCP 服务器",
+      "mcpServersDesc": "绑定 MCP server 引用",
+      "addMcpServer": "添加 MCP Server",
+      "mcpServersPlaceholder": "例如 filesystem-mcp",
+      "namePlaceholder": "名称",
+      "refPlaceholder": "引用"
     },
     "preview": {
       "title": "图预览",

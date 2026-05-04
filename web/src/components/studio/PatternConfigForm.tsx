@@ -1,16 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Plus, X } from "lucide-react";
-import type { PatternConfig, PatternRoute, GraphConfig } from "@/types/api";
+import type { PatternConfig, PatternRoute } from "@/types/api";
 import { Input } from "@/components/shared/Input";
 import { Button } from "@/components/shared/Button";
-import { WorkflowEditor } from "./WorkflowEditor";
 
 interface PatternConfigFormProps {
   pattern: string;
   config: PatternConfig;
   onChange: (config: PatternConfig) => void;
-  graph?: GraphConfig;
-  onGraphChange?: (graph: GraphConfig) => void;
 }
 
 function FieldLabel({ label }: { label: string }) {
@@ -152,7 +149,7 @@ function RouterRoutesField({
   );
 }
 
-export function PatternConfigForm({ pattern, config, onChange, graph, onGraphChange }: PatternConfigFormProps) {
+export function PatternConfigForm({ pattern, config, onChange }: PatternConfigFormProps) {
   const { t } = useTranslation();
 
   const updateConfig = (updates: Partial<PatternConfig>) => {
@@ -201,14 +198,6 @@ export function PatternConfigForm({ pattern, config, onChange, graph, onGraphCha
           </>
         )}
 
-        {pattern === "workflow" && (
-          <div className="sm:col-span-2">
-            <WorkflowEditor
-              graph={graph ?? { nodes: [], edges: [] }}
-              onChange={(g) => onGraphChange?.(g)}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

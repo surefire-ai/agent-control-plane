@@ -1,16 +1,16 @@
 # Manager Data Model
 
-Status: draft  
-Last updated: 2026-04-30
+Status: living design / implemented foundation<br>
+Last updated: 2026-05-04
 
 ## Purpose
 
-The manager is the optional database-backed product backend for the future Web
-Console. It owns enterprise product state that does not belong in Kubernetes
-CRDs.
+The manager is the optional database-backed product backend for the Web Console.
+It owns enterprise product state that does not belong in Kubernetes CRDs.
 
-This document defines the first data model boundary before implementation. It
-is not a final SQL schema.
+This document started as the first data model boundary before implementation.
+The foundation is now implemented in the manager backend, but the document remains
+a living design note rather than a final SQL schema.
 
 ## Storage Direction
 
@@ -151,7 +151,12 @@ Suggested fields:
 
 `credential_ref` must point to a Kubernetes Secret, external secret manager
 entry, or future credential broker reference. It must never contain secret
-values.
+values. During Manager-to-CRD sync, provider account fields are preserved on
+`ToolProvider`: `provider` and `display_name` map to `spec.type` and
+`spec.description`; `base_url` and `credential_ref` map to `spec.http.baseURL`
+and `spec.http.credentialRef`; `family`, `domestic`, and capability booleans
+map to `spec.runtime.family`, `spec.runtime.domestic`, and
+`spec.runtime.capabilities`.
 
 #### Provider Policy
 
@@ -213,7 +218,7 @@ and trace handoff. The manager records durable product metadata and runtime
 references; Kubernetes `AgentRun` remains the operator/runtime lifecycle
 surface.
 
-Initial scaffold fields:
+Current manager run record fields:
 
 - `id`
 - `tenant_id`
@@ -396,15 +401,14 @@ the runtime controller itself.
 
 ## Initial Implementation Recommendation
 
-The repository now includes the first manager process scaffold in
-`cmd/manager` and `internal/manager`. It intentionally does not open a
-database connection unless a database URL is supplied. The first embedded
-schema draft lives under `internal/manager/migrations/`, and
-`internal/manager` now includes a migration runner that can apply those
-migrations through `database/sql`. PostgreSQL support is wired through the pgx
-stdlib driver using the `pgx` driver name.
-The first read API is `GET /api/v1/workspaces/{id}`, backed by the workspace
-repository interface.
+The repository now includes the manager process in `cmd/manager` and
+`internal/manager`. It exposes health/readiness endpoints, embedded Web Console
+assets, Manager CRUD APIs for the Phase 3 product resources, and best-effort
+Manager-to-CRD synchronization. It intentionally does not open a database
+connection unless a database URL is supplied. The embedded schema lives under
+`internal/manager/migrations/`, and `internal/manager` includes a migration
+runner that can apply those migrations through `database/sql`. PostgreSQL
+support is wired through the pgx stdlib driver using the `pgx` driver name.
 
 Start with the smallest useful manager schema:
 

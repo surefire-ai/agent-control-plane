@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -302,8 +303,8 @@ func agentSpecFromData(rec AgentRecord) apiv1alpha1.AgentSpec {
 				MaxTokens:      m.MaxTokens,
 				TimeoutSeconds: m.TimeoutSeconds,
 			}
-			if m.CredentialRef != "" {
-				ms.CredentialRef = &apiv1alpha1.SecretKeyReference{Name: m.CredentialRef}
+			if m.CredentialRef != nil && m.CredentialRef.Name != "" && m.CredentialRef.Key != "" {
+				ms.CredentialRef = &apiv1alpha1.SecretKeyReference{Name: m.CredentialRef.Name, Key: m.CredentialRef.Key}
 			}
 			spec.Models[k] = ms
 		}
@@ -354,10 +355,7 @@ func agentSpecFromData(rec AgentRecord) apiv1alpha1.AgentSpec {
 	if len(d.KnowledgeRefs) > 0 {
 		spec.KnowledgeRefs = make([]apiv1alpha1.KnowledgeBindingSpec, len(d.KnowledgeRefs))
 		for i, k := range d.KnowledgeRefs {
-			spec.KnowledgeRefs[i] = apiv1alpha1.KnowledgeBindingSpec{
-				Name: k.Name,
-				Ref:  k.Ref,
-			}
+			spec.KnowledgeRefs[i] = knowledgeBindingSpec(k)
 		}
 	}
 
@@ -563,11 +561,63 @@ func (s *K8sCRDSyncer) DeleteProvider(ctx context.Context, id string) error {
 	return nil
 }
 
+func knowledgeBindingSpec(binding KnowledgeBinding) apiv1alpha1.KnowledgeBindingSpec {
+	spec := apiv1alpha1.KnowledgeBindingSpec{
+		Name: binding.Name,
+		Ref:  binding.Ref,
+	}
+	retrieval := apiv1alpha1.FreeformObject{}
+	if binding.TopK > 0 {
+		retrieval["topK"] = jsonValue(binding.TopK)
+	}
+	if binding.ScoreThreshold > 0 {
+		retrieval["scoreThreshold"] = jsonValue(binding.ScoreThreshold)
+	}
+	if len(retrieval) > 0 {
+		spec.Retrieval = retrieval
+	}
+	return spec
+}
+
 func providerSpec(rec ProviderRecord) apiv1alpha1.ToolProviderSpec {
-	return apiv1alpha1.ToolProviderSpec{
+	spec := apiv1alpha1.ToolProviderSpec{
 		Type:        rec.Provider,
 		Description: rec.DisplayName,
 	}
+
+	runtime := apiv1alpha1.FreeformObject{}
+	if rec.Family != "" {
+		runtime["family"] = jsonValue(rec.Family)
+	}
+	if rec.Domestic {
+		runtime["domestic"] = jsonValue(true)
+	}
+	capabilities := map[string]bool{}
+	if rec.SupportsJSONSchema {
+		capabilities["jsonSchema"] = true
+	}
+	if rec.SupportsToolCalling {
+		capabilities["toolCalling"] = true
+	}
+	if len(capabilities) > 0 {
+		runtime["capabilities"] = jsonValue(capabilities)
+	}
+	if len(runtime) > 0 {
+		spec.Runtime = runtime
+	}
+
+	http := apiv1alpha1.FreeformObject{}
+	if rec.BaseURL != "" {
+		http["baseURL"] = jsonValue(rec.BaseURL)
+	}
+	if rec.CredentialRef != "" {
+		http["credentialRef"] = jsonValue(rec.CredentialRef)
+	}
+	if len(http) > 0 {
+		spec.HTTP = http
+	}
+
+	return spec
 }
 
 func providerLabels(rec ProviderRecord) map[string]string {
@@ -650,6 +700,14 @@ func mergeLabels(existing, new map[string]string) map[string]string {
 		existing[k] = v
 	}
 	return existing
+}
+
+func jsonValue(value interface{}) apiextensionsv1.JSON {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		raw = []byte("null")
+	}
+	return apiextensionsv1.JSON{Raw: raw}
 }
 
 // Ensure K8sCRDSyncer satisfies the CRDSyncer interface at compile time.

@@ -58,7 +58,7 @@ useful as a Kubernetes-native open source control plane.
 
 ## Manager
 
-The manager is an optional product backend used by the future Web Console.
+The manager is an optional product backend used by the Web Console.
 
 It owns product state in a database.
 

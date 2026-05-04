@@ -76,13 +76,37 @@ type RuntimeConfig struct {
 }
 
 type ModelConfig struct {
-	Provider       string  `json:"provider,omitempty"`
-	Model          string  `json:"model,omitempty"`
-	BaseURL        string  `json:"baseURL,omitempty"`
-	CredentialRef  string  `json:"credentialRef,omitempty"`
-	Temperature    float64 `json:"temperature,omitempty"`
-	MaxTokens      int32   `json:"maxTokens,omitempty"`
-	TimeoutSeconds int32   `json:"timeoutSeconds,omitempty"`
+	Provider       string              `json:"provider,omitempty"`
+	Model          string              `json:"model,omitempty"`
+	BaseURL        string              `json:"baseURL,omitempty"`
+	CredentialRef  *SecretKeyReference `json:"credentialRef,omitempty"`
+	Temperature    float64             `json:"temperature,omitempty"`
+	MaxTokens      int32               `json:"maxTokens,omitempty"`
+	TimeoutSeconds int32               `json:"timeoutSeconds,omitempty"`
+}
+
+type SecretKeyReference struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+func (r *SecretKeyReference) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	var legacy string
+	if err := json.Unmarshal(data, &legacy); err == nil {
+		r.Name = legacy
+		r.Key = ""
+		return nil
+	}
+	type alias SecretKeyReference
+	var ref alias
+	if err := json.Unmarshal(data, &ref); err != nil {
+		return err
+	}
+	*r = SecretKeyReference(ref)
+	return nil
 }
 
 type IdentityConfig struct {

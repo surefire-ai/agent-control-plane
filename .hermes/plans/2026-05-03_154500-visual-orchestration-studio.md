@@ -1,7 +1,7 @@
 # 可视化编排工作室 (Visual Orchestration Studio) — 实施计划
 
 **日期**: 2026-05-03
-**状态**: 草稿
+**状态**: 已完成
 **范围**: Phase 3 核心功能
 
 ---
@@ -92,6 +92,8 @@ Web Console  →  Manager API  →  Manager DB (source of truth)
 
 ### Slice 1: 后端 — 扩展 AgentRecord 存储完整 spec
 
+**✅ 已完成** — AgentSpecData、JSONB 存储、CRD sync 全部就绪。
+
 **目标**: Manager API 支持读写完整的 AgentSpec。
 
 **改动**:
@@ -153,6 +155,8 @@ Web Console  →  Manager API  →  Manager DB (source of truth)
 
 ### Slice 3: 前端 — 编排工作室布局
 
+**✅ 已完成** — AgentStudioPage、PatternSelector、PatternConfigForm、ModelConfigForm、BindingPanel、GraphPreview 全部就绪。workflow 节点+边编辑器已实现。
+
 **目标**: 在 Agent 详情页中添加"编辑"按钮，进入编排工作室视图。
 
 **改动**:
@@ -187,6 +191,8 @@ Web Console  →  Manager API  →  Manager DB (source of truth)
 
 ### Slice 4: 前端 — 模式特定配置
 
+**✅ 已完成** — 6 种模式的配置 UI 全部就绪，包括 workflow 的完整节点+边编辑器。
+
 **目标**: 根据选择的模式动态渲染配置表单。
 
 **6 种模式的配置 UI**:
@@ -198,9 +204,11 @@ Web Console  →  Manager API  →  Manager DB (source of truth)
 | reflection | 模型选择下拉、maxIterations 滑块 |
 | tool_calling | 模型选择下拉 |
 | plan_execute | 规划器模型下拉、执行器模型下拉 |
-| workflow | 节点编辑器（动态行：name + kind + refs）+ 边编辑器（from + to + when） |
+| workflow | 节点编辑器（name + kind + 按 kind 动态 ref 字段）+ 边编辑器（from/to 下拉 + when 条件） |
 
 ### Slice 5: 前端 — 图预览
+
+**✅ 已完成** — SVG 只读图预览，支持 5 种模式预设 + workflow 自定义图。
 
 **目标**: 只读可视化展示编译后的 agent 图。
 
@@ -212,6 +220,8 @@ Web Console  →  Manager API  →  Manager DB (source of truth)
 - START/END 虚拟节点
 
 ### Slice 6: 集成测试 + 文档
+
+**✅ 已完成** — `make ci` 全部通过，README.md / README.zh-CN.md 已更新。
 
 **目标**: 端到端验证编排工作室。
 
@@ -254,13 +264,13 @@ Slice 6 (集成 + 文档)        ← 收尾
 | 图预览渲染复杂 | v1 用简单 SVG，不做交互式画布 |
 | 前端组件过多 | 组合模式，每个面板独立 |
 
-## 7. 开放问题
+## 7. 已确认决策
 
-- [ ] Agent spec 的 Manager 存储方案：JSONB 列 vs 拆分表？（建议 JSONB，v1 简单）
-- [ ] 编排工作室是否需要独立页面，还是嵌入 Agent 详情页的 tab？
-- [ ] workflow 模式的节点/边编辑器复杂度是否需要降级为 YAML 编辑器？
-- [ ] 保存时是否自动触发编译验证？
+- [x] Agent spec 存储方案 → **JSONB 列**
+- [x] 编排工作室入口 → **独立页面** `/tenants/:tenantId/agents/:agentId/studio`
+- [x] workflow 模式节点编辑器 → **完整体验**，不降级（可视化节点+边编辑器）
+- [x] 保存时自动触发编译验证 → **是**，保存时编译并在前端反馈结果
 
 ---
 
-**下一步**: 确认方案后从 Slice 1 开始实施。
+**下一步**: 全部 6 个 Slice 已完成。Phase 3 可视化编排工作室就绪。

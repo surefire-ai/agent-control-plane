@@ -10,6 +10,7 @@ import type {
   KnowledgeBinding,
   SkillBinding,
   SubAgentBinding,
+  GraphConfig,
 } from "@/types/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/shared/Button";
@@ -20,6 +21,7 @@ import { PatternConfigForm } from "@/components/studio/PatternConfigForm";
 import { ModelConfigForm } from "@/components/studio/ModelConfigForm";
 import { BindingPanel, StringArrayBindingPanel } from "@/components/studio/BindingPanel";
 import { GraphPreview } from "@/components/studio/GraphPreview";
+import { WorkflowCanvas } from "@/components/studio/flow/WorkflowCanvas";
 import { Input } from "@/components/shared/Input";
 
 type TabKey = "pattern" | "models" | "preview";
@@ -45,6 +47,7 @@ export function AgentStudioPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("pattern");
   const [spec, setSpec] = useState<AgentSpecData>(defaultSpec());
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useDocumentTitle(agent?.displayName ? `${agent.displayName} — Studio` : t("studio.title"));
 
@@ -61,6 +64,7 @@ export function AgentStudioPage() {
         skillRefs: agent.spec.skillRefs ?? [],
         subAgentRefs: agent.spec.subAgentRefs ?? [],
         mcpRefs: agent.spec.mcpRefs ?? [],
+        graph: agent.spec.graph ?? { nodes: [], edges: [] },
       });
     } else if (agent) {
       setSpec({
@@ -72,15 +76,32 @@ export function AgentStudioPage() {
 
   const handleSave = useCallback(() => {
     if (!agentId) return;
+    setSaveStatus("saving");
+    // Sync the flat pattern field from spec.pattern.type for backward compat
+    const patchData = {
+      pattern: spec.pattern?.type,
+      spec,
+    };
     saveMutation.mutate(
-      { id: agentId, spec },
+      { id: agentId, ...patchData },
       {
         onSuccess: () => {
-          navigate(`/tenants/${tenantId}/agents/${agentId}`);
+          setSaveStatus("saved");
+          // Brief delay to show success state before navigating
+          setTimeout(() => {
+            navigate(`/tenants/${tenantId}/agents/${agentId}`);
+          }, 800);
+        },
+        onError: () => {
+          setSaveStatus("error");
         },
       }
     );
   }, [agentId, spec, saveMutation, tenantId, navigate]);
+
+  const handleGraphChange = useCallback((graph: GraphConfig) => {
+    setSpec((prev) => ({ ...prev, graph }));
+  }, []);
 
   const handlePatternSelect = useCallback((pattern: string) => {
     setSpec((prev) => ({
@@ -192,6 +213,8 @@ export function AgentStudioPage() {
     return <ErrorAlert message={t("agent.notFound")} />;
   }
 
+  const isWorkflow = spec.pattern?.type === "workflow";
+
   const tabVariants: Record<TabKey, "primary" | "secondary"> = {
     pattern: activeTab === "pattern" ? "primary" : "secondary",
     models: activeTab === "models" ? "primary" : "secondary",
@@ -207,26 +230,29 @@ export function AgentStudioPage() {
 
       {/* Toolbar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2">
-          <Button
-            variant={tabVariants.pattern}
-            onClick={() => setActiveTab("pattern")}
-          >
-            {t("studio.tabs.pattern")}
-          </Button>
-          <Button
-            variant={tabVariants.models}
-            onClick={() => setActiveTab("models")}
-          >
-            {t("studio.tabs.models")}
-          </Button>
-          <Button
-            variant={tabVariants.preview}
-            onClick={() => setActiveTab("preview")}
-          >
-            {t("studio.tabs.preview")}
-          </Button>
-        </div>
+        {!isWorkflow && (
+          <div className="flex gap-2">
+            <Button
+              variant={tabVariants.pattern}
+              onClick={() => setActiveTab("pattern")}
+            >
+              {t("studio.tabs.pattern")}
+            </Button>
+            <Button
+              variant={tabVariants.models}
+              onClick={() => setActiveTab("models")}
+            >
+              {t("studio.tabs.models")}
+            </Button>
+            <Button
+              variant={tabVariants.preview}
+              onClick={() => setActiveTab("preview")}
+            >
+              {t("studio.tabs.preview")}
+            </Button>
+          </div>
+        )}
+        {isWorkflow && <div />}
         <div className="flex gap-2">
           <Button
             variant="secondary"
@@ -234,147 +260,167 @@ export function AgentStudioPage() {
           >
             {t("studio.cancel")}
           </Button>
-          <Button onClick={handleSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? t("studio.saving") : t("studio.save")}
+          <Button onClick={handleSave} disabled={saveStatus === "saving" || saveStatus === "saved"}>
+            {saveStatus === "saving" && t("studio.saving")}
+            {saveStatus === "saved" && t("studio.saved")}
+            {saveStatus === "error" && t("studio.saveError")}
+            {saveStatus === "idle" && t("studio.save")}
           </Button>
         </div>
       </div>
 
       {/* Tab Content */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-6">
-        {activeTab === "pattern" && (
-          <div>
-            <PatternSelector
-              selected={spec.pattern?.type ?? "react"}
-              onSelect={handlePatternSelect}
-            />
-            <PatternConfigForm
-              pattern={spec.pattern?.type ?? "react"}
-              config={spec.pattern ?? {}}
-              onChange={handlePatternConfigChange}
-            />
-          </div>
-        )}
+      {isWorkflow ? (
+        /* Workflow mode: full canvas experience */
+        <div className="space-y-4">
+          <PatternSelector
+            selected={spec.pattern?.type ?? "react"}
+            onSelect={handlePatternSelect}
+          />
+          <WorkflowCanvas
+            graph={spec.graph ?? { nodes: [], edges: [] }}
+            onChange={handleGraphChange}
+          />
+        </div>
+      ) : (
+        /* Other modes: tab layout */
+        <div className="rounded-lg border border-zinc-200 bg-white p-6">
+          {activeTab === "pattern" && (
+            <div>
+              <PatternSelector
+                selected={spec.pattern?.type ?? "react"}
+                onSelect={handlePatternSelect}
+              />
+              <PatternConfigForm
+                pattern={spec.pattern?.type ?? "react"}
+                config={spec.pattern ?? {}}
+                onChange={handlePatternConfigChange}
+                graph={spec.graph}
+                onGraphChange={handleGraphChange}
+              />
+            </div>
+          )}
 
-        {activeTab === "models" && (
-          <div className="space-y-8">
-            <ModelConfigForm
-              models={spec.models ?? {}}
-              onChange={handleModelsChange}
-            />
+          {activeTab === "models" && (
+            <div className="space-y-8">
+              <ModelConfigForm
+                models={spec.models ?? {}}
+                onChange={handleModelsChange}
+              />
 
-            <hr className="border-zinc-200" />
+              <hr className="border-zinc-200" />
 
-            <StringArrayBindingPanel
-              title={t("studio.bindings.tools")}
-              description={t("studio.bindings.toolsDesc")}
-              addLabel={t("studio.bindings.addTool")}
-              items={spec.toolRefs ?? []}
-              onChange={handleToolRefsChange}
-              placeholder="e.g. web-search, calculator"
-            />
+              <StringArrayBindingPanel
+                title={t("studio.bindings.tools")}
+                description={t("studio.bindings.toolsDesc")}
+                addLabel={t("studio.bindings.addTool")}
+                items={spec.toolRefs ?? []}
+                onChange={handleToolRefsChange}
+                placeholder="e.g. web-search, calculator"
+              />
 
-            <hr className="border-zinc-200" />
+              <hr className="border-zinc-200" />
 
-            <BindingPanel
-              title={t("studio.bindings.knowledge")}
-              description={t("studio.bindings.knowledgeDesc")}
-              addLabel={t("studio.bindings.addKnowledge")}
-              items={spec.knowledgeRefs ?? []}
-              onAdd={handleKnowledgeAdd}
-              onRemove={handleKnowledgeRemove}
-              renderItem={(item, index) => {
-                const kb = item as KnowledgeBinding;
-                return (
-                  <div className="flex gap-2">
-                    <Input
-                      value={kb.name}
-                      placeholder="Name"
-                      onChange={(e) => handleKnowledgeChange(index, "name", e.target.value)}
-                    />
-                    <Input
-                      value={kb.ref}
-                      placeholder="Ref"
-                      onChange={(e) => handleKnowledgeChange(index, "ref", e.target.value)}
-                    />
-                  </div>
-                );
-              }}
-            />
+              <BindingPanel
+                title={t("studio.bindings.knowledge")}
+                description={t("studio.bindings.knowledgeDesc")}
+                addLabel={t("studio.bindings.addKnowledge")}
+                items={spec.knowledgeRefs ?? []}
+                onAdd={handleKnowledgeAdd}
+                onRemove={handleKnowledgeRemove}
+                renderItem={(item, index) => {
+                  const kb = item as KnowledgeBinding;
+                  return (
+                    <div className="flex gap-2">
+                      <Input
+                        value={kb.name}
+                        placeholder="Name"
+                        onChange={(e) => handleKnowledgeChange(index, "name", e.target.value)}
+                      />
+                      <Input
+                        value={kb.ref}
+                        placeholder="Ref"
+                        onChange={(e) => handleKnowledgeChange(index, "ref", e.target.value)}
+                      />
+                    </div>
+                  );
+                }}
+              />
 
-            <hr className="border-zinc-200" />
+              <hr className="border-zinc-200" />
 
-            <BindingPanel
-              title={t("studio.bindings.skills")}
-              description={t("studio.bindings.skillsDesc")}
-              addLabel={t("studio.bindings.addSkill")}
-              items={spec.skillRefs ?? []}
-              onAdd={handleSkillAdd}
-              onRemove={handleSkillRemove}
-              renderItem={(item, index) => {
-                const skill = item as SkillBinding;
-                return (
-                  <div className="flex gap-2">
-                    <Input
-                      value={skill.name}
-                      placeholder="Name"
-                      onChange={(e) => handleSkillChange(index, "name", e.target.value)}
-                    />
-                    <Input
-                      value={skill.ref}
-                      placeholder="Ref"
-                      onChange={(e) => handleSkillChange(index, "ref", e.target.value)}
-                    />
-                  </div>
-                );
-              }}
-            />
+              <BindingPanel
+                title={t("studio.bindings.skills")}
+                description={t("studio.bindings.skillsDesc")}
+                addLabel={t("studio.bindings.addSkill")}
+                items={spec.skillRefs ?? []}
+                onAdd={handleSkillAdd}
+                onRemove={handleSkillRemove}
+                renderItem={(item, index) => {
+                  const skill = item as SkillBinding;
+                  return (
+                    <div className="flex gap-2">
+                      <Input
+                        value={skill.name}
+                        placeholder="Name"
+                        onChange={(e) => handleSkillChange(index, "name", e.target.value)}
+                      />
+                      <Input
+                        value={skill.ref}
+                        placeholder="Ref"
+                        onChange={(e) => handleSkillChange(index, "ref", e.target.value)}
+                      />
+                    </div>
+                  );
+                }}
+              />
 
-            <hr className="border-zinc-200" />
+              <hr className="border-zinc-200" />
 
-            <BindingPanel
-              title={t("studio.bindings.subAgents")}
-              description={t("studio.bindings.subAgentsDesc")}
-              addLabel={t("studio.bindings.addSubAgent")}
-              items={spec.subAgentRefs ?? []}
-              onAdd={handleSubAgentAdd}
-              onRemove={handleSubAgentRemove}
-              renderItem={(item, index) => {
-                const sa = item as SubAgentBinding;
-                return (
-                  <div className="flex gap-2">
-                    <Input
-                      value={sa.name}
-                      placeholder="Name"
-                      onChange={(e) => handleSubAgentChange(index, "name", e.target.value)}
-                    />
-                    <Input
-                      value={sa.ref}
-                      placeholder="Ref"
-                      onChange={(e) => handleSubAgentChange(index, "ref", e.target.value)}
-                    />
-                  </div>
-                );
-              }}
-            />
+              <BindingPanel
+                title={t("studio.bindings.subAgents")}
+                description={t("studio.bindings.subAgentsDesc")}
+                addLabel={t("studio.bindings.addSubAgent")}
+                items={spec.subAgentRefs ?? []}
+                onAdd={handleSubAgentAdd}
+                onRemove={handleSubAgentRemove}
+                renderItem={(item, index) => {
+                  const sa = item as SubAgentBinding;
+                  return (
+                    <div className="flex gap-2">
+                      <Input
+                        value={sa.name}
+                        placeholder="Name"
+                        onChange={(e) => handleSubAgentChange(index, "name", e.target.value)}
+                      />
+                      <Input
+                        value={sa.ref}
+                        placeholder="Ref"
+                        onChange={(e) => handleSubAgentChange(index, "ref", e.target.value)}
+                      />
+                    </div>
+                  );
+                }}
+              />
 
-            <hr className="border-zinc-200" />
+              <hr className="border-zinc-200" />
 
-            <StringArrayBindingPanel
-              title="MCP Servers"
-              description="Bind MCP server references"
-              addLabel="Add MCP Server"
-              items={spec.mcpRefs ?? []}
-              onChange={handleMcpRefsChange}
-              placeholder="e.g. filesystem-mcp"
-            />
-          </div>
-        )}
+              <StringArrayBindingPanel
+                title="MCP Servers"
+                description="Bind MCP server references"
+                addLabel="Add MCP Server"
+                items={spec.mcpRefs ?? []}
+                onChange={handleMcpRefsChange}
+                placeholder="e.g. filesystem-mcp"
+              />
+            </div>
+          )}
 
-        {activeTab === "preview" && (
-          <GraphPreview spec={spec} />
-        )}
-      </div>
+          {activeTab === "preview" && (
+            <GraphPreview spec={spec} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

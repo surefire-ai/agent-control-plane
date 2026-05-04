@@ -113,6 +113,7 @@ export interface GraphNode {
   knowledgeRef?: string;
   agentRef?: string;
   implementation?: string;
+  position?: { x: number; y: number };
 }
 
 export interface GraphEdge {

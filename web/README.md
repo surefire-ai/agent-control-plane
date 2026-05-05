@@ -138,3 +138,36 @@ ad-hoc Tailwind combinations when building new UI.
 
 All motion respects `prefers-reduced-motion: reduce` via a base-layer media
 query that collapses animation and transition durations.
+
+### Micro-interactions
+
+CSS animation classes for perceived quality (all defined in `src/index.css`):
+
+| Class | Effect | Usage |
+|---|---|---|
+| `tab-content-enter` | Fade-in + slide-up | Tab content switching |
+| `save-pulse` | Gentle opacity pulse | Save status indicator, running status dots |
+| `toast-enter` / `toast-exit` | Slide-up appear / slide-up disappear | Toast notifications |
+| `panel-slide-in` | Slide from right | Side panels (NodeConfigPanel, NodePalette) |
+| `modal-panel-reveal` | Scale + fade-in | Modal dialog entrance |
+| `overlay-fade-in` | Fade overlay | Modal backdrop |
+| `alert-slide-in` | Slide-down appear | Error alerts |
+| `skeleton-shimmer` | Gradient shimmer | Loading skeleton placeholders |
+| `focus-ring-visible` | Accent outline on `:focus-visible` | Keyboard focus indicators |
+| `status-badge-animate` | Color/shadow transition | StatusBadge state changes |
+
+### Shared Components
+
+| Component | File | Description |
+|---|---|---|
+| `Button` | `shared/Button.tsx` | primary/secondary/ghost/danger, sm/md sizes |
+| `Card` | `shared/Card.tsx` | default/elevated/muted/interactive variants |
+| `Input` / `Select` / `Textarea` | `shared/` | Unified focus ring and border styling |
+| `StatusBadge` | `shared/StatusBadge.tsx` | Status dot + label, animated transitions |
+| `PageHeader` | `shared/PageHeader.tsx` | Eyebrow, title, subtitle, actions |
+| `EmptyState` | `shared/EmptyState.tsx` | Product-semantic empty placeholders |
+| `LoadingSkeleton` | `shared/LoadingSkeleton.tsx` | list / detail / table variants with shimmer |
+| `Modal` | `shared/Modal.tsx` | Focus trap, ESC close, overlay dismiss |
+| `ConfirmDialog` | `shared/ConfirmDialog.tsx` | Destructive confirm with spinner on pending |
+| `ErrorAlert` | `shared/ErrorAlert.tsx` | Rose-themed alert with optional retry |
+| `Toast` | `shared/Toast.tsx` | success/error/warning/info, auto-dismiss, useToast hook |

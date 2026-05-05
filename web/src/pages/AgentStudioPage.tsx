@@ -23,6 +23,7 @@ import { BindingPanel, StringArrayBindingPanel } from "@/components/studio/Bindi
 import { GraphPreview } from "@/components/studio/GraphPreview";
 import { WorkflowCanvas } from "@/components/studio/flow/WorkflowCanvas";
 import { Input } from "@/components/shared/Input";
+import { useToast, ToastContainer } from "@/components/shared/Toast";
 
 type TabKey = "pattern" | "models" | "preview";
 
@@ -48,6 +49,7 @@ export function AgentStudioPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("pattern");
   const [spec, setSpec] = useState<AgentSpecData>(defaultSpec());
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const toast = useToast();
 
   // Ref for workflow validation function
   const workflowValidateRef = useRef<(() => string[]) | null>(null);
@@ -99,12 +101,14 @@ export function AgentStudioPage() {
       {
         onSuccess: () => {
           setSaveStatus("saved");
+          toast.success(t("studio.saved"));
           setTimeout(() => {
             navigate(`/tenants/${tenantId}/agents/${agentId}`);
           }, 800);
         },
         onError: () => {
           setSaveStatus("error");
+          toast.error(t("studio.saveError"));
         },
       }
     );
@@ -224,7 +228,7 @@ export function AgentStudioPage() {
         </div>
         <div className="flex items-center gap-2">
           {saveStatus === "saved" && (
-            <span className="bg-emerald-50 text-emerald-700 rounded-full px-2 py-0.5 text-xs">
+            <span className="save-pulse bg-emerald-50 text-emerald-700 rounded-full px-2 py-0.5 text-xs">
               {t("studio.saved")}
             </span>
           )}
@@ -243,7 +247,7 @@ export function AgentStudioPage() {
       {/* Tab Content */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6">
         {activeTab === "pattern" && (
-          <div>
+          <div key="pattern" className="tab-content-enter">
             <PatternSelector selected={spec.pattern?.type ?? "react"} onSelect={handlePatternSelect} />
             {isWorkflow ? (
               <WorkflowCanvas
@@ -262,7 +266,7 @@ export function AgentStudioPage() {
         )}
 
         {activeTab === "models" && (
-          <div className="space-y-8">
+          <div key="models" className="tab-content-enter space-y-8">
             <ModelConfigForm models={spec.models ?? {}} onChange={handleModelsChange} />
             <hr className="border-zinc-200" />
             <StringArrayBindingPanel
@@ -363,8 +367,10 @@ export function AgentStudioPage() {
           </div>
         )}
 
-        {activeTab === "preview" && <GraphPreview spec={spec} />}
+        {activeTab === "preview" && <div key="preview" className="tab-content-enter"><GraphPreview spec={spec} /></div>}
       </div>
+
+      <ToastContainer toasts={toast.toasts} onDismiss={toast.dismissToast} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { TriangleAlert } from "lucide-react";
+import { Button } from "./Button";
 
 interface ErrorAlertProps {
   message: string;
@@ -10,19 +11,25 @@ export function ErrorAlert({ message, onRetry }: ErrorAlertProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+    <div
+      role="alert"
+      className="alert-slide-in rounded-lg border border-rose-200/80 bg-gradient-to-b from-rose-50 to-rose-100/60 p-5"
+    >
       <div className="flex items-start gap-3">
-        <TriangleAlert className="mt-0.5 h-5 w-5 text-rose-600" aria-hidden="true" />
-        <div className="flex-1">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100">
+          <TriangleAlert
+            className="h-4 w-4 text-rose-600"
+            aria-hidden="true"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-rose-900">{message}</p>
           {onRetry && (
-            <button
-              onClick={onRetry}
-              type="button"
-              className="mt-2 text-sm font-semibold text-rose-700 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 rounded"
-            >
-              {t("common.retry")}
-            </button>
+            <div className="mt-3">
+              <Button variant="ghost" size="sm" onClick={onRetry} className="focus-ring-visible">
+                {t("common.retry")}
+              </Button>
+            </div>
           )}
         </div>
       </div>

@@ -224,6 +224,7 @@ Web Console 位于 [`web/`](./web)，是当前 Korus 的企业产品主入口，
 - release gate
 - provider 管理
 - policy 和治理流程
+- 基于 design token 的 UI 体系：CSS 自定义属性、共享组件库、微交互动效（transition、toast、skeleton shimmer），以及 `prefers-reduced-motion` 无障碍支持
 
 使用 fake manager API 启动 console：
 

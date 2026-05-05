@@ -33,7 +33,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
   };
 
   return (
-    <div className="w-52 shrink-0 border-r border-zinc-200 bg-zinc-100/60 overflow-y-auto">
+    <div className="panel-slide-in w-52 shrink-0 border-r border-zinc-200 bg-zinc-100/60 overflow-y-auto">
       <div className="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-100/95 backdrop-blur-sm px-3 py-2.5">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
           {t("studio.workflow.palette")}

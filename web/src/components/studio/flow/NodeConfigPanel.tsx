@@ -36,7 +36,7 @@ export function NodeConfigPanel({ data, nodeId, onUpdate, onDelete, onClose }: N
   const isTerminal = data.kind === "start" || data.kind === "end";
 
   return (
-    <div className="w-80 shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
+    <div className="panel-slide-in w-80 shrink-0 border-l border-zinc-200 bg-white overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
         <div className="flex items-center gap-2.5">

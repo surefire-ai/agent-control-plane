@@ -231,6 +231,7 @@ The Web Console lives in [`web/`](./web) and is the current enterprise product s
 - release gates
 - provider management
 - policy and governance workflows
+- design-token-driven UI system with CSS custom properties, shared component library, micro-interactions (transitions, toasts, skeleton shimmer), and `prefers-reduced-motion` support
 
 Run the console against the fake manager API:
 

@@ -8,7 +8,8 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
-const FOCUSABLE = 'a[href], button:not(:disabled), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE =
+  'a[href], button:not(:disabled), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
 export function Modal({ open, onClose, title, children }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -24,7 +25,8 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
 
       if (e.key !== "Tab" || !panelRef.current) return;
 
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
+      const focusable =
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
       if (focusable.length === 0) return;
 
       const first = focusable[0];
@@ -51,7 +53,6 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     previousFocusRef.current = document.activeElement as HTMLElement;
     document.addEventListener("keydown", handleKeyDown);
 
-    // Focus the first focusable element inside the panel
     requestAnimationFrame(() => {
       if (panelRef.current) {
         const first = panelRef.current.querySelector<HTMLElement>(FOCUSABLE);
@@ -70,7 +71,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 p-4 backdrop-blur-sm"
+      className="overlay-fade-in fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -80,19 +81,19 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="surface w-full max-w-lg rounded-lg"
+        className="modal-panel-reveal surface-elevated w-full max-w-lg rounded-xl"
       >
-        <div className="flex items-center justify-between border-b border-zinc-200/80 px-6 py-4">
-          <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
+        <div className="flex items-center justify-between border-b border-zinc-200/60 px-6 py-4">
+          <h2 className="text-base font-semibold text-zinc-950">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           >
-            <X className="h-5 w-5" aria-hidden="true" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-5">{children}</div>
       </div>
     </div>
   );

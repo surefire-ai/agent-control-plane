@@ -3,7 +3,49 @@
 @theme {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Accent spectrum ── */
   --color-accent: #0f766e;
+  --color-accent-light: #14b8a6;
+  --color-accent-ghost: rgba(15, 118, 110, 0.08);
+  --color-accent-glow: rgba(20, 184, 166, 0.18);
+
+  /* ── Neutral surfaces ── */
+  --color-surface: rgba(255, 255, 255, 0.82);
+  --color-surface-elevated: rgba(255, 255, 255, 0.92);
+  --color-surface-muted: rgba(250, 250, 248, 0.78);
+  --color-surface-panel: rgba(246, 248, 247, 0.65);
+  --color-surface-dark: #09090b;
+
+  /* ── Border spectrum ── */
+  --color-border: rgba(39, 39, 42, 0.12);
+  --color-border-strong: rgba(39, 39, 42, 0.22);
+  --color-border-accent: rgba(15, 118, 110, 0.25);
+
+  /* ── Status colors ── */
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-danger: #ef4444;
+  --color-status-info: #06b6d4;
+  --color-status-muted: #a1a1aa;
+
+  /* ── Shadows ── */
+  --shadow-surface: 0 18px 50px rgba(24, 24, 27, 0.08);
+  --shadow-elevated: 0 8px 30px rgba(24, 24, 27, 0.12), 0 2px 8px rgba(24, 24, 27, 0.06);
+  --shadow-control: 0 1px 3px rgba(24, 24, 27, 0.06);
+  --shadow-glow: 0 0 20px rgba(20, 184, 166, 0.15);
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* ── Motion ── */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @layer base {
@@ -37,9 +79,23 @@
   textarea {
     font: inherit;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
+/* ══════════════════════════════════════════
+   Component-layer utility classes
+   ══════════════════════════════════════════ */
 @layer components {
+  /* ── Shell ── */
   .console-shell {
     min-height: 100vh;
     background:
@@ -47,20 +103,113 @@
       transparent;
   }
 
+  /* ── Surfaces ── */
   .surface {
-    border: 1px solid rgba(39, 39, 42, 0.12);
-    background: rgba(255, 255, 255, 0.82);
-    box-shadow: 0 18px 50px rgba(24, 24, 27, 0.08);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-surface);
     backdrop-filter: blur(18px);
   }
 
-  .surface-muted {
-    border: 1px solid rgba(39, 39, 42, 0.1);
-    background: rgba(250, 250, 248, 0.78);
+  .surface-elevated {
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-elevated);
+    box-shadow: var(--shadow-elevated);
+    backdrop-filter: blur(20px);
   }
 
+  .surface-muted {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+  }
+
+  .surface-panel {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-panel);
+    backdrop-filter: blur(12px);
+  }
+
+  .surface-dark {
+    background: var(--color-surface-dark);
+  }
+
+  /* ── Controls ── */
+  .control-input {
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    transition:
+      border-color var(--duration-normal) var(--ease-out),
+      box-shadow var(--duration-normal) var(--ease-out);
+  }
+
+  .control-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-glow);
+  }
+
+  .control-button {
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out);
+  }
+
+  .control-button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  /* ── Status indicators ── */
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-dot--success { background: var(--color-status-success); box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); }
+  .status-dot--warning { background: var(--color-status-warning); box-shadow: 0 0 6px rgba(245, 158, 11, 0.4); }
+  .status-dot--danger  { background: var(--color-status-danger); box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
+  .status-dot--info    { background: var(--color-status-info); box-shadow: 0 0 6px rgba(6, 182, 212, 0.4); }
+  .status-dot--muted   { background: var(--color-status-muted); }
+
+  /* ── Data card ── */
+  .data-card {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-control);
+    transition:
+      border-color var(--duration-normal) var(--ease-out),
+      box-shadow var(--duration-normal) var(--ease-out);
+  }
+
+  .data-card--interactive {
+    cursor: pointer;
+  }
+
+  .data-card--interactive:hover {
+    border-color: var(--color-border-accent);
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* ── Focus ring ── */
   .focus-ring {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.22);
+    box-shadow: 0 0 0 3px var(--color-accent-glow);
+  }
+
+  /* ── Section divider ── */
+  .section-divider {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-border-strong), transparent);
   }
 }

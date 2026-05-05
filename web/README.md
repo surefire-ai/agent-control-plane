@@ -116,3 +116,25 @@ npm run test:e2e
 - Preserve the enterprise console direction: tenancy, workspaces, provider
   management, evaluation, release, and collaboration should remain visible in
   the product information architecture as the UI expands.
+
+### Design Tokens
+
+The visual system is defined in `src/index.css` using CSS custom properties and
+Tailwind `@theme` variables. Key token groups:
+
+| Token group | Example variables | Usage |
+|---|---|---|
+| Accent | `--color-accent`, `--color-accent-light`, `--color-accent-glow` | Teal brand, focus rings, active indicators |
+| Surface | `--color-surface`, `--surface-elevated`, `--surface-muted`, `--surface-panel` | Card and panel backgrounds |
+| Border | `--color-border`, `--color-border-strong`, `--color-border-accent` | Separators, card outlines |
+| Status | `--color-status-success/warning/danger/info/muted` | StatusBadge, status dots |
+| Shadow | `--shadow-surface`, `--shadow-elevated`, `--shadow-glow` | Depth hierarchy |
+| Motion | `--duration-fast/normal/slow`, `--ease-out` | Transitions and micro-interactions |
+
+Component-layer classes (`surface`, `surface-elevated`, `surface-muted`,
+`surface-panel`, `control-input`, `control-button`, `data-card`, `status-dot`,
+`section-divider`) provide reusable visual primitives. Prefer these over
+ad-hoc Tailwind combinations when building new UI.
+
+All motion respects `prefers-reduced-motion: reduce` via a base-layer media
+query that collapses animation and transition durations.

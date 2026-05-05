@@ -34,7 +34,11 @@
     "language": "语言",
     "consoleSubtitle": "Korus",
     "evaluationGates": "评估门禁",
-    "releaseChecksWaiting": "4 项发布检查待处理"
+    "releaseChecksWaiting": "4 项发布检查待处理",
+    "groupWorkspace": "工作空间",
+    "groupOperations": "运维",
+    "groupInfrastructure": "基础设施",
+    "environment": "运行环境"
   },
   "status": {
     "active": "活跃",
@@ -44,6 +48,7 @@
     "pending": "待处理",
     "failed": "失败",
     "running": "运行中",
+    "retrying": "重试中",
     "draft": "草稿",
     "inactive": "停用",
     "archived": "归档"

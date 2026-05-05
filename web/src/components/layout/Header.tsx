@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronDown, Languages } from "lucide-react";
+import { Check, ChevronDown, Globe } from "lucide-react";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { setLanguage } from "@/i18n";
 
@@ -13,7 +13,8 @@ export function Header() {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const currentLang = langOptions.find((opt) => opt.value === i18n.language) ?? langOptions[0];
+  const currentLang =
+    langOptions.find((opt) => opt.value === i18n.language) ?? langOptions[0];
 
   useEffect(() => {
     if (!open) return;
@@ -41,7 +42,7 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-zinc-200/80 bg-white/78 px-6 backdrop-blur-xl">
+    <header className="flex h-14 items-center justify-between border-b border-zinc-200/60 bg-white/60 px-6 backdrop-blur-xl">
       <Breadcrumb />
       <div ref={menuRef} className="relative ml-auto">
         <button
@@ -50,17 +51,20 @@ export function Header() {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={t("nav.language")}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-800 shadow-sm transition-colors hover:border-teal-500 hover:text-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         >
-          <Languages className="h-4 w-4" aria-hidden="true" />
+          <Globe className="h-3.5 w-3.5" aria-hidden="true" />
           <span>{currentLang.shortLabel}</span>
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+          <ChevronDown
+            className={`h-3 w-3 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
         </button>
 
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-lg border border-zinc-200 bg-white p-1 shadow-xl shadow-zinc-950/10"
+            className="absolute right-0 top-10 z-20 w-36 overflow-hidden rounded-lg border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/8"
           >
             {langOptions.map((opt) => {
               const selected = opt.value === currentLang.value;
@@ -71,15 +75,18 @@ export function Header() {
                   role="menuitemradio"
                   aria-checked={selected}
                   onClick={() => chooseLanguage(opt.value)}
-                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
                     selected
                       ? "bg-teal-50 font-semibold text-teal-800"
-                      : "text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950"
+                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950"
                   }`}
                 >
                   <span>{opt.label}</span>
                   {selected && (
-                    <Check className="h-4 w-4 text-teal-700" aria-hidden="true" />
+                    <Check
+                      className="h-3.5 w-3.5 text-teal-700"
+                      aria-hidden="true"
+                    />
                   )}
                 </button>
               );

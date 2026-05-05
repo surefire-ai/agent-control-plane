@@ -34,7 +34,11 @@
     "language": "Language",
     "consoleSubtitle": "Korus",
     "evaluationGates": "Evaluation gates",
-    "releaseChecksWaiting": "4 release checks waiting"
+    "releaseChecksWaiting": "4 release checks waiting",
+    "groupWorkspace": "Workspace",
+    "groupOperations": "Operations",
+    "groupInfrastructure": "Infrastructure",
+    "environment": "Environment"
   },
   "status": {
     "active": "Active",
@@ -44,6 +48,7 @@
     "pending": "Pending",
     "failed": "Failed",
     "running": "Running",
+    "retrying": "Retrying",
     "draft": "Draft",
     "inactive": "Inactive",
     "archived": "Archived"

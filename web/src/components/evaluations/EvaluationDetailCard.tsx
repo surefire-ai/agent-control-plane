@@ -17,6 +17,8 @@ export function EvaluationDetailCard({ evaluation }: EvaluationDetailCardProps) 
   return (
     <Card className="p-6">
       <dl className="grid gap-4 sm:grid-cols-2">
+        {/* Identity */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.identity")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.id")}</dt>
           <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{evaluation.id}</dd>
@@ -39,18 +41,9 @@ export function EvaluationDetailCard({ evaluation }: EvaluationDetailCardProps) 
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.description")}</dt>
           <dd className="mt-2 text-sm leading-6 text-zinc-800">{evaluation.description ?? nd}</dd>
         </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.score")}</dt>
-          <dd className={`mt-2 text-2xl font-bold ${scoreColor}`}>{scorePercent}%</dd>
-        </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.gatePassed")}</dt>
-          <dd className="mt-2">
-            <span className={evaluation.gatePassed ? "inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700" : "inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700"}>
-              {evaluation.gatePassed ? t("evaluation.gatePassed") : t("evaluation.gateFailed")}
-            </span>
-          </dd>
-        </div>
+
+        {/* Dataset */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.dataset")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.datasetName")}</dt>
           <dd className="mt-2 text-sm font-mono text-zinc-950">{evaluation.datasetName}</dd>
@@ -63,10 +56,31 @@ export function EvaluationDetailCard({ evaluation }: EvaluationDetailCardProps) 
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.baselineRevision")}</dt>
           <dd className="mt-2 text-sm font-mono text-zinc-950">{evaluation.baselineRevision ?? nd}</dd>
         </div>
+
+        {/* Score & Gate */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.scoreGate")}</dt>
+        <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.score")}</dt>
+          <dd className={`mt-2 text-2xl font-bold ${scoreColor}`}>{scorePercent}%</dd>
+        </div>
+        <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.gatePassed")}</dt>
+          <dd className="mt-2">
+            <span className={evaluation.gatePassed ? "inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700" : "inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700"}>
+              {evaluation.gatePassed ? t("evaluation.gatePassed") : t("evaluation.gateFailed")}
+            </span>
+          </dd>
+        </div>
+
+        {/* Progress */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.progress")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.samplesTotal")}</dt>
           <dd className="mt-2 text-sm font-semibold text-zinc-800">{evaluation.samplesEvaluated} / {evaluation.samplesTotal}</dd>
         </div>
+
+        {/* References */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.references")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("evaluation.fields.agentId")}</dt>
           <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{evaluation.agentId}</dd>

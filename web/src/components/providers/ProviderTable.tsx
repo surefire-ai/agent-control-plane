@@ -14,28 +14,28 @@ export function ProviderTable({ providers }: ProviderTableProps) {
 
   return (
     <div className="surface overflow-hidden rounded-lg">
-      <table className="min-w-full divide-y divide-zinc-200/80">
+      <table className="data-table min-w-full">
         <caption className="sr-only">{t("table.name")}</caption>
-        <thead className="bg-zinc-50/80">
+        <thead>
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.name")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.provider")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.capabilities")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.credential")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.status")}
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-200/80 bg-white/50">
+        <tbody>
           {providers.map((provider) => (
             <tr
               key={provider.id}
@@ -43,13 +43,13 @@ export function ProviderTable({ providers }: ProviderTableProps) {
               tabIndex={0}
               role="link"
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/tenants/${provider.tenantId}/providers/${provider.id}`); } }}
-              className="cursor-pointer transition-colors hover:bg-teal-50/70"
+              className="cursor-pointer transition-colors"
             >
-              <td className="px-6 py-4">
+              <td>
                 <p className="text-sm font-semibold text-zinc-950">{provider.displayName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{provider.id}</p>
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-zinc-800">{provider.provider}</span>
                   {provider.domestic && (
@@ -60,11 +60,11 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                 </div>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{provider.family}</p>
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <Capability enabled={provider.supportsJsonSchema} label={t("provider.jsonSchema")} />
                 <Capability enabled={provider.supportsToolCalling} label={t("provider.toolCalling")} />
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <p className="text-sm font-mono text-zinc-700">
                   {provider.credentialRef ?? t("common.noData")}
                 </p>
@@ -72,7 +72,7 @@ export function ProviderTable({ providers }: ProviderTableProps) {
                   {provider.baseUrl ?? t("common.noData")}
                 </p>
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <StatusBadge status={provider.status} />
               </td>
             </tr>

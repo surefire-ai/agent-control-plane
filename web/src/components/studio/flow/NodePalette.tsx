@@ -33,8 +33,8 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
   };
 
   return (
-    <div className="w-52 shrink-0 border-r border-zinc-200 bg-zinc-50/80 overflow-y-auto">
-      <div className="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-50/95 backdrop-blur-sm px-3 py-2.5">
+    <div className="w-52 shrink-0 border-r border-zinc-200 bg-zinc-100/60 overflow-y-auto">
+      <div className="sticky top-0 z-10 border-b border-zinc-200 bg-zinc-100/95 backdrop-blur-sm px-3 py-2.5">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
           {t("studio.workflow.palette")}
         </h4>
@@ -42,7 +42,14 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
           {t("studio.workflow.paletteHint")}
         </p>
       </div>
-      <div className="space-y-1.5 p-3">
+
+      <div className="px-3 pt-2.5 pb-1">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400 mb-1.5">
+          {t("studio.workflow.components")}
+        </p>
+      </div>
+
+      <div className="space-y-1.5 px-3 pb-3">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -52,7 +59,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               draggable
               onDragStart={(e) => handleDragStart(e, item.kind)}
               onClick={() => onAddNode(item.kind)}
-              className={`flex w-full items-center gap-2.5 rounded-lg border ${item.border} ${item.bg} px-3 py-2.5 text-left text-sm transition-all hover:shadow-sm hover:scale-[1.01] active:scale-[0.98] cursor-grab active:cursor-grabbing`}
+              className={`flex w-full items-center gap-2.5 rounded-lg border ${item.border} ${item.bg} px-3 py-2.5 text-left text-sm transition-all hover:shadow-sm hover:scale-[1.01] active:scale-[0.98] cursor-grab active:cursor-grabbing hover:border-dashed`}
               title={t("studio.workflow.dragToAdd")}
             >
               <div className={`flex h-7 w-7 items-center justify-center rounded-md ${item.bg}`}>
@@ -71,7 +78,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
 
       {/* Quick tips */}
       <div className="border-t border-zinc-200 px-3 py-2.5">
-        <p className="text-[10px] font-medium text-zinc-500 mb-1">{t("studio.workflow.tips")}</p>
+        <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400 mb-1">{t("studio.workflow.tips")}</p>
         <ul className="space-y-0.5 text-[10px] text-zinc-400">
           <li>• {t("studio.workflow.tipClick")}</li>
           <li>• {t("studio.workflow.tipDrag")}</li>

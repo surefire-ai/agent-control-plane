@@ -13,35 +13,35 @@ export function EvaluationTable({ evaluations }: EvaluationTableProps) {
 
   return (
     <div className="surface overflow-hidden rounded-lg">
-      <table className="min-w-full divide-y divide-zinc-200/80">
+      <table className="data-table min-w-full">
         <caption className="sr-only">{t("table.name")}</caption>
-        <thead className="bg-zinc-50/80">
+        <thead>
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.name")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.dataset")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.score")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.gate")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.samples")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.status")}
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-200/80 bg-white/50">
+        <tbody>
           {evaluations.map((evaluation) => (
             <tr
               key={evaluation.id}
-              className="cursor-pointer transition-colors hover:bg-teal-50/70"
+              className="cursor-pointer transition-colors"
               onClick={() => navigate(`/tenants/${evaluation.tenantId}/evaluations/${evaluation.id}`)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -52,26 +52,26 @@ export function EvaluationTable({ evaluations }: EvaluationTableProps) {
               tabIndex={0}
               role="link"
             >
-              <td className="px-6 py-4">
+              <td>
                 <p className="text-sm font-semibold text-zinc-950">{evaluation.displayName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{evaluation.id}</p>
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <p className="text-sm font-semibold text-zinc-800">{evaluation.datasetName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">
                   {evaluation.datasetRevision ?? t("common.noData")}
                 </p>
               </td>
-              <td className="px-6 py-4 text-sm font-semibold text-zinc-800">
+              <td className="text-sm font-semibold text-zinc-800">
                 {Math.round(evaluation.score * 100)}%
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <StatusBadge status={evaluation.gatePassed ? "passed" : "failed"} />
               </td>
-              <td className="px-6 py-4 text-sm font-mono text-zinc-600">
+              <td className="text-sm font-mono text-zinc-600">
                 {evaluation.samplesEvaluated}/{evaluation.samplesTotal}
               </td>
-              <td className="px-6 py-4">
+              <td>
                 <StatusBadge status={evaluation.status} />
               </td>
             </tr>

@@ -30,6 +30,12 @@ export function TenantListPage() {
         />
       )}
 
+      {data && data.total > 0 && (
+        <div className="summary-strip mb-4">
+          <span><strong>{data.total}</strong> {t("table.totalResults", "total")}</span>
+        </div>
+      )}
+
       {data && data.tenants.length === 0 && (
         <EmptyState title={t("tenant.emptyTitle")} description={t("tenant.emptyDescription")} />
       )}

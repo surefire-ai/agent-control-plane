@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Cpu, Wrench, Users, BookOpen, Code2, Play, Flag, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export interface WorkflowNodeData {
   label: string;
@@ -27,6 +28,7 @@ const kindConfig: Record<
 };
 
 function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
+  const { t } = useTranslation();
   const cfg = kindConfig[data.kind] ?? kindConfig.custom;
   const Icon = cfg.icon;
   const isTerminal = data.kind === "start" || data.kind === "end";
@@ -34,15 +36,15 @@ function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeD
   const subtitle = (() => {
     switch (data.kind) {
       case "model":
-        return data.modelRef || "No model";
+        return data.modelRef || t("studio.workflow.noModel");
       case "tool":
-        return data.toolRef || "No tool";
+        return data.toolRef || t("studio.workflow.noTool");
       case "agent":
-        return data.agentRef || "No agent";
+        return data.agentRef || t("studio.workflow.noAgent");
       case "knowledge":
-        return data.knowledgeRef || "No knowledge";
+        return data.knowledgeRef || t("studio.workflow.noKnowledge");
       case "custom":
-        return data.implementation || "No impl";
+        return data.implementation || t("studio.workflow.noImpl");
       default:
         return "";
     }
@@ -54,7 +56,7 @@ function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeD
         group relative rounded-xl border-2 shadow-sm transition-all
         ${cfg.bg} ${cfg.border}
         ${selected ? `ring-2 ${cfg.selectedRing} ring-offset-1 shadow-md scale-[1.02]` : "hover:shadow-md hover:scale-[1.01]"}
-        ${isTerminal ? "rounded-full px-5 py-2.5" : "min-w-[160px] px-4 py-3"}
+        ${isTerminal ? "rounded-full px-5 py-2.5" : "min-w-[160px] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"}
       `}
     >
       {/* Delete button on hover */}
@@ -67,7 +69,7 @@ function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeD
             document.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete" }));
           }}
           className="absolute -top-2 -right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-          title="Delete node"
+          title={t("studio.workflow.deleteNodeTitle")}
         >
           <X className="h-3 w-3" />
         </button>
@@ -78,7 +80,7 @@ function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeD
         <Handle
           type="target"
           position={Position.Left}
-          className="!w-3 !h-3 !bg-zinc-400 !border-2 !border-white group-hover:!bg-teal-500 transition-colors"
+          className="!w-3 !h-3 group-hover:!w-3.5 group-hover:!h-3.5 !bg-zinc-400 !border-2 !border-white group-hover:!bg-teal-500 transition-all"
         />
       )}
 
@@ -87,8 +89,13 @@ function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeD
           <Icon className={`h-4 w-4 ${cfg.color}`} strokeWidth={2} />
         </div>
         <div className="min-w-0">
+          {!isTerminal && (
+            <p className="text-[9px] uppercase tracking-wider font-semibold text-zinc-400 mb-0.5">
+              {t(`studio.workflow.kind.${data.kind}`)}
+            </p>
+          )}
           <p className={`text-sm font-semibold ${cfg.color} truncate`}>
-            {data.label || "Unnamed"}
+            {data.label || t("studio.workflow.unnamed")}
           </p>
           {subtitle && (
             <p className="text-[11px] text-zinc-500 truncate">{subtitle}</p>
@@ -101,7 +108,7 @@ function WorkflowNodeInner({ data, selected }: NodeProps & { data: WorkflowNodeD
         <Handle
           type="source"
           position={Position.Right}
-          className="!w-3 !h-3 !bg-zinc-400 !border-2 !border-white group-hover:!bg-teal-500 transition-colors"
+          className="!w-3 !h-3 group-hover:!w-3.5 group-hover:!h-3.5 !bg-zinc-400 !border-2 !border-white group-hover:!bg-teal-500 transition-all"
         />
       )}
     </div>

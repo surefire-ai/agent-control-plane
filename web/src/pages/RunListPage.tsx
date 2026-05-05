@@ -34,6 +34,12 @@ export function RunListPage() {
         />
       )}
 
+      {data && data.total > 0 && (
+        <div className="summary-strip mb-4">
+          <span><strong>{data.total}</strong> {t("table.totalResults", "total")}</span>
+        </div>
+      )}
+
       {data && data.runs.length === 0 && (
         <EmptyState title={t("run.emptyTitle")} description={t("run.emptyDescription")} />
       )}

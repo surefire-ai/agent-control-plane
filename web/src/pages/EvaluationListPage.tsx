@@ -34,6 +34,12 @@ export function EvaluationListPage() {
         />
       )}
 
+      {data && data.total > 0 && (
+        <div className="summary-strip mb-4">
+          <span><strong>{data.total}</strong> {t("table.totalResults", "total")}</span>
+        </div>
+      )}
+
       {data && data.evaluations.length === 0 && (
         <EmptyState title={t("evaluation.emptyTitle")} description={t("evaluation.emptyDescription")} />
       )}

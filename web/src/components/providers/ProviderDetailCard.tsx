@@ -25,15 +25,11 @@ export function ProviderDetailCard({ provider }: ProviderDetailCardProps) {
   return (
     <Card className="p-6">
       <dl className="grid gap-4 sm:grid-cols-2">
+        {/* Identity */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.identity")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.id")}</dt>
           <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.id}</dd>
-        </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.status")}</dt>
-          <dd className="mt-2">
-            <StatusBadge status={provider.status} />
-          </dd>
         </div>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.provider")}</dt>
@@ -44,24 +40,17 @@ export function ProviderDetailCard({ provider }: ProviderDetailCardProps) {
           <dd className="mt-2 text-sm font-semibold text-zinc-950">{provider.displayName}</dd>
         </div>
         <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.status")}</dt>
+          <dd className="mt-2">
+            <StatusBadge status={provider.status} />
+          </dd>
+        </div>
+
+        {/* Capabilities */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.capabilities")}</dt>
+        <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.family")}</dt>
           <dd className="mt-2 text-sm font-mono text-zinc-950">{provider.family}</dd>
-        </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.baseUrl")}</dt>
-          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.baseUrl ?? nd}</dd>
-        </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.credentialRef")}</dt>
-          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.credentialRef ?? nd}</dd>
-        </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.tenantId")}</dt>
-          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.tenantId}</dd>
-        </div>
-        <div className="surface-muted rounded-lg p-4">
-          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.workspaceId")}</dt>
-          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.workspaceId ?? nd}</dd>
         </div>
         <div className="surface-muted rounded-lg p-4 sm:col-span-2">
           <dt className="text-xs font-semibold uppercase text-zinc-500">Capabilities</dt>
@@ -70,6 +59,28 @@ export function ProviderDetailCard({ provider }: ProviderDetailCardProps) {
             <CapabilityBadge supported={provider.supportsJsonSchema} label={t("provider.jsonSchema")} />
             <CapabilityBadge supported={provider.supportsToolCalling} label={t("provider.toolCalling")} />
           </dd>
+        </div>
+
+        {/* Connection */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.connection")}</dt>
+        <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.baseUrl")}</dt>
+          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.baseUrl ?? nd}</dd>
+        </div>
+        <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.credentialRef")}</dt>
+          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.credentialRef ?? nd}</dd>
+        </div>
+
+        {/* References */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.references")}</dt>
+        <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.tenantId")}</dt>
+          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.tenantId}</dd>
+        </div>
+        <div className="surface-muted rounded-lg p-4">
+          <dt className="text-xs font-semibold uppercase text-zinc-500">{t("provider.fields.workspaceId")}</dt>
+          <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{provider.workspaceId ?? nd}</dd>
         </div>
       </dl>
     </Card>

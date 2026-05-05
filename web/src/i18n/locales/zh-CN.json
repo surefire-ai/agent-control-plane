@@ -72,7 +72,8 @@
     "samples": "样本",
     "provider": "供应商",
     "capabilities": "能力",
-    "credential": "凭据"
+    "credential": "凭据",
+    "totalResults": "条记录"
   },
   "tenant": {
     "title": "租户",
@@ -282,6 +283,20 @@
     "idFormat": "小写字母开头，仅限小写字母、数字、下划线和连字符",
     "slugFormat": "小写字母开头，仅限小写字母、数字和连字符"
   },
+  "detailSection": {
+    "identity": "身份",
+    "runtime": "运行时",
+    "model": "模型",
+    "references": "引用",
+    "dataset": "数据集",
+    "scoreGate": "评分与门禁",
+    "progress": "进度",
+    "timing": "时间",
+    "configuration": "配置",
+    "capabilities": "能力",
+    "connection": "连接",
+    "summary": "摘要"
+  },
   "notFound": {
     "title": "页面未找到",
     "description": "您访问的页面不存在或已被移除。",
@@ -316,6 +331,20 @@
       "planExecuteDesc": "规划器创建步骤，执行器完成",
       "workflow": "工作流",
       "workflowDesc": "确定性 DAG 执行"
+    },
+    "patternTags": {
+      "reactSingleModel": "单模型",
+      "reactToolUse": "工具调用",
+      "routerMultiRoute": "多路由",
+      "routerConditional": "条件路由",
+      "reflectionSelfCorrect": "自我纠正",
+      "reflectionIterative": "迭代式",
+      "toolCallingFunctionCall": "函数调用",
+      "toolCallingExternalApis": "外部 API",
+      "planExecutePlanning": "规划",
+      "planExecuteMultiStep": "多步骤",
+      "workflowGraphEditor": "图编辑器",
+      "workflowVisualCanvas": "可视化画布"
     },
     "config": {
       "modelRef": "模型引用",
@@ -410,6 +439,19 @@
       "nodeNamePlaceholder": "例如 classify_intent",
       "nodeNameHint": "节点名称用于标识，也将作为节点 ID",
       "nodeKind": "类型",
+      "placeholderModelRef": "如 default-model",
+      "placeholderToolRef": "如 web-search",
+      "placeholderKnowledgeRef": "如 docs-kb",
+      "placeholderAgentRef": "如 support-agent",
+      "placeholderImplementation": "如 pkg/custom.MyNode",
+      "noModel": "未设置模型",
+      "noTool": "未设置工具",
+      "noAgent": "未设置代理",
+      "noKnowledge": "未设置知识库",
+      "noImpl": "未设置实现",
+      "unnamed": "未命名",
+      "deleteNodeTitle": "删除节点",
+      "components": "组件",
       "modelRef": "模型引用",
       "modelRefHint": "引用编排工作台中配置的模型 key",
       "toolRef": "工具引用",

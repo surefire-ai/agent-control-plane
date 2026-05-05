@@ -327,7 +327,7 @@ export function WorkflowCanvas({ graph, onChange, onValidateRef }: WorkflowCanva
         type: "workflow",
         position: position ?? { x: 300 + Math.random() * 200, y: 150 + Math.random() * 200 },
         data: {
-          label: isTerminal ? (kind === "start" ? "Start" : "End") : "",
+          label: isTerminal ? (kind === "start" ? t("studio.workflow.kind.start") : t("studio.workflow.kind.end")) : "",
           kind: kind as WorkflowNodeData["kind"],
         },
       };

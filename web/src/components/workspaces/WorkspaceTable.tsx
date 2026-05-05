@@ -14,25 +14,25 @@ export function WorkspaceTable({ workspaces }: WorkspaceTableProps) {
 
   return (
     <div className="surface overflow-hidden rounded-lg">
-      <table className="min-w-full divide-y divide-zinc-200/80">
+      <table className="data-table min-w-full">
         <caption className="sr-only">{t("table.name")}</caption>
-        <thead className="bg-zinc-50/80">
+        <thead>
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.name")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.slug")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.status")}
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-semibold uppercase text-zinc-500">
+            <th scope="col">
               {t("table.namespace")}
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-200/80 bg-white/50">
+        <tbody>
           {workspaces.map((ws) => (
             <tr
               key={ws.id}
@@ -40,17 +40,17 @@ export function WorkspaceTable({ workspaces }: WorkspaceTableProps) {
               tabIndex={0}
               role="link"
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/tenants/${tenantId}/workspaces/${ws.id}`); } }}
-              className="cursor-pointer transition-colors hover:bg-teal-50/70"
+              className="cursor-pointer transition-colors"
             >
-              <td className="px-6 py-4">
+              <td>
                 <p className="text-sm font-semibold text-zinc-950">{ws.displayName}</p>
                 <p className="mt-1 text-xs font-mono text-zinc-500">{ws.id}</p>
               </td>
-              <td className="px-6 py-4 text-sm font-mono text-zinc-700">{ws.slug}</td>
-              <td className="px-6 py-4">
+              <td className="text-sm font-mono text-zinc-700">{ws.slug}</td>
+              <td>
                 <StatusBadge status={ws.status} />
               </td>
-              <td className="px-6 py-4 text-sm font-mono text-zinc-600">
+              <td className="text-sm font-mono text-zinc-600">
                 {ws.kubernetesNamespace ?? t("common.noData")}
               </td>
             </tr>

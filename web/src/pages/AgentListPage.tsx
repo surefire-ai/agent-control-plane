@@ -34,6 +34,12 @@ export function AgentListPage() {
         />
       )}
 
+      {data && data.total > 0 && (
+        <div className="summary-strip mb-4">
+          <span><strong>{data.total}</strong> {t("table.totalResults", "total")}</span>
+        </div>
+      )}
+
       {data && data.agents.length === 0 && (
         <EmptyState title={t("agent.emptyTitle")} description={t("agent.emptyDescription")} />
       )}

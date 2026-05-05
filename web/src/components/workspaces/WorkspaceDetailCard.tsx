@@ -14,6 +14,8 @@ export function WorkspaceDetailCard({ workspace }: WorkspaceDetailCardProps) {
   return (
     <Card className="p-6">
       <dl className="grid gap-4 sm:grid-cols-2">
+        {/* Identity */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.identity")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("workspace.fields.id")}</dt>
           <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{workspace.id}</dd>
@@ -36,6 +38,9 @@ export function WorkspaceDetailCard({ workspace }: WorkspaceDetailCardProps) {
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("workspace.fields.description")}</dt>
           <dd className="mt-2 text-sm leading-6 text-zinc-800">{workspace.description ?? nd}</dd>
         </div>
+
+        {/* Configuration */}
+        <dt className="detail-section-label sm:col-span-2">{t("detailSection.configuration")}</dt>
         <div className="surface-muted rounded-lg p-4">
           <dt className="text-xs font-semibold uppercase text-zinc-500">{t("workspace.fields.tenantId")}</dt>
           <dd className="mt-2 break-all text-sm font-mono text-zinc-950">{workspace.tenantId}</dd>

@@ -210,7 +210,7 @@ export function AgentStudioPage() {
       <PageHeader title={t("studio.title")} subtitle={t("studio.subtitle")} />
 
       {/* Toolbar */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="surface-panel mb-6 flex flex-col gap-4 rounded-lg px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2">
           <Button variant={tabVariants.pattern} onClick={() => setActiveTab("pattern")}>
             {isWorkflow ? t("studio.tabs.workflow") : t("studio.tabs.pattern")}
@@ -222,7 +222,12 @@ export function AgentStudioPage() {
             {t("studio.tabs.preview")}
           </Button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {saveStatus === "saved" && (
+            <span className="bg-emerald-50 text-emerald-700 rounded-full px-2 py-0.5 text-xs">
+              {t("studio.saved")}
+            </span>
+          )}
           <Button variant="secondary" onClick={() => navigate(`/tenants/${tenantId}/agents/${agentId}`)}>
             {t("studio.cancel")}
           </Button>

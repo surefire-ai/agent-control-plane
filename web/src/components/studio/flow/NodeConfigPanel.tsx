@@ -85,7 +85,7 @@ export function NodeConfigPanel({ data, nodeId, onUpdate, onDelete, onClose }: N
         {!isTerminal && data.kind === "model" && (
           <div>
             <FieldLabel label={t("studio.workflow.modelRef")} />
-            <Input value={data.modelRef ?? ""} onChange={(e) => onUpdate({ modelRef: e.target.value })} placeholder="e.g. default-model" />
+            <Input value={data.modelRef ?? ""} onChange={(e) => onUpdate({ modelRef: e.target.value })} placeholder={t("studio.workflow.placeholderModelRef")} />
             <p className="mt-1 text-[10px] text-zinc-400">{t("studio.workflow.modelRefHint")}</p>
           </div>
         )}
@@ -93,7 +93,7 @@ export function NodeConfigPanel({ data, nodeId, onUpdate, onDelete, onClose }: N
         {!isTerminal && data.kind === "tool" && (
           <div>
             <FieldLabel label={t("studio.workflow.toolRef")} />
-            <Input value={data.toolRef ?? ""} onChange={(e) => onUpdate({ toolRef: e.target.value })} placeholder="e.g. web-search" />
+            <Input value={data.toolRef ?? ""} onChange={(e) => onUpdate({ toolRef: e.target.value })} placeholder={t("studio.workflow.placeholderToolRef")} />
             <p className="mt-1 text-[10px] text-zinc-400">{t("studio.workflow.toolRefHint")}</p>
           </div>
         )}
@@ -101,7 +101,7 @@ export function NodeConfigPanel({ data, nodeId, onUpdate, onDelete, onClose }: N
         {!isTerminal && data.kind === "knowledge" && (
           <div>
             <FieldLabel label={t("studio.workflow.knowledgeRef")} />
-            <Input value={data.knowledgeRef ?? ""} onChange={(e) => onUpdate({ knowledgeRef: e.target.value })} placeholder="e.g. docs-kb" />
+            <Input value={data.knowledgeRef ?? ""} onChange={(e) => onUpdate({ knowledgeRef: e.target.value })} placeholder={t("studio.workflow.placeholderKnowledgeRef")} />
             <p className="mt-1 text-[10px] text-zinc-400">{t("studio.workflow.knowledgeRefHint")}</p>
           </div>
         )}
@@ -109,7 +109,7 @@ export function NodeConfigPanel({ data, nodeId, onUpdate, onDelete, onClose }: N
         {!isTerminal && data.kind === "agent" && (
           <div>
             <FieldLabel label={t("studio.workflow.agentRef")} />
-            <Input value={data.agentRef ?? ""} onChange={(e) => onUpdate({ agentRef: e.target.value })} placeholder="e.g. support-agent" />
+            <Input value={data.agentRef ?? ""} onChange={(e) => onUpdate({ agentRef: e.target.value })} placeholder={t("studio.workflow.placeholderAgentRef")} />
             <p className="mt-1 text-[10px] text-zinc-400">{t("studio.workflow.agentRefHint")}</p>
           </div>
         )}
@@ -117,7 +117,7 @@ export function NodeConfigPanel({ data, nodeId, onUpdate, onDelete, onClose }: N
         {!isTerminal && data.kind === "custom" && (
           <div>
             <FieldLabel label={t("studio.workflow.implementation")} />
-            <Input value={data.implementation ?? ""} onChange={(e) => onUpdate({ implementation: e.target.value })} placeholder="e.g. pkg/custom.MyNode" />
+            <Input value={data.implementation ?? ""} onChange={(e) => onUpdate({ implementation: e.target.value })} placeholder={t("studio.workflow.placeholderImplementation")} />
             <p className="mt-1 text-[10px] text-zinc-400">{t("studio.workflow.implementationHint")}</p>
           </div>
         )}

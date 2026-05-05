@@ -72,7 +72,8 @@
     "samples": "Samples",
     "provider": "Provider",
     "capabilities": "Capabilities",
-    "credential": "Credential"
+    "credential": "Credential",
+    "totalResults": "total"
   },
   "tenant": {
     "title": "Tenants",
@@ -282,6 +283,20 @@
     "idFormat": "Lowercase letter start, only lowercase letters, digits, underscores and hyphens",
     "slugFormat": "Lowercase letter start, only lowercase letters, digits and hyphens"
   },
+  "detailSection": {
+    "identity": "Identity",
+    "runtime": "Runtime",
+    "model": "Model",
+    "references": "References",
+    "dataset": "Dataset",
+    "scoreGate": "Score & Gate",
+    "progress": "Progress",
+    "timing": "Timing",
+    "configuration": "Configuration",
+    "capabilities": "Capabilities",
+    "connection": "Connection",
+    "summary": "Summary"
+  },
   "notFound": {
     "title": "Page Not Found",
     "description": "The page you visited does not exist or has been removed.",
@@ -316,6 +331,20 @@
       "planExecuteDesc": "Planner creates steps, executor completes",
       "workflow": "Workflow",
       "workflowDesc": "Deterministic DAG execution"
+    },
+    "patternTags": {
+      "reactSingleModel": "Single model",
+      "reactToolUse": "Tool use",
+      "routerMultiRoute": "Multi-route",
+      "routerConditional": "Conditional",
+      "reflectionSelfCorrect": "Self-correct",
+      "reflectionIterative": "Iterative",
+      "toolCallingFunctionCall": "Function call",
+      "toolCallingExternalApis": "External APIs",
+      "planExecutePlanning": "Planning",
+      "planExecuteMultiStep": "Multi-step",
+      "workflowGraphEditor": "Graph editor",
+      "workflowVisualCanvas": "Visual canvas"
     },
     "config": {
       "modelRef": "Model Reference",
@@ -410,6 +439,19 @@
       "nodeNamePlaceholder": "e.g. classify_intent",
       "nodeNameHint": "Used as identifier and node ID",
       "nodeKind": "Kind",
+      "placeholderModelRef": "e.g. default-model",
+      "placeholderToolRef": "e.g. web-search",
+      "placeholderKnowledgeRef": "e.g. docs-kb",
+      "placeholderAgentRef": "e.g. support-agent",
+      "placeholderImplementation": "e.g. pkg/custom.MyNode",
+      "noModel": "No model",
+      "noTool": "No tool",
+      "noAgent": "No agent",
+      "noKnowledge": "No knowledge",
+      "noImpl": "No impl",
+      "unnamed": "Unnamed",
+      "deleteNodeTitle": "Delete node",
+      "components": "Components",
       "modelRef": "Model Ref",
       "modelRefHint": "Reference a model key from the studio",
       "toolRef": "Tool Ref",

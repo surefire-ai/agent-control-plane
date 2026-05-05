@@ -97,15 +97,15 @@ export function Sidebar() {
         <div className="relative">
           <img
             src={korusMark}
-            alt=""
-            className="h-9 w-9 rounded-md shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
+            alt="Korus"
+            className="h-9 w-9 drop-shadow-[0_0_6px_rgba(20,184,166,0.3)]"
           />
-          {/* Subtle glow behind logo */}
+          {/* Subtle teal glow behind logo */}
           <div
-            className="absolute inset-0 -z-10 rounded-md blur-md"
+            className="absolute inset-0 -z-10 rounded-full blur-lg"
             style={{
               background:
-                "radial-gradient(circle, rgba(20,184,166,0.2), transparent 70%)",
+                "radial-gradient(circle, rgba(20,184,166,0.25), transparent 70%)",
             }}
             aria-hidden="true"
           />

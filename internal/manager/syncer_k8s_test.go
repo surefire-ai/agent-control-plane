@@ -1,11 +1,18 @@
 package manager
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"testing"
 
+	apiv1alpha1 "github.com/surefire-ai/korus/api/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestAgentSpecFromDataPreservesModelCredentialKey(t *testing.T) {
@@ -174,6 +181,42 @@ func TestProviderSpecOmitsEmptyFreeformSections(t *testing.T) {
 	}
 	if len(spec.HTTP) != 0 {
 		t.Fatalf("http = %#v; want empty", spec.HTTP)
+	}
+}
+
+func TestK8sCRDSyncerDeleteAgentUsesWorkspaceNamespace(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := apiv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add scheme: %v", err)
+	}
+
+	agent := &apiv1alpha1.Agent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "agent-1",
+			Namespace: "demo-ns",
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	stores := Stores{
+		Workspaces: &fakeWorkspaceStore{
+			records: map[string]WorkspaceRecord{
+				"ws_1": {ID: "ws_1", KubernetesNamespace: "demo-ns"},
+			},
+			orderedIDs: []string{"ws_1"},
+		},
+	}
+	syncer := NewK8sCRDSyncer(c, scheme)
+	syncer.SetStores(&stores)
+
+	if err := syncer.DeleteAgent(ctx, AgentRecord{ID: "agent-1", WorkspaceID: "ws_1"}); err != nil {
+		t.Fatalf("delete agent: %v", err)
+	}
+
+	var deleted apiv1alpha1.Agent
+	err := c.Get(ctx, types.NamespacedName{Name: "agent-1", Namespace: "demo-ns"}, &deleted)
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("expected agent to be deleted from workspace namespace, got err=%v object=%#v", err, deleted)
 	}
 }
 

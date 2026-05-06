@@ -19,6 +19,10 @@ type Server struct {
 	Syncer CRDSyncer
 }
 
+type storeAwareSyncer interface {
+	SetStores(*Stores)
+}
+
 type InfoResponse struct {
 	Component          string `json:"component"`
 	Mode               string `json:"mode"`
@@ -319,6 +323,9 @@ func (s Server) Start(ctx context.Context) error {
 	if database != nil && s.Stores.Workspaces == nil {
 		s.Stores = NewSQLStores(database.DB)
 	}
+	if syncer, ok := s.Syncer.(storeAwareSyncer); ok {
+		syncer.SetStores(&s.Stores)
+	}
 
 	server := &http.Server{
 		Addr:              config.Addr,
@@ -576,11 +583,24 @@ func (s Server) handleUpdateWorkspace(w http.ResponseWriter, r *http.Request, wo
 }
 
 func (s Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	workspace, err := s.Stores.Workspaces.GetWorkspace(r.Context(), workspaceID)
+	if errors.Is(err, ErrNotFound) {
+		if err := s.Stores.Workspaces.DeleteWorkspace(r.Context(), workspaceID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to delete workspace")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read workspace")
+		return
+	}
 	if err := s.Stores.Workspaces.DeleteWorkspace(r.Context(), workspaceID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete workspace")
 		return
 	}
-	if err := s.syncer().DeleteWorkspace(r.Context(), workspaceID); err != nil {
+	if err := s.syncer().DeleteWorkspace(r.Context(), *workspace); err != nil {
 		log.Printf("syncer: failed to delete workspace %s: %v", workspaceID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -1285,11 +1305,24 @@ func (s Server) handleUpdateAgent(w http.ResponseWriter, r *http.Request, agentI
 }
 
 func (s Server) handleDeleteAgent(w http.ResponseWriter, r *http.Request, agentID string) {
+	agent, err := s.Stores.Agents.GetAgent(r.Context(), agentID)
+	if errors.Is(err, ErrNotFound) {
+		if err := s.Stores.Agents.DeleteAgent(r.Context(), agentID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to delete agent")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read agent")
+		return
+	}
 	if err := s.Stores.Agents.DeleteAgent(r.Context(), agentID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete agent")
 		return
 	}
-	if err := s.syncer().DeleteAgent(r.Context(), agentID); err != nil {
+	if err := s.syncer().DeleteAgent(r.Context(), *agent); err != nil {
 		log.Printf("syncer: failed to delete agent %s: %v", agentID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -1398,11 +1431,24 @@ func (s Server) handleUpdateEvaluation(w http.ResponseWriter, r *http.Request, e
 }
 
 func (s Server) handleDeleteEvaluation(w http.ResponseWriter, r *http.Request, evaluationID string) {
+	evaluation, err := s.Stores.Evaluations.GetEvaluation(r.Context(), evaluationID)
+	if errors.Is(err, ErrNotFound) {
+		if err := s.Stores.Evaluations.DeleteEvaluation(r.Context(), evaluationID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to delete evaluation")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read evaluation")
+		return
+	}
 	if err := s.Stores.Evaluations.DeleteEvaluation(r.Context(), evaluationID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete evaluation")
 		return
 	}
-	if err := s.syncer().DeleteEvaluation(r.Context(), evaluationID); err != nil {
+	if err := s.syncer().DeleteEvaluation(r.Context(), *evaluation); err != nil {
 		log.Printf("syncer: failed to delete evaluation %s: %v", evaluationID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -1500,11 +1546,24 @@ func (s Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request, pro
 }
 
 func (s Server) handleDeleteProvider(w http.ResponseWriter, r *http.Request, providerID string) {
+	provider, err := s.Stores.Providers.GetProvider(r.Context(), providerID)
+	if errors.Is(err, ErrNotFound) {
+		if err := s.Stores.Providers.DeleteProvider(r.Context(), providerID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to delete provider")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read provider")
+		return
+	}
 	if err := s.Stores.Providers.DeleteProvider(r.Context(), providerID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete provider")
 		return
 	}
-	if err := s.syncer().DeleteProvider(r.Context(), providerID); err != nil {
+	if err := s.syncer().DeleteProvider(r.Context(), *provider); err != nil {
 		log.Printf("syncer: failed to delete provider %s: %v", providerID, err)
 	}
 	w.WriteHeader(http.StatusNoContent)

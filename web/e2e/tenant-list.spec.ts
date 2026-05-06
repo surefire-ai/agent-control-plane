@@ -23,7 +23,14 @@ test.describe("Tenant List Page", () => {
 
   test("sidebar tenant switcher shows current tenant", async ({ page }) => {
     await page.goto("/tenants/t_demo/workspaces");
-    const switcher = page.locator("#tenant-select");
-    await expect(switcher).toHaveValue("t_demo");
+    const switcher = page.getByRole("button", { name: /Demo Tenant/ });
+    await expect(switcher).toBeVisible();
+    await expect(switcher).toHaveAttribute("aria-haspopup", "listbox");
+
+    await switcher.click();
+    const listbox = page.getByRole("listbox");
+    await expect(listbox.getByRole("option", { name: "Demo Tenant" })).toHaveAttribute("aria-selected", "true");
+    await listbox.getByRole("option", { name: "Enterprise Tenant" }).click();
+    await expect(page).toHaveURL(/\/tenants\/t_enterprise\/workspaces/);
   });
 });

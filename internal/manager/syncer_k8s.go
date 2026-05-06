@@ -38,6 +38,11 @@ func NewK8sCRDSyncerWithStores(c client.Client, scheme *runtime.Scheme, stores *
 	return &K8sCRDSyncer{client: c, scheme: scheme, store: stores}
 }
 
+// SetStores attaches manager stores after server startup has initialized them.
+func (s *K8sCRDSyncer) SetStores(stores *Stores) {
+	s.store = stores
+}
+
 // ---------------------------------------------------------------------------
 // Tenant
 // ---------------------------------------------------------------------------
@@ -137,12 +142,12 @@ func (s *K8sCRDSyncer) SyncWorkspace(ctx context.Context, rec WorkspaceRecord) e
 	return s.client.Update(ctx, obj)
 }
 
-func (s *K8sCRDSyncer) DeleteWorkspace(ctx context.Context, id string) error {
+func (s *K8sCRDSyncer) DeleteWorkspace(ctx context.Context, rec WorkspaceRecord) error {
 	obj := &apiv1alpha1.Workspace{
-		ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: defaultNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: rec.ID, Namespace: workspaceNamespace(rec)},
 	}
 	if err := s.client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("delete Workspace %q: %w", id, err)
+		return fmt.Errorf("delete Workspace %q: %w", rec.ID, err)
 	}
 	return nil
 }
@@ -206,12 +211,12 @@ func (s *K8sCRDSyncer) SyncAgent(ctx context.Context, rec AgentRecord) error {
 	return s.client.Update(ctx, obj)
 }
 
-func (s *K8sCRDSyncer) DeleteAgent(ctx context.Context, id string) error {
+func (s *K8sCRDSyncer) DeleteAgent(ctx context.Context, rec AgentRecord) error {
 	obj := &apiv1alpha1.Agent{
-		ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: defaultNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: rec.ID, Namespace: s.resolveNamespace(ctx, rec.WorkspaceID)},
 	}
 	if err := s.client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("delete Agent %q: %w", id, err)
+		return fmt.Errorf("delete Agent %q: %w", rec.ID, err)
 	}
 	return nil
 }
@@ -480,12 +485,12 @@ func (s *K8sCRDSyncer) SyncEvaluation(ctx context.Context, rec EvaluationRecord)
 	return s.client.Update(ctx, obj)
 }
 
-func (s *K8sCRDSyncer) DeleteEvaluation(ctx context.Context, id string) error {
+func (s *K8sCRDSyncer) DeleteEvaluation(ctx context.Context, rec EvaluationRecord) error {
 	obj := &apiv1alpha1.AgentEvaluation{
-		ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: defaultNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: rec.ID, Namespace: s.resolveNamespace(ctx, rec.WorkspaceID)},
 	}
 	if err := s.client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("delete AgentEvaluation %q: %w", id, err)
+		return fmt.Errorf("delete AgentEvaluation %q: %w", rec.ID, err)
 	}
 	return nil
 }
@@ -551,12 +556,12 @@ func (s *K8sCRDSyncer) SyncProvider(ctx context.Context, rec ProviderRecord) err
 	return s.client.Update(ctx, obj)
 }
 
-func (s *K8sCRDSyncer) DeleteProvider(ctx context.Context, id string) error {
+func (s *K8sCRDSyncer) DeleteProvider(ctx context.Context, rec ProviderRecord) error {
 	obj := &apiv1alpha1.ToolProvider{
-		ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: defaultNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: rec.ID, Namespace: s.resolveNamespace(ctx, rec.WorkspaceID)},
 	}
 	if err := s.client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("delete ToolProvider %q: %w", id, err)
+		return fmt.Errorf("delete ToolProvider %q: %w", rec.ID, err)
 	}
 	return nil
 }
@@ -637,7 +642,7 @@ func providerLabels(rec ProviderRecord) map[string]string {
 // namespace. Falls back to defaultNamespace when the store is unavailable or
 // the workspace is not found.
 func (s *K8sCRDSyncer) resolveNamespace(ctx context.Context, workspaceID string) string {
-	if s.store == nil || workspaceID == "" {
+	if s.store == nil || s.store.Workspaces == nil || workspaceID == "" {
 		return defaultNamespace
 	}
 	ws, err := s.store.Workspaces.GetWorkspace(ctx, workspaceID)

@@ -14,14 +14,14 @@ type CRDSyncer interface {
 	DeleteTenant(ctx context.Context, id string) error
 
 	SyncWorkspace(ctx context.Context, workspace WorkspaceRecord) error
-	DeleteWorkspace(ctx context.Context, id string) error
+	DeleteWorkspace(ctx context.Context, workspace WorkspaceRecord) error
 
 	SyncAgent(ctx context.Context, agent AgentRecord) error
-	DeleteAgent(ctx context.Context, id string) error
+	DeleteAgent(ctx context.Context, agent AgentRecord) error
 
 	SyncEvaluation(ctx context.Context, eval EvaluationRecord) error
-	DeleteEvaluation(ctx context.Context, id string) error
+	DeleteEvaluation(ctx context.Context, eval EvaluationRecord) error
 
 	SyncProvider(ctx context.Context, provider ProviderRecord) error
-	DeleteProvider(ctx context.Context, id string) error
+	DeleteProvider(ctx context.Context, provider ProviderRecord) error
 }

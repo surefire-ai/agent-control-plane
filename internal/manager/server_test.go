@@ -1953,32 +1953,32 @@ func (s *trackingSyncer) SyncWorkspace(_ context.Context, r WorkspaceRecord) err
 	s.synced = append(s.synced, "workspace:"+r.ID)
 	return s.syncErr
 }
-func (s *trackingSyncer) DeleteWorkspace(_ context.Context, id string) error {
-	s.deleted = append(s.deleted, "workspace:"+id)
+func (s *trackingSyncer) DeleteWorkspace(_ context.Context, r WorkspaceRecord) error {
+	s.deleted = append(s.deleted, "workspace:"+r.ID)
 	return s.deleteErr
 }
 func (s *trackingSyncer) SyncAgent(_ context.Context, r AgentRecord) error {
 	s.synced = append(s.synced, "agent:"+r.ID)
 	return s.syncErr
 }
-func (s *trackingSyncer) DeleteAgent(_ context.Context, id string) error {
-	s.deleted = append(s.deleted, "agent:"+id)
+func (s *trackingSyncer) DeleteAgent(_ context.Context, r AgentRecord) error {
+	s.deleted = append(s.deleted, "agent:"+r.ID)
 	return s.deleteErr
 }
 func (s *trackingSyncer) SyncEvaluation(_ context.Context, r EvaluationRecord) error {
 	s.synced = append(s.synced, "evaluation:"+r.ID)
 	return s.syncErr
 }
-func (s *trackingSyncer) DeleteEvaluation(_ context.Context, id string) error {
-	s.deleted = append(s.deleted, "evaluation:"+id)
+func (s *trackingSyncer) DeleteEvaluation(_ context.Context, r EvaluationRecord) error {
+	s.deleted = append(s.deleted, "evaluation:"+r.ID)
 	return s.deleteErr
 }
 func (s *trackingSyncer) SyncProvider(_ context.Context, r ProviderRecord) error {
 	s.synced = append(s.synced, "provider:"+r.ID)
 	return s.syncErr
 }
-func (s *trackingSyncer) DeleteProvider(_ context.Context, id string) error {
-	s.deleted = append(s.deleted, "provider:"+id)
+func (s *trackingSyncer) DeleteProvider(_ context.Context, r ProviderRecord) error {
+	s.deleted = append(s.deleted, "provider:"+r.ID)
 	return s.deleteErr
 }
 
@@ -2090,13 +2090,13 @@ func TestNoopSyncerDoesNothing(t *testing.T) {
 	if err := noop.SyncWorkspace(ctx, WorkspaceRecord{ID: "ws_1"}); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if err := noop.DeleteWorkspace(ctx, "ws_1"); err != nil {
+	if err := noop.DeleteWorkspace(ctx, WorkspaceRecord{ID: "ws_1"}); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if err := noop.SyncAgent(ctx, AgentRecord{ID: "a_1"}); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if err := noop.DeleteAgent(ctx, "a_1"); err != nil {
+	if err := noop.DeleteAgent(ctx, AgentRecord{ID: "a_1"}); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
